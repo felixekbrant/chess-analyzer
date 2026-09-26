@@ -7,7 +7,6 @@ export interface StoredGame {
   id: string;
   source: 'chesscom' | 'pgn';
   url?: string;
-  pgn: string;
   white: string;
   black: string;
   whiteElo?: number;
@@ -73,6 +72,12 @@ export type Motif =
   | 'time_trouble'
   | 'rushed'
   | 'long_think';
+
+/**
+ * A game as built from a PGN, before storing. The PGN itself lives in a separate table
+ * (see db/schema.ts) so that lists of games stay small and fast to load.
+ */
+export type NewGame = StoredGame & { pgn: string };
 
 export interface EngineLine {
   score: Score;

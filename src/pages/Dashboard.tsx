@@ -2,7 +2,7 @@ import { Suspense, lazy, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/schema';
-import { useQueue, useQueueProgress, useSettings, useSyncStatus } from '../hooks/useStores';
+import { usePgn, useQueue, useQueueProgress, useSettings, useSyncStatus } from '../hooks/useStores';
 import { DEFAULT_FILTERS, useInsightData } from '../hooks/useInsightData';
 import { overview, trend } from '../lib/insights/compute';
 import { coachReport } from '../lib/insights/coach';
@@ -97,13 +97,15 @@ export default function Dashboard() {
 
 /** Chess.com-style "review your last game" card. */
 function LatestGameCard({ game, unreviewed, onOpen }: { game: StoredGame; unreviewed: number; onOpen: () => void }) {
+  const pgn = usePgn(game.id);
   const fen = useMemo(() => {
+    if (!pgn) return undefined;
     try {
-      return parsePgn(game.pgn).plies.at(-1)?.fenAfter;
+      return parsePgn(pgn).plies.at(-1)?.fenAfter;
     } catch {
       return undefined;
     }
-  }, [game.pgn]);
+  }, [pgn]);
   const progress = useQueueProgress(game.id);
   const resultText = game.userResult === 'win' ? 'You won' : game.userResult === 'loss' ? 'You lost' : game.userResult === 'draw' ? 'Draw' : game.result;
   return (

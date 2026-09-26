@@ -40,3 +40,8 @@ export function useGames() {
 export function useSummaries(): Map<string, GameSummary> | undefined {
   return useLiveQuery(async () => new Map((await db.summaries.toArray()).map((s) => [s.gameId, s])), [], undefined);
 }
+
+/** A game's PGN (stored separately from the game list). Undefined while loading. */
+export function usePgn(gameId: string | undefined): string | undefined {
+  return useLiveQuery(async () => (gameId ? ((await db.pgns.get(gameId))?.pgn ?? '') : ''), [gameId], undefined);
+}

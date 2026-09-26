@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { db } from '../db/schema';
+import { addGames, db } from '../db/schema';
 import { useGames, useSettings } from '../hooks/useStores';
 import { buildGameFromPgn, opponentName } from '../lib/games/build';
 import { ensureOpenings } from '../lib/openings/eco';
@@ -185,7 +185,7 @@ function ImportBox({ username, onDone }: { username: string; onDone: (id: string
         const g = buildGameFromPgn(pgn, { username, color: color === 'auto' ? null : color });
         if (!g.userColor) g.userColor = 'w';
         g.userResult = g.result === '1/2-1/2' ? 'draw' : g.result === '1-0' ? (g.userColor === 'w' ? 'win' : 'loss') : g.result === '0-1' ? (g.userColor === 'b' ? 'win' : 'loss') : null;
-        await db.games.put((await db.games.get(g.id)) ?? g);
+        await addGames(db, [g]);
         analysisQueue.prioritize(g.id);
         lastId = g.id;
       }

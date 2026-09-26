@@ -227,7 +227,9 @@ class AnalysisQueue {
 
   async analyzeGame(game: StoredGame, depth: number, workerIdx = 0) {
     await ensureOpenings();
-    const parsed = parsePgn(game.pgn);
+    const pgn = (await db.pgns.get(game.id))?.pgn;
+    if (!pgn) throw new Error('This game has no moves stored.');
+    const parsed = parsePgn(pgn);
     const engine = this.getEngine(workerIdx);
     engine.newGame();
     this.setProgress(game.id, 0);

@@ -1,7 +1,7 @@
 import type { ChessComGame } from '../chesscom/api';
 import { quickScanPgn, timeClassFor } from '../pgn/parse';
 import { detectOpening } from '../openings/eco';
-import type { Color, StoredGame, TimeClass, UserResult } from '../types';
+import type { Color, NewGame, StoredGame, TimeClass, UserResult } from '../types';
 
 const DRAW_CODES = new Set(['agreed', 'repetition', 'stalemate', 'insufficient', '50move', 'timevsinsufficient']);
 
@@ -36,7 +36,7 @@ function toNumber(s: string | undefined): number | undefined {
 export function buildGameFromPgn(
   pgn: string,
   opts: { username?: string; color?: Color | null; id?: string; source?: StoredGame['source'] } = {},
-): StoredGame {
+): NewGame {
   const parsed = quickScanPgn(pgn);
   const h = parsed.headers;
   const white = h.White ?? 'White';
@@ -81,12 +81,12 @@ export function buildGameFromPgn(
 }
 
 /** Converts a chess.com archive entry. Returns null for variants or games without a PGN. */
-export function buildGameFromChessCom(g: ChessComGame, username: string): StoredGame | null {
+export function buildGameFromChessCom(g: ChessComGame, username: string): NewGame | null {
   if (g.rules !== 'chess' || !g.pgn) return null;
   const uname = username.toLowerCase();
   const color: Color | null =
     g.white.username.toLowerCase() === uname ? 'w' : g.black.username.toLowerCase() === uname ? 'b' : null;
-  let game: StoredGame;
+  let game: NewGame;
   try {
     game = buildGameFromPgn(g.pgn, { username, color, id: g.url, source: 'chesscom' });
   } catch {

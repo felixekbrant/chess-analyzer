@@ -1,7 +1,7 @@
-import type { ChessDB, SyncState } from '../../db/schema';
+import { addGames, type ChessDB, type SyncState } from '../../db/schema';
 import { buildGameFromChessCom } from '../games/build';
 import { ensureOpenings } from '../openings/eco';
-import type { StoredGame } from '../types';
+import type { NewGame, StoredGame } from '../types';
 import { archiveMonth, fetchArchives, fetchMonth, gameIdFromUrl, isMonthComplete, type ChessComGame, type Fetcher } from './api';
 
 export interface SyncProgress {
@@ -100,8 +100,8 @@ export async function syncMonths(db: ChessDB, username: string, archiveUrls: str
 }
 
 /** Converts archive entries, yielding to the browser every few games so a big import never freezes the UI. */
-async function buildInBatches(games: ChessComGame[], username: string): Promise<(StoredGame | null)[]> {
-  const out: (StoredGame | null)[] = [];
+async function buildInBatches(games: ChessComGame[], username: string): Promise<(NewGame | null)[]> {
+  const out: (NewGame | null)[] = [];
   for (let i = 0; i < games.length; i++) {
     out.push(buildGameFromChessCom(games[i], username));
     if (i % 40 === 39) await new Promise((r) => setTimeout(r, 0));
@@ -109,13 +109,8 @@ async function buildInBatches(games: ChessComGame[], username: string): Promise<
   return out;
 }
 
-async function storeGames(db: ChessDB, games: (StoredGame | null)[]): Promise<number> {
-  const valid = games.filter((g): g is StoredGame => !!g);
-  if (!valid.length) return 0;
-  const existing = new Set((await db.games.bulkGet(valid.map((g) => g.id))).filter(Boolean).map((g) => g!.id));
-  const fresh = valid.filter((g) => !existing.has(g.id));
-  await db.games.bulkAdd(fresh);
-  return fresh.length;
+async function storeGames(db: ChessDB, games: (NewGame | null)[]): Promise<number> {
+  return addGames(db, games.filter((g): g is NewGame => !!g));
 }
 
 export function monthIndex(url: string) {
@@ -144,7 +139,7 @@ export async function importGameByUrl(
     if (hit) {
       const game = buildGameFromChessCom(hit, username);
       if (!game) throw new Error('That game is a variant, which is not supported.');
-      await db.games.put((await db.games.get(game.id)) ?? game);
+      await addGames(db, [game]);
       return game;
     }
   }

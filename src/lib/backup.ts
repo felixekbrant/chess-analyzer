@@ -1,12 +1,13 @@
-import { db } from '../db/schema';
+import { db, withoutPgn } from '../db/schema';
 import { buildSummary } from './insights/summary';
-import type { GameAnalysis, StoredGame } from './types';
+import type { GameAnalysis, NewGame, StoredGame } from './types';
 
 export async function exportBackup() {
   const data = {
     version: 1,
     exportedAt: new Date().toISOString(),
-    games: await db.games.toArray(),
+    // PGNs are stored separately but exported inside each game, so the file format stays the same.
+    games: await gamesWithPgn(),
     analyses: await db.analyses.toArray(),
     summaries: await db.summaries.toArray(),
     puzzles: await db.puzzles.toArray(),
@@ -24,8 +25,10 @@ export async function exportBackup() {
 export async function importBackup(file: File): Promise<number> {
   const data = JSON.parse(await file.text());
   if (data.version !== 1 || !Array.isArray(data.games)) throw new Error('Not a Chess Analyzer backup file');
-  await db.transaction('rw', [db.games, db.analyses, db.summaries, db.puzzles, db.sync, db.kv], async () => {
-    await db.games.bulkPut(data.games);
+  await db.transaction('rw', [db.games, db.pgns, db.analyses, db.summaries, db.puzzles, db.sync, db.kv], async () => {
+    const games = data.games as NewGame[];
+    await db.games.bulkPut(games.map(withoutPgn));
+    await db.pgns.bulkPut(games.filter((g) => g.pgn).map((g) => ({ gameId: g.id, pgn: g.pgn })));
     await db.analyses.bulkPut(data.analyses ?? []);
     if (data.summaries) {
       await db.summaries.bulkPut(data.summaries);
@@ -41,4 +44,9 @@ export async function importBackup(file: File): Promise<number> {
     await db.kv.bulkPut(data.kv ?? []);
   });
   return data.games.length;
+}
+
+async function gamesWithPgn(): Promise<NewGame[]> {
+  const pgns = new Map((await db.pgns.toArray()).map((p) => [p.gameId, p.pgn]));
+  return (await db.games.toArray()).map((g) => ({ ...g, pgn: pgns.get(g.id) ?? '' }));
 }

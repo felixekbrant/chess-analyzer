@@ -59,6 +59,9 @@ describe('chess.com sync', () => {
     expect(g?.userResult).toBe('win');
     expect(g?.endReason).toBe('checkmated');
     expect(g?.plyCount).toBe(7);
+    // The PGN lives in its own table, not in the game row.
+    expect((g as unknown as { pgn?: string }).pgn).toBeUndefined();
+    expect((await db.pgns.get('https://www.chess.com/game/live/2'))?.pgn).toContain('Qxf7#');
 
     // Second sync: August is complete and skipped; September is refetched with one new game.
     months[`${A}/2026/09`].push(game(4));

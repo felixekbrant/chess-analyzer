@@ -4,7 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { Chess } from 'chess.js';
 import { db, saveSettings } from '../db/schema';
 import { evaluateOnce } from '../hooks/useLiveEngine';
-import { useSettings } from '../hooks/useStores';
+import { usePgn, useSettings } from '../hooks/useStores';
 import { useStableCallback } from '../hooks/useStableCallback';
 import { schedule, type Grade } from '../lib/training/srs';
 import { winPercentFor } from '../lib/analysis/winprob';
@@ -214,16 +214,17 @@ function PuzzleView({
   const [note, setNote] = useState('');
   const started = useRef(Date.now());
   const game = useLiveQuery(() => db.games.get(puzzle.gameIds[puzzle.gameIds.length - 1]), [puzzle.id]);
+  const pgn = usePgn(puzzle.phase === 'opening' ? game?.id : undefined);
   const leadUp = useMemo(() => {
-    if (!game || puzzle.phase !== 'opening') return [];
+    if (!pgn || puzzle.phase !== 'opening') return [];
     try {
-      const parsed = parsePgn(game.pgn);
+      const parsed = parsePgn(pgn);
       const ply = puzzle.plies[puzzle.plies.length - 1];
       return parsed.plies.slice(0, ply).map((p) => (p.color === 'w' ? `${p.moveNumber}. ${p.san}` : p.san));
     } catch {
       return [];
     }
-  }, [game, puzzle]);
+  }, [pgn, puzzle]);
 
   const toMove = puzzle.fen.split(' ')[1] === 'w' ? 'white' : 'black';
   const expected = puzzle.solutionUci[step];

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/schema';
+import { usePgn } from '../../hooks/useStores';
 import { analysisQueue } from '../../lib/engine/queue';
 import { parsePgn } from '../../lib/pgn/parse';
 import { Empty } from '../../components/ui';
@@ -27,7 +28,8 @@ export default function ReviewPage() {
 }
 
 function ReviewInner({ game, analysis, initialPly }: { game: StoredGame; analysis?: GameAnalysis; initialPly?: number }) {
-  const parsed = useMemo(() => parsePgn(game.pgn), [game.pgn]);
+  const pgn = usePgn(game.id);
+  const parsed = useMemo(() => (pgn ? parsePgn(pgn) : undefined), [pgn]);
   const [view, setView] = useState<{ kind: 'summary' } | { kind: 'walk'; opts: StartOptions }>(() =>
     initialPly !== undefined && Number.isFinite(initialPly) ? { kind: 'walk', opts: { ply: initialPly } } : { kind: 'summary' },
   );
@@ -52,6 +54,8 @@ function ReviewInner({ game, analysis, initialPly }: { game: StoredGame; analysi
     window.scrollTo(0, 0);
   }, [view.kind]);
 
+  if (pgn === undefined) return <Empty>Loading…</Empty>;
+  if (!parsed) return <Empty>This game's moves are missing. Try importing it again.</Empty>;
   if (view.kind === 'summary') return <ReviewSummary game={game} analysis={analysis} parsed={parsed} onStart={(opts) => setView({ kind: 'walk', opts })} />;
   return (
     <Walkthrough
