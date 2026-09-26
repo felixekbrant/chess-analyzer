@@ -5,13 +5,11 @@
 A free, private game-review and coaching app for chess.com players. It runs entirely in your browser: no server, no login, no subscription.
 
 - **Auto-import.** Enter your chess.com username. Your games are pulled from chess.com's public API when the app opens and every 10 minutes while it's open.
-- **Game review.** Stockfish 19 runs in the browser (WebAssembly) and gives you:
-  - accuracy for both sides
-  - move classifications: brilliant, great, best, excellent, good, book, inaccuracy, mistake, miss, blunder
-  - an eval bar and eval graph
-  - best-move arrows and live engine lines
-  - explore mode, and "retry my mistakes"
-  - time spent per move
+- **Guided game review (chess.com style).**
+  - It opens on a summary: the coach's verdict, accuracy for both players, grades for opening, middlegame and endgame, and move counts.
+  - Then it walks you through the moves with a coach bubble for each one, plus **Best** (plays the engine's line) and **Retry** (try your mistakes again).
+  - There's an eval bar and graph, live engine lines, explore mode, and time spent per move.
+  - Stockfish 19 does the analysis, running in the browser (WebAssembly).
 - **Explanations.** Each error gets a short explanation, such as "Nf5 puts your knight on a square where exf5 simply takes it", "This allows a back-rank mate" or "You spent 1m 40s here and still went wrong".
 - **Insights tailored to you:**
   - accuracy by game phase
@@ -24,6 +22,16 @@ A free, private game-review and coaching app for chess.com players. It runs enti
   - tilt and session analysis
 - **Coach report.** Your top weaknesses, ranked by how many points they cost you, each with evidence, a tip and a drill.
 - **Training.** Puzzles made from your own mistakes, scheduled with spaced repetition (SM-2). Mistakes you repeat come first. An opening drill shows the line that led to each opening error.
+
+## Use it on your phone
+
+Open https://felixekbrant.github.io/chess-analyzer/ and install it:
+- **iPhone:** Safari → Share → **Add to Home Screen**
+- **Android / Chrome:** tap **Install**
+
+It then runs full screen like an app, starts instantly and works offline (the engine is cached). When a new version is deployed, the app shows an "Update available – Reload" notice.
+
+On phones the app runs one analysis engine at a time and pauses background analysis while it's in the background, to keep the phone cool.
 
 ## Run it
 
@@ -43,8 +51,9 @@ Open http://localhost:5173, go to **Settings** and enter your chess.com username
   - Several games are analysed in parallel, one engine per CPU core. Choose Light, Balanced or Max in Settings.
   - Your most recent games go first. Opening a game moves it to the front of the queue.
   - You can pause analysis from the sidebar.
+- **Settings.** Choose a board theme (Green, Brown, Blue or Gray), turn move sounds and board coordinates on or off, and set the analysis speed.
 - **Keyboard shortcuts.**
-  - Review: ← → move through the game, ↑ ↓ jump to the start or end, `n`/`p` go to the next or previous key move, `f` flips the board, `?` lists all shortcuts.
+  - Review: ← → move through the game, ↑ ↓ jump to the start or end, `n`/`p` go to the next or previous key move, `b` shows the best move, `r` retries a mistake, `f` flips the board, `Esc` leaves explore or retry.
   - Training: `h` hint, `s` show solution, `k` skip, `Enter` next puzzle.
 - **Credits.**
   - Engine: [Stockfish.js](https://github.com/nmrugg/stockfish.js) (GPLv3)

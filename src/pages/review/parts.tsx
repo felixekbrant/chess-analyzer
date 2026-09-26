@@ -69,8 +69,11 @@ export const MoveStrip = memo(function MoveStrip({
   onSelect: (p: number) => void;
 }) {
   const current = useRef<HTMLButtonElement>(null);
+  const first = useRef(true);
   useEffect(() => {
-    current.current?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+    // Jump straight there when the page opens; glide when stepping through moves.
+    current.current?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: first.current ? 'auto' : 'smooth' });
+    first.current = false;
   }, [ply]);
   return (
     <div className="flex gap-1 overflow-x-auto no-scrollbar py-1 -mx-1 px-1" role="list" aria-label="Moves">
@@ -201,7 +204,7 @@ export function ClassificationTable({ analysis, game }: { analysis: GameAnalysis
  */
 export function ActionBar({ children }: { children: ReactNode }) {
   return (
-    <div className="fixed lg:static bottom-0 inset-x-0 z-40 lg:z-auto bg-[var(--panel)]/95 lg:bg-transparent backdrop-blur lg:backdrop-blur-none border-t lg:border-0 border-[var(--border)] safe-bottom">
+    <div className="fixed lg:static bottom-0 inset-x-0 md:left-56 z-40 lg:z-auto bg-[var(--panel)]/95 lg:bg-transparent backdrop-blur lg:backdrop-blur-none border-t lg:border-0 border-[var(--border)] safe-bottom">
       <div className="flex items-stretch gap-1 p-2 lg:p-0 max-w-xl mx-auto lg:max-w-none">{children}</div>
     </div>
   );

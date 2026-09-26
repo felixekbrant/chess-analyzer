@@ -58,7 +58,7 @@ export default function Dashboard() {
 
       <InstallHint />
 
-      <div className="grid md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] gap-3">
+      <div className="grid lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] gap-3">
         {hero && <LatestGameCard game={hero} unreviewed={unreviewed.length} onOpen={() => open(hero)} />}
         <PuzzlesCard due={due ?? 0} />
       </div>
