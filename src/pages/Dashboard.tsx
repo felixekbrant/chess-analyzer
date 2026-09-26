@@ -9,8 +9,10 @@ import { coachReport } from '../lib/insights/coach';
 import { CoachReport } from '../components/CoachReport';
 // Charts (recharts) are loaded after the rest of the dashboard so first paint isn't blocked by them.
 const LineTrend = lazy(() => import('../components/charts').then((m) => ({ default: m.LineTrend })));
+// The mini board uses the chessboard library's piece art; loading it lazily keeps that library out
+// of the first download (the thumbnail appears a moment after the page).
+const MiniBoard = lazy(() => import('../components/MiniBoard').then((m) => ({ default: m.MiniBoard })));
 import { AccuracyPill, GameCardList } from '../components/GameTable';
-import { MiniBoard } from '../components/MiniBoard';
 import { Icon } from '../components/Icon';
 import { isIos, isStandalone, useInstallPrompt } from '../pwa/install';
 import { isMobile } from '../lib/device';
@@ -115,7 +117,11 @@ function LatestGameCard({ game, unreviewed, onOpen }: { game: StoredGame; unrevi
   return (
     <div className="panel p-3 flex gap-3 items-stretch">
       <button className="w-28 sm:w-32 shrink-0" onClick={onOpen} aria-label="Open game review">
-        {fen && <MiniBoard fen={fen} orientation={game.userColor === 'b' ? 'black' : 'white'} />}
+        {fen && (
+          <Suspense fallback={<div className="skeleton aspect-square" />}>
+            <MiniBoard fen={fen} orientation={game.userColor === 'b' ? 'black' : 'white'} />
+          </Suspense>
+        )}
       </button>
       <div className="min-w-0 flex-1 flex flex-col">
         <div className="muted text-xs font-semibold uppercase tracking-wide">

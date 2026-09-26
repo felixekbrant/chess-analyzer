@@ -5,7 +5,7 @@ import { join, relative } from 'node:path';
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
-import { buildServiceWorker } from './src/pwa/buildServiceWorker';
+import { buildServiceWorker } from './src/pwa/buildServiceWorker.ts';
 
 /** All files under public/ (engine, icons, manifest), relative paths with forward slashes. */
 function publicFiles(dir = 'public'): string[] {
