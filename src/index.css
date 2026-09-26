@@ -210,3 +210,9 @@ html {
 @keyframes shimmer {
   to { background-position: -200% 0; }
 }
+
+/* Grid children default to min-width:auto and grow to fit their widest content, which makes
+   whole sections overflow on narrow phones. Let them shrink (text wraps instead). */
+.grid > * {
+  min-width: 0;
+}

@@ -33,6 +33,8 @@ export interface StoredGame {
   userAccuracy?: number;
   opponentAccuracy?: number;
   addedAt: number;
+  /** When the user last opened this game's review (for "new games to review"). */
+  reviewedAt?: number;
 }
 
 /** Engine score from White's point of view. `over` is a finished game: 1 white won, -1 black won, 0 draw. */

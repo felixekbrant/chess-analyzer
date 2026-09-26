@@ -2,21 +2,28 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Chess } from 'chess.js';
-import { db } from '../db/schema';
+import { db, saveSettings } from '../db/schema';
 import { evaluateOnce } from '../hooks/useLiveEngine';
+import { useSettings } from '../hooks/useStores';
+import { useStableCallback } from '../hooks/useStableCallback';
 import { schedule, type Grade } from '../lib/training/srs';
 import { winPercentFor } from '../lib/analysis/winprob';
 import { playUci } from '../lib/analysis/board';
 import { parsePgn } from '../lib/pgn/parse';
 import { MOTIF_LABEL } from '../lib/insights/compute';
+import { playSound } from '../lib/sound';
+import { isTouch } from '../lib/device';
 import type { Motif, Phase, Puzzle } from '../lib/types';
 import { Board } from '../components/Board';
 import { ClassificationBadge } from '../components/ClassificationBadge';
+import { Icon } from '../components/Icon';
+import { Sheet } from '../components/Sheet';
 import { Empty, PageHeader, Section } from '../components/ui';
-import { useSettings } from '../hooks/useStores';
-import { saveSettings } from '../db/schema';
 
 type State = 'solving' | 'checking' | 'wrong' | 'solved' | 'revealed';
+
+/** Positional/time-only puzzles have quiet answers; concrete tactics are shown first. */
+const QUIET: Motif[] = ['positional', 'threw_advantage', 'time_trouble', 'rushed', 'long_think'];
 
 export default function Training() {
   const [params, setParams] = useSearchParams();
@@ -25,8 +32,9 @@ export default function Training() {
   const opening = params.get('opening');
   const repeated = params.get('repeated') === '1';
   const [practiceAll, setPracticeAll] = useState(false);
-  const [session, setSession] = useState({ solved: 0, failed: 0 });
+  const [session, setSession] = useState({ solved: 0, failed: 0, streak: 0, best: 0 });
   const [skipped, setSkipped] = useState<string[]>([]);
+  const [focusOpen, setFocusOpen] = useState(false);
   const settings = useSettings();
 
   const puzzles = useLiveQuery(() => db.puzzles.toArray(), []);
@@ -46,14 +54,14 @@ export default function Training() {
   const due = filtered.filter((p) => p.due <= now);
   const queue = useMemo(() => {
     const pool = (practiceAll ? filtered : due).filter((p) => !skipped.includes(p.id));
-    // Repeated mistakes first, then concrete tactics (quiet positional puzzles are harder to learn
-    // from), then by due date and size of the mistake.
-    const quiet = (p: Puzzle) => (p.motifs.every((m) => m === 'positional' || m === 'threw_advantage' || m === 'time_trouble' || m === 'rushed' || m === 'long_think') ? 1 : 0);
+    // Repeated mistakes first, then concrete tactics, then by due date and size of the mistake.
+    const quiet = (p: Puzzle) => (p.motifs.every((m) => QUIET.includes(m)) ? 1 : 0);
     return [...pool].sort((a, b) => b.occurrences - a.occurrences || quiet(a) - quiet(b) || a.due - b.due || b.winLoss - a.winLoss);
-  }, [filtered, practiceAll, skipped, puzzles?.length]);
+    // `due` is derived from `filtered` and the clock; recomputing on puzzle changes is enough.
+  }, [filtered, practiceAll, skipped, puzzles]);
 
   const current = queue[0];
-  const filterLabel = motif ? MOTIF_LABEL[motif] : phase ? `${phase} positions` : opening ? opening : repeated ? 'Repeated mistakes' : null;
+  const focusLabel = motif ? MOTIF_LABEL[motif] : phase ? phase[0].toUpperCase() + phase.slice(1) : opening ? opening : repeated ? 'Repeated mistakes' : 'All puzzles';
 
   const motifCounts = useMemo(() => {
     const m = new Map<Motif, number>();
@@ -61,49 +69,65 @@ export default function Training() {
     return [...m.entries()].sort((a, b) => b[1] - a[1]);
   }, [puzzles]);
 
-  return (
-    <div className="max-w-[1200px] space-y-4">
-      <PageHeader
-        title="Training"
-        subtitle="Puzzles made from your own mistakes. Spaced repetition brings back the ones you miss, and mistakes you repeat come first."
-      />
+  const setFocus = (p: Record<string, string>) => {
+    setParams(p);
+    setPracticeAll(false);
+    setSkipped([]);
+    setFocusOpen(false);
+  };
 
-      <div className="flex flex-wrap gap-2 items-center">
-        <FilterChip active={!filterLabel} onClick={() => setParams({})}>
-          All ({puzzles?.length ?? 0})
-        </FilterChip>
-        <FilterChip active={repeated} onClick={() => setParams({ repeated: '1' })}>
-          Repeated mistakes
-        </FilterChip>
-        {(['opening', 'middlegame', 'endgame'] as Phase[]).map((ph) => (
-          <FilterChip key={ph} active={phase === ph} onClick={() => setParams({ phase: ph })}>
-            {ph[0].toUpperCase() + ph.slice(1)}
-          </FilterChip>
-        ))}
-        {motifCounts.slice(0, 8).map(([m, n]) => (
-          <FilterChip key={m} active={motif === m} onClick={() => setParams({ motif: m })}>
-            {MOTIF_LABEL[m]} ({n})
-          </FilterChip>
-        ))}
-        {opening && <FilterChip active>{opening}</FilterChip>}
+  return (
+    <div className="max-w-[1100px] space-y-3">
+      <PageHeader title="Training" desktopOnly subtitle="Puzzles made from your own mistakes. Missed ones come back sooner; repeated mistakes come first." />
+
+      {/* One compact row instead of a wall of filter chips. */}
+      <div className="flex items-center gap-2">
+        <button className="btn min-w-0" onClick={() => setFocusOpen(true)} aria-haspopup="dialog">
+          <Icon name="filter" size={16} />
+          <span className="truncate">{focusLabel}</span>
+          <span className="muted">▾</span>
+        </button>
+        <div className="ml-auto flex items-center gap-3 text-sm tabular-nums">
+          {session.streak > 1 && <span title="Solved in a row">🔥 {session.streak}</span>}
+          <span className="muted" title="Solved / missed this session">
+            <span style={{ color: '#81b64c' }}>✓{session.solved}</span> <span style={{ color: '#e02828' }}>✗{session.failed}</span>
+          </span>
+        </div>
       </div>
+      <Sheet open={focusOpen} onClose={() => setFocusOpen(false)} title="What to practise">
+        <div className="grid gap-1">
+          <FocusItem active={!motif && !phase && !opening && !repeated} onClick={() => setFocus({})} label="All puzzles" count={puzzles?.length} />
+          <FocusItem active={repeated} onClick={() => setFocus({ repeated: '1' })} label="Repeated mistakes" count={puzzles?.filter((p) => p.occurrences >= 2).length} />
+          <div className="muted text-xs font-semibold uppercase tracking-wide mt-3 mb-1 px-3">Game phase</div>
+          {(['opening', 'middlegame', 'endgame'] as Phase[]).map((ph) => (
+            <FocusItem key={ph} active={phase === ph} onClick={() => setFocus({ phase: ph })} label={ph[0].toUpperCase() + ph.slice(1)} count={puzzles?.filter((p) => p.phase === ph).length} />
+          ))}
+          <div className="muted text-xs font-semibold uppercase tracking-wide mt-3 mb-1 px-3">Mistake type</div>
+          {motifCounts.map(([m, n]) => (
+            <FocusItem key={m} active={motif === m} onClick={() => setFocus({ motif: m })} label={MOTIF_LABEL[m]} count={n} />
+          ))}
+        </div>
+      </Sheet>
 
       {puzzles && !puzzles.length ? (
         <Section>
           <Empty>
-            No puzzles yet. They're created automatically from your mistakes and blunders as games are analysed.
+            No puzzles yet. They're made automatically from your mistakes as your games are analysed.
             <br />
             <Link className="underline" to="/games">
               Go to your games
             </Link>
           </Empty>
         </Section>
+      ) : !puzzles ? (
+        <div className="skeleton aspect-square max-w-[560px]" />
       ) : !current ? (
         <Section>
           <div className="text-center py-8 space-y-3">
-            <div className="text-lg font-bold">🎉 Nothing due{filterLabel ? ` for ${filterLabel}` : ''}!</div>
+            <div className="text-lg font-bold">🎉 All done{focusLabel !== 'All puzzles' ? ` for ${focusLabel}` : ''}!</div>
             <p className="muted text-sm">
-              {filtered.length} puzzle{filtered.length === 1 ? '' : 's'} in this set. Solved {session.solved}, missed {session.failed} this session.
+              {filtered.length} puzzle{filtered.length === 1 ? '' : 's'} in this set. Solved {session.solved}, missed {session.failed} this session
+              {session.best > 1 ? `, best streak ${session.best}` : ''}.
             </p>
             {filtered.length > 0 && (
               <button
@@ -123,12 +147,21 @@ export default function Training() {
           key={current.id + (practiceAll ? '-p' : '')}
           puzzle={current}
           remaining={queue.length}
-          session={session}
+          done={session.solved + session.failed}
           autoNext={settings.autoNextPuzzle}
           onDone={async (grade) => {
             const next = schedule(current, grade);
             await db.puzzles.update(current.id, { ...next, lastResult: grade === 'again' ? 'failed' : 'solved' });
-            setSession((s) => (grade === 'again' ? { ...s, failed: s.failed + 1 } : { ...s, solved: s.solved + 1 }));
+            const clean = grade === 'good' || grade === 'easy';
+            setSession((s) => {
+              const streak = clean ? s.streak + 1 : 0;
+              return {
+                solved: s.solved + (grade === 'again' ? 0 : 1),
+                failed: s.failed + (grade === 'again' ? 1 : 0),
+                streak,
+                best: Math.max(s.best, streak),
+              };
+            });
             if (practiceAll) setSkipped((s) => [...s, current.id]);
           }}
           onSkip={() => setSkipped((s) => [...s, current.id])}
@@ -138,10 +171,14 @@ export default function Training() {
   );
 }
 
-function FilterChip({ active, onClick, children }: { active?: boolean; onClick?: () => void; children: React.ReactNode }) {
+function FocusItem({ active, onClick, label, count }: { active: boolean; onClick: () => void; label: string; count?: number }) {
   return (
-    <button className="chip !text-sm !px-3 !py-1" style={active ? { background: '#81b64c', color: 'white', borderColor: '#6a9e36' } : undefined} onClick={onClick}>
-      {children}
+    <button
+      className={`flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-left font-semibold ${active ? 'bg-accent text-white' : 'hover:bg-[var(--panel-2)]'}`}
+      onClick={onClick}
+    >
+      <span>{label}</span>
+      {count !== undefined && <span className={`text-sm ${active ? '' : 'muted'}`}>{count}</span>}
     </button>
   );
 }
@@ -149,14 +186,14 @@ function FilterChip({ active, onClick, children }: { active?: boolean; onClick?:
 function PuzzleView({
   puzzle,
   remaining,
-  session,
+  done: doneCount,
   onDone,
   onSkip,
   autoNext,
 }: {
   puzzle: Puzzle;
   remaining: number;
-  session: { solved: number; failed: number };
+  done: number;
   onDone: (g: Grade) => Promise<void>;
   onSkip: () => void;
   autoNext: boolean;
@@ -173,11 +210,12 @@ function PuzzleView({
   const [mistakes, setMistakes] = useState(0);
   const [hint, setHint] = useState(false);
   const [lastMove, setLastMove] = useState<{ from: string; to: string } | undefined>();
+  const [marker, setMarker] = useState<{ square: string; kind: 'correct' | 'wrong' } | undefined>();
   const [note, setNote] = useState('');
   const started = useRef(Date.now());
   const game = useLiveQuery(() => db.games.get(puzzle.gameIds[puzzle.gameIds.length - 1]), [puzzle.id]);
   const leadUp = useMemo(() => {
-    if (!game) return [];
+    if (!game || puzzle.phase !== 'opening') return [];
     try {
       const parsed = parsePgn(game.pgn);
       const ply = puzzle.plies[puzzle.plies.length - 1];
@@ -206,24 +244,32 @@ function PuzzleView({
     return c.fen();
   }
 
-  function onMove(uci: string): boolean {
+  const wrong = (uci: string, text: string) => {
+    setMistakes((x) => x + 1);
+    setState('wrong');
+    setNote(text);
+    setMarker({ square: uci.slice(2, 4), kind: 'wrong' });
+    playSound('wrong');
+    navigator.vibrate?.(60);
+  };
+
+  const onMove = useStableCallback((uci: string): boolean => {
     if (state !== 'solving' && state !== 'wrong') return false;
-    const c = new Chess(fen);
+    const c = new Chess(fenRef.current);
     try {
       c.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] });
     } catch {
       return false;
     }
+    setMarker(undefined);
     const correct = uci === expected || (expected && uci.slice(0, 4) === expected.slice(0, 4) && !expected[4]);
     if (correct) {
       apply(uci);
-      advance(step + 1);
+      advance(step + 1, uci);
       return true;
     }
     if (uci === puzzle.playedUci && step === 0) {
-      setMistakes((x) => x + 1);
-      setState('wrong');
-      setNote(`That's the move you played in the game (${puzzle.playedSan}). Look again!`);
+      wrong(uci, `That's the move you played in the game (${puzzle.playedSan}). Look again!`);
       return false;
     }
     // A different move may be just as good: check it with the engine.
@@ -236,27 +282,27 @@ function PuzzleView({
         const win = e.lines[0] ? winPercentFor(e.lines[0].score, color) : 0;
         if (puzzle.solutionUci.length === 1 && win >= puzzle.bestWin - 3) {
           apply(uci);
-          setState('solved');
-          setNote('Also good! The engine rates this about as highly as its own choice.');
+          solved(uci, 'Also good! The engine rates this about as highly as its own choice.');
         } else {
-          setMistakes((x) => x + 1);
-          setState('wrong');
-          setNote('Not the best — try again.');
+          wrong(uci, 'Not the best move here. Try again.');
         }
       })
       .catch(() => setState('solving'));
     return false;
+  });
+
+  function solved(uci: string, text: string) {
+    setState('solved');
+    setNote(text);
+    setMarker({ square: uci.slice(2, 4), kind: 'correct' });
+    playSound('correct');
   }
 
-  function advance(nextStep: number) {
-    if (nextStep >= puzzle.solutionUci.length) {
-      setState('solved');
-      setNote(mistakes ? 'Solved.' : 'Correct!');
-      return;
-    }
+  function advance(nextStep: number, uci: string) {
+    if (nextStep >= puzzle.solutionUci.length) return solved(uci, mistakes || hint ? 'Solved.' : 'Correct!');
     setState('solving');
     setStep(nextStep);
-    // Opponent's reply
+    // The opponent's reply.
     setTimeout(() => {
       apply(puzzle.solutionUci[nextStep]);
       setStep(nextStep + 1);
@@ -284,6 +330,7 @@ function PuzzleView({
     if (state !== 'revealed') return;
     setFen(puzzle.fen);
     setLastMove(undefined);
+    setMarker(undefined);
     let i = 0;
     const t = setInterval(() => {
       if (i >= puzzle.solutionUci.length) return clearInterval(t);
@@ -292,60 +339,111 @@ function PuzzleView({
     return () => clearInterval(t);
   }, [state, puzzle]);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement).tagName === 'INPUT') return;
-      const k = e.key.toLowerCase();
-      if (!done && k === 'h') setHint(true);
-      else if (!done && k === 's') setState('revealed');
-      else if (!done && k === 'k') onSkip();
-      else if (done && (k === 'enter' || k === 'n')) void finish(gradeFor());
-      else return;
-      e.preventDefault();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+  const onKey = useStableCallback((e: KeyboardEvent) => {
+    if ((e.target as HTMLElement).tagName === 'INPUT') return;
+    const k = e.key.toLowerCase();
+    if (!done && k === 'h') setHint(true);
+    else if (!done && k === 's') setState('revealed');
+    else if (!done && k === 'k') onSkip();
+    else if (done && (k === 'enter' || k === 'n')) void finish(gradeFor());
+    else return;
+    e.preventDefault();
   });
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => onKey(e);
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, [onKey]);
+
+  const highlight = useMemo(() => (hint && expected ? { [expected.slice(0, 2)]: 'rgba(129,182,76,0.6)' } : undefined), [hint, expected]);
+  const total = doneCount + remaining;
+  const tap = isTouch() ? 'Tap' : 'Click';
+
+  const status =
+    state === 'checking' ? (
+      <span className="muted">Checking your move…</span>
+    ) : state === 'wrong' ? (
+      <span style={{ color: '#e02828' }}>✗ {note}</span>
+    ) : state === 'solved' ? (
+      <span style={{ color: '#6a9e36' }}>✔ {note}</span>
+    ) : state === 'revealed' ? (
+      <span>
+        Solution: <b>{solutionSan.join(' ')}</b>
+      </span>
+    ) : (
+      <span className="muted">
+        {puzzle.solutionUci.length > 1 ? 'Find the winning line.' : 'Find the best move.'} {tap} a piece, then its square.
+      </span>
+    );
 
   return (
-    <div className="grid lg:grid-cols-[minmax(0,560px)_minmax(0,1fr)] gap-4">
-      <div>
+    <div className="grid lg:grid-cols-[minmax(0,560px)_minmax(0,1fr)] gap-3 lg:gap-5">
+      <div className="space-y-2">
+        <div className="flex items-center justify-between text-sm">
+          <span className="inline-flex items-center gap-2 font-bold">
+            <span
+              className="inline-block w-4 h-4 rounded-sm border border-[var(--border)]"
+              style={{ background: toMove === 'white' ? '#f4f4f4' : '#403d39' }}
+            />
+            {toMove === 'white' ? 'White' : 'Black'} to move
+          </span>
+          <span className="muted text-xs tabular-nums">
+            {doneCount + 1} / {total}
+          </span>
+        </div>
+        <div className="h-1 rounded bg-[var(--panel-2)]">
+          <div className="h-1 rounded bg-accent transition-all" style={{ width: `${(100 * doneCount) / Math.max(1, total)}%` }} />
+        </div>
         <Board
           id="puzzle"
           fen={fen}
           orientation={toMove}
           onMove={state === 'solving' || state === 'wrong' ? onMove : undefined}
           lastMove={lastMove}
-          highlight={hint && expected ? { [expected.slice(0, 2)]: 'rgba(129,182,76,0.6)' } : undefined}
+          marker={marker}
+          highlight={highlight}
         />
       </div>
+
       <div className="space-y-3">
-        <Section>
-          <div className="flex items-center justify-between mb-1">
-            <div className="font-bold text-lg">{toMove === 'white' ? 'White' : 'Black'} to move</div>
-            <div className="muted text-xs">
-              {session.solved} ✓ {session.failed} ✗ · {remaining} left
-            </div>
-          </div>
-          <div className="h-1.5 rounded bg-[var(--panel-2)] mb-3" title={`${session.solved + session.failed} of ${session.solved + session.failed + remaining} done this session`}>
-            <div
-              className="h-1.5 rounded bg-accent transition-all"
-              style={{ width: `${(100 * (session.solved + session.failed)) / Math.max(1, session.solved + session.failed + remaining)}%` }}
-            />
-          </div>
-          <p className="text-sm">
-            {puzzle.solutionUci.length > 1 ? 'Find the winning line.' : 'Find the best move.'} In the game you played{' '}
+        {/* Right under the board on phones: what to do, and the buttons. */}
+        <div className="min-h-5 text-sm font-semibold">{status}</div>
+        <div className="flex gap-2">
+          {!done ? (
+            <>
+              <button className="btn flex-1 justify-center !py-3" onClick={() => setHint(true)} disabled={hint} title="Hint (h)">
+                <Icon name="bulb" size={18} /> Hint
+              </button>
+              <button className="btn flex-1 justify-center !py-3" onClick={() => setState('revealed')} title="Show solution (s)">
+                <Icon name="eye" size={18} /> Solution
+              </button>
+              <button className="btn flex-1 justify-center !py-3" onClick={onSkip} title="Skip (k)">
+                <Icon name="next" size={18} /> Skip
+              </button>
+            </>
+          ) : (
+            <button className="btn btn-primary flex-1 justify-center !py-3 !text-base" onClick={() => void finish(gradeFor())} title="Next (Enter)">
+              {clean && autoNext ? 'Next puzzle…' : 'Next puzzle'} <Icon name="next" size={18} />
+            </button>
+          )}
+        </div>
+
+        <div className="panel p-3 text-sm space-y-2">
+          <p>
+            In the game you played{' '}
             <span className="inline-flex items-center gap-1 font-semibold">
               <ClassificationBadge c={puzzle.classification} size={14} /> {puzzle.playedSan}
             </span>
             , losing {puzzle.winLoss.toFixed(0)}% win chance.
           </p>
-          {puzzle.occurrences > 1 && (
-            <p className="text-sm mt-2" style={{ color: '#e02828' }}>
-              ⚠ You've made this exact mistake in {puzzle.occurrences} games.
+          {puzzle.occurrences > 1 && <p style={{ color: '#e02828' }}>⚠ You've made this exact mistake in {puzzle.occurrences} games.</p>}
+          {done && puzzle.explanation && (
+            <p className="rounded-lg bg-[var(--panel-2)] p-2">
+              <span className="muted">Why {puzzle.playedSan} was wrong: </span>
+              {puzzle.explanation}
             </p>
           )}
-          <div className="flex flex-wrap gap-1 mt-2">
+          <div className="flex flex-wrap gap-1">
             {puzzle.motifs
               .filter((m) => m !== 'long_think')
               .map((m) => (
@@ -354,67 +452,30 @@ function PuzzleView({
                 </span>
               ))}
             <span className="chip capitalize">{puzzle.phase}</span>
-            {puzzle.opening && <span className="chip">{puzzle.opening}</span>}
           </div>
+        </div>
 
-          <div className="mt-3 min-h-6 text-sm font-semibold">
-            {state === 'checking' && <span className="muted">Checking your move…</span>}
-            {state === 'wrong' && <span style={{ color: '#e02828' }}>✗ {note}</span>}
-            {state === 'solved' && <span style={{ color: '#6a9e36' }}>✔ {note}</span>}
-            {state === 'revealed' && (
-              <span>
-                Solution: <b>{solutionSan.join(' ')}</b>
-              </span>
-            )}
-          </div>
-          {done && puzzle.explanation && (
-            <p className="text-sm mt-2 rounded-lg bg-[var(--panel-2)] p-2">
-              <span className="muted">Why {puzzle.playedSan} was wrong: </span>
-              {puzzle.explanation}
-            </p>
-          )}
-          {clean && autoNext && <p className="muted text-xs mt-1">Next puzzle in a moment…</p>}
-
-          <div className="flex flex-wrap gap-2 mt-3">
-            {(state === 'solving' || state === 'wrong') && (
-              <>
-                <button className="btn" onClick={() => setHint(true)} disabled={hint} title="Hint (h)">
-                  Hint
-                </button>
-                <button className="btn" onClick={() => setState('revealed')} title="Show solution (s)">
-                  Show solution
-                </button>
-                <button className="btn" onClick={onSkip} title="Skip (k)">
-                  Skip
-                </button>
-              </>
-            )}
-            {(state === 'solved' || state === 'revealed') && (
-              <button className="btn btn-primary" onClick={() => finish(gradeFor())} title="Next (Enter)">
-                Next puzzle →
-              </button>
-            )}
-            {game && (
-              <Link className="btn ml-auto" to={`/game/${encodeURIComponent(game.id)}?ply=${puzzle.plies[puzzle.plies.length - 1] + 1}`}>
-                Open game
-              </Link>
-            )}
-          </div>
-        </Section>
-        {puzzle.phase === 'opening' && leadUp.length > 0 && (
-          <Section title="How the game got here">
-            <p className="text-sm font-mono leading-relaxed">{leadUp.join(' ')}</p>
-            <p className="muted text-xs mt-2">Memorise this line together with the correct move to fix your opening.</p>
-          </Section>
+        {game && (
+          <Link className="text-sm underline muted inline-flex items-center gap-1" to={`/game/${encodeURIComponent(game.id)}?ply=${puzzle.plies[puzzle.plies.length - 1] + 1}`}>
+            Open this game <Icon name="external" size={14} />
+          </Link>
         )}
-        <p className="muted text-xs">
-          Keys: <b>h</b> hint · <b>s</b> solution · <b>k</b> skip · <b>Enter</b> next. Solve on the first try and a puzzle comes back in a few
-          days; miss it and it returns in 10 minutes.
-        </p>
-        <label className="flex items-center gap-2 text-xs muted">
-          <input type="checkbox" checked={autoNext} onChange={(e) => void saveSettings({ autoNextPuzzle: e.target.checked })} />
-          Go to the next puzzle automatically after a clean solve
-        </label>
+        {leadUp.length > 0 && (
+          <details className="panel p-3 text-sm">
+            <summary className="cursor-pointer font-semibold">How the game got here</summary>
+            <p className="font-mono leading-relaxed mt-2">{leadUp.join(' ')}</p>
+            <p className="muted text-xs mt-2">Memorise this line together with the correct move to fix your opening.</p>
+          </details>
+        )}
+        <div className="muted text-xs space-y-2">
+          <p className="hidden md:block">
+            Keys: <b>h</b> hint · <b>s</b> solution · <b>k</b> skip · <b>Enter</b> next.
+          </p>
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={autoNext} onChange={(e) => void saveSettings({ autoNextPuzzle: e.target.checked })} />
+            Next puzzle automatically after a clean solve
+          </label>
+        </div>
       </div>
     </div>
   );

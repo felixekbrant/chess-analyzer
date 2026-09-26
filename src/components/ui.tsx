@@ -3,13 +3,23 @@ import { Link } from 'react-router-dom';
 import { Icon } from './Icon';
 import type { StoredGame } from '../lib/types';
 
-export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: ReactNode; actions?: ReactNode }) {
+/** Page title row. On phones the top bar shows the title; `desktopOnly` hides the whole row there. */
+export function PageHeader({
+  title,
+  subtitle,
+  actions,
+  desktopOnly,
+}: {
+  title: string;
+  subtitle?: ReactNode;
+  actions?: ReactNode;
+  desktopOnly?: boolean;
+}) {
   return (
-    <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
+    <div className={`${desktopOnly ? 'hidden md:flex' : 'flex'} flex-wrap items-end justify-between gap-3 mb-3 md:mb-5`}>
       <div>
-        {/* On phones the top bar already shows the page title. */}
         <h1 className="hidden md:block text-2xl font-extrabold tracking-tight">{title}</h1>
-        {subtitle && <p className="muted text-sm mt-1">{subtitle}</p>}
+        {subtitle && <p className="muted text-sm md:mt-1">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
     </div>

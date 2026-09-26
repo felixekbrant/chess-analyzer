@@ -32,6 +32,11 @@ function ReviewInner({ game, analysis, initialPly }: { game: StoredGame; analysi
     initialPly !== undefined && Number.isFinite(initialPly) ? { kind: 'walk', opts: { ply: initialPly } } : { kind: 'summary' },
   );
 
+  // Remember that this game has been looked at (Home shows "new games to review").
+  useEffect(() => {
+    void db.games.update(game.id, { reviewedAt: Date.now() });
+  }, [game.id]);
+
   // Opening a game that hasn't been analysed yet puts it at the front of the queue.
   useEffect(() => {
     if (!analysis && game.analysisStatus !== 'done') analysisQueue.prioritize(game.id);

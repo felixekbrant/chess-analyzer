@@ -1,7 +1,9 @@
 import { Link } from 'react-router-dom';
 import type { CoachItem } from '../lib/insights/coach';
 
-export function CoachReport({ items, strengths, analysed }: { items: CoachItem[]; strengths: string[]; analysed: number }) {
+/** `limit` shows only the top items (with a link to the rest on the Insights page). */
+export function CoachReport({ items: all, strengths, analysed, limit }: { items: CoachItem[]; strengths: string[]; analysed: number; limit?: number }) {
+  const items = limit ? all.slice(0, limit) : all;
   if (analysed < 3)
     return <p className="muted text-sm">Your personal coach report appears once at least 3 games are analysed ({analysed} so far). It gets sharper with more games.</p>;
   if (!items.length) return <p className="text-sm">No major recurring weaknesses found in these games. Nice! Keep playing and check back.</p>;
@@ -40,7 +42,12 @@ export function CoachReport({ items, strengths, analysed }: { items: CoachItem[]
           </div>
         </div>
       ))}
-      {strengths.length > 0 && (
+      {limit && all.length > limit && (
+        <Link to="/insights" className="block text-center text-sm underline muted">
+          See all {all.length} in Insights
+        </Link>
+      )}
+      {!limit && strengths.length > 0 && (
         <div className="rounded-lg p-3 bg-[var(--panel-2)]">
           <div className="font-semibold text-sm mb-1">Strengths</div>
           <ul className="text-sm space-y-1">

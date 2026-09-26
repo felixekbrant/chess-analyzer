@@ -4,7 +4,9 @@ import { db } from '../db/schema';
 import { useGames, useSettings } from '../hooks/useStores';
 import { buildGameFromPgn, opponentName } from '../lib/games/build';
 import { ensureOpenings } from '../lib/openings/eco';
-import { GameTable, type SortKey } from '../components/GameTable';
+import { GameCardList, GameTable, type SortKey } from '../components/GameTable';
+import { Icon } from '../components/Icon';
+import { Sheet } from '../components/Sheet';
 import { importGameByUrl } from '../lib/chesscom/sync';
 import { analysisQueue } from '../lib/engine/queue';
 import type { Color } from '../lib/types';
@@ -21,6 +23,7 @@ export default function Games() {
   const [limit, setLimit] = useState(50);
   const [sort, setSort] = useState<SortKey>('date');
   const [showImport, setShowImport] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const filtered = useMemo(() => {
     if (!games) return [];
@@ -38,8 +41,35 @@ export default function Games() {
     [filtered, sort],
   );
 
+  const activeFilters = [timeClass !== 'all', result !== 'all', color !== 'all'].filter(Boolean).length;
+  const open = (g: { id: string }) => navigate(`/game/${encodeURIComponent(g.id)}`);
+
+  const filterControls = (
+    <>
+      <select className="input" value={timeClass} onChange={(e) => setTimeClass(e.target.value)} aria-label="Time control">
+        <option value="all">All time controls</option>
+        {['bullet', 'blitz', 'rapid', 'daily', 'classical'].map((t) => (
+          <option key={t} value={t}>
+            {t[0].toUpperCase() + t.slice(1)}
+          </option>
+        ))}
+      </select>
+      <select className="input" value={result} onChange={(e) => setResult(e.target.value)} aria-label="Result">
+        <option value="all">All results</option>
+        <option value="win">Wins</option>
+        <option value="loss">Losses</option>
+        <option value="draw">Draws</option>
+      </select>
+      <select className="input" value={color} onChange={(e) => setColor(e.target.value)} aria-label="Colour">
+        <option value="all">Both colours</option>
+        <option value="w">As White</option>
+        <option value="b">As Black</option>
+      </select>
+    </>
+  );
+
   return (
-    <div>
+    <div className="max-w-5xl">
       <PageHeader
         title="Games"
         subtitle={games ? `${games.length} games · ${games.filter((g) => g.analysisStatus === 'done').length} analysed` : 'Loading…'}
@@ -51,36 +81,72 @@ export default function Games() {
       />
       {showImport && <ImportBox username={settings.username} onDone={(id) => navigate(`/game/${encodeURIComponent(id)}`)} />}
 
-      <div className="flex flex-wrap gap-2 mb-3">
-        <select className="input" value={timeClass} onChange={(e) => setTimeClass(e.target.value)}>
-          <option value="all">All time controls</option>
-          {['bullet', 'blitz', 'rapid', 'daily', 'classical'].map((t) => (
-            <option key={t} value={t}>
-              {t[0].toUpperCase() + t.slice(1)}
-            </option>
-          ))}
-        </select>
-        <select className="input" value={result} onChange={(e) => setResult(e.target.value)}>
-          <option value="all">All results</option>
-          <option value="win">Wins</option>
-          <option value="loss">Losses</option>
-          <option value="draw">Draws</option>
-        </select>
-        <select className="input" value={color} onChange={(e) => setColor(e.target.value)}>
-          <option value="all">Both colours</option>
-          <option value="w">As White</option>
-          <option value="b">As Black</option>
-        </select>
-        <input className="input flex-1 min-w-40" placeholder="Search opponent or opening" value={q} onChange={(e) => setQ(e.target.value)} />
+      {/* Phones: search + a Filters sheet. Larger screens: filters inline. */}
+      <div className="flex gap-2 mb-3">
+        <input className="input flex-1 min-w-0" placeholder="Search opponent or opening" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search" />
+        <button className="btn md:hidden shrink-0" onClick={() => setFiltersOpen(true)}>
+          <Icon name="filter" size={16} /> Filters{activeFilters ? ` (${activeFilters})` : ''}
+        </button>
+        <div className="hidden md:flex gap-2">{filterControls}</div>
       </div>
+      <Sheet open={filtersOpen} onClose={() => setFiltersOpen(false)} title="Filters">
+        <div className="grid gap-2">
+          {filterControls}
+          <select className="input" value={sort} onChange={(e) => setSort(e.target.value as SortKey)} aria-label="Sort">
+            <option value="date">Newest first</option>
+            <option value="accuracy">Highest accuracy first</option>
+          </select>
+          <div className="flex gap-2 mt-2">
+            <button
+              className="btn flex-1 justify-center"
+              onClick={() => {
+                setTimeClass('all');
+                setResult('all');
+                setColor('all');
+                setSort('date');
+              }}
+            >
+              Reset
+            </button>
+            <button className="btn btn-primary flex-1 justify-center" onClick={() => setFiltersOpen(false)}>
+              Show {filtered.length} games
+            </button>
+          </div>
+        </div>
+      </Sheet>
 
-      <div className="panel overflow-x-auto">
-        {games && !filtered.length ? (
-          <Empty>{games.length ? 'No games match these filters.' : 'No games yet. Set your username in Settings or import a game.'}</Empty>
-        ) : (
-          <GameTable games={sorted.slice(0, limit)} onOpen={(g) => navigate(`/game/${encodeURIComponent(g.id)}`)} sort={sort} onSort={setSort} />
-        )}
-      </div>
+      {!games ? (
+        <div className="space-y-2">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="skeleton h-14" />
+          ))}
+        </div>
+      ) : !filtered.length ? (
+        <div className="panel">
+          <Empty>
+            {games.length ? (
+              'No games match these filters.'
+            ) : (
+              <>
+                No games yet.{' '}
+                <button className="underline" onClick={() => setShowImport(true)}>
+                  Import one
+                </button>{' '}
+                or connect your chess.com account on the Home screen.
+              </>
+            )}
+          </Empty>
+        </div>
+      ) : (
+        <>
+          <div className="md:hidden">
+            <GameCardList games={sorted.slice(0, limit)} onOpen={open} grouped={sort === 'date'} />
+          </div>
+          <div className="hidden md:block panel overflow-x-auto">
+            <GameTable games={sorted.slice(0, limit)} onOpen={open} sort={sort} onSort={setSort} />
+          </div>
+        </>
+      )}
       {filtered.length > limit && (
         <div className="text-center mt-3">
           <button className="btn" onClick={() => setLimit((l) => l + 100)}>
