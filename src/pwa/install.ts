@@ -30,7 +30,10 @@ export function isStandalone(): boolean {
 }
 
 export function isIos(): boolean {
-  return /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const ua = navigator.userAgent;
+  if (/android/i.test(ua)) return false;
+  // iPadOS reports itself as a Mac, but with touch support.
+  return /iphone|ipad|ipod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 }
 
 /** Whether the browser offered an install prompt we can show, and a function to show it. */
