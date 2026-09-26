@@ -1,5 +1,7 @@
 # Chess Analyzer
 
+**▶ Open the app: https://felixekbrant.github.io/chess-analyzer/**
+
 A free, private game-review and coaching app for chess.com players. It runs entirely in your browser: no server, no login, no subscription.
 
 - **Auto-import.** Enter your chess.com username. Your games are pulled from chess.com's public API when the app opens and every 10 minutes while it's open.
