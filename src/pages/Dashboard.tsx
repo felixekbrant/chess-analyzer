@@ -2,7 +2,7 @@ import { Suspense, lazy, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/schema';
-import { useQueueStatus, useSettings, useSyncStatus } from '../hooks/useStores';
+import { useQueue, useSettings, useSyncStatus } from '../hooks/useStores';
 import { DEFAULT_FILTERS, useInsightData } from '../hooks/useInsightData';
 import { overview, trend } from '../lib/insights/compute';
 import { coachReport } from '../lib/insights/coach';
@@ -178,7 +178,7 @@ function Welcome() {
 /** Shown while games are being imported or analysed, so the first minutes don't feel empty. */
 function ProgressCard({ analysed }: { analysed: number }) {
   const sync = useSyncStatus();
-  const queue = useQueueStatus();
+  const queue = useQueue((s) => s);
   const importing = sync.syncing && sync.progress?.phase === 'months';
   if (!importing && !(queue.pending > 0 && !queue.paused)) return null;
   const total = analysed + queue.pending;

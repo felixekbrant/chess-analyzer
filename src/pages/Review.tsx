@@ -3,7 +3,7 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Chess } from 'chess.js';
 import { db } from '../db/schema';
-import { useQueueStatus, useSettings } from '../hooks/useStores';
+import { useQueueProgress, useSettings } from '../hooks/useStores';
 import { useLiveEngine, evaluateOnce } from '../hooks/useLiveEngine';
 import { analysisQueue } from '../lib/engine/queue';
 import { parsePgn, formatClock, formatDuration } from '../lib/pgn/parse';
@@ -14,7 +14,8 @@ import { MOTIF_LABEL } from '../lib/insights/compute';
 import type { Color, GameAnalysis, MoveAnalysis, StoredGame } from '../lib/types';
 import { Board, type BoardArrow } from '../components/Board';
 import { EvalBar } from '../components/EvalBar';
-import { EvalGraph, TimeChart } from '../components/charts';
+import { EvalGraph } from '../components/EvalGraph';
+import { TimeChart } from '../components/TimeChart';
 import { ClassificationBadge } from '../components/ClassificationBadge';
 import { EngineLines } from '../components/EngineLines';
 import { Empty, Section, fmtPct } from '../components/ui';
@@ -42,7 +43,6 @@ function ReviewInner({ game, analysis, initialPly }: { game: StoredGame; analysi
   const [mode, setMode] = useState<Mode>('review');
   const [tab, setTab] = useState<'report' | 'moves' | 'engine'>('report');
   const [explore, setExplore] = useState<{ base: number; moves: string[] }>({ base: 0, moves: [] });
-  const queue = useQueueStatus();
   const settings = useSettings();
 
   useEffect(() => {
@@ -125,7 +125,7 @@ function ReviewInner({ game, analysis, initialPly }: { game: StoredGame; analysi
   const evalScore =
     mode === 'explore' ? (liveScore ?? analysis?.evals[explore.base]) : !analysis ? liveScore : analysis.evals[ply];
   const evalThinking = (mode === 'explore' || !analysis) && !live.settled;
-  const progress = queue.active[game.id];
+  const progress = useQueueProgress(game.id);
   const userColor: Color = game.userColor ?? 'w';
 
   function onExploreMove(uci: string) {

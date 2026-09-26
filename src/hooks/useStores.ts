@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, getSettings } from '../db/schema';
 import { analysisQueue, type QueueStatus } from '../lib/engine/queue';
@@ -19,13 +19,17 @@ export function useSyncStatus(): SyncStatus {
   return s;
 }
 
-export function useQueueStatus(): QueueStatus {
-  const [s, setS] = useState<QueueStatus>({ running: false, paused: false, active: {}, pending: 0, workers: 1 });
-  useEffect(() => {
-    const unsub = analysisQueue.subscribe(setS);
-    return () => void unsub();
-  }, []);
-  return s;
+/**
+ * Subscribes to the analysis queue. Pass a selector returning a primitive (or the whole status):
+ * the component then only re-renders when that value changes, e.g. `useQueue((s) => s.pending)`.
+ */
+export function useQueue<T>(selector: (s: QueueStatus) => T): T {
+  return useSyncExternalStore(analysisQueue.subscribe, () => selector(analysisQueue.getSnapshot()));
+}
+
+/** Analysis progress (0-1) of one game, or undefined when it isn't being analysed. */
+export function useQueueProgress(gameId: string): number | undefined {
+  return useQueue((s) => s.active[gameId]);
 }
 
 export function useGames() {

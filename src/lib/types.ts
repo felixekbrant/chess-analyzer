@@ -168,7 +168,12 @@ export interface Settings {
   analysisSpeed: 'light' | 'balanced' | 'max';
   /** Move to the next puzzle automatically after solving one. */
   autoNextPuzzle: boolean;
+  sounds: boolean;
+  boardTheme: BoardTheme;
+  showCoordinates: boolean;
 }
+
+export type BoardTheme = 'green' | 'brown' | 'blue' | 'gray';
 
 export const DEFAULT_SETTINGS: Settings = {
   username: '',
@@ -179,4 +184,7 @@ export const DEFAULT_SETTINGS: Settings = {
   theme: 'system',
   analysisSpeed: 'balanced',
   autoNextPuzzle: true,
+  sounds: true,
+  boardTheme: 'green',
+  showCoordinates: true,
 };

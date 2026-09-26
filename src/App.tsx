@@ -1,7 +1,7 @@
 import { Suspense, lazy, useEffect } from 'react';
 import { NavLink, Route, Routes, useLocation } from 'react-router-dom';
 import { useApplyTheme } from './hooks/useTheme';
-import { useQueueStatus, useSettings, useSyncStatus } from './hooks/useStores';
+import { useQueue, useSettings, useSyncStatus } from './hooks/useStores';
 import { syncManager } from './lib/syncManager';
 import { analysisQueue } from './lib/engine/queue';
 import Dashboard from './pages/Dashboard';
@@ -89,7 +89,7 @@ export default function App() {
 
 function StatusPanel({ compact }: { compact?: boolean }) {
   const sync = useSyncStatus();
-  const queue = useQueueStatus();
+  const queue = useQueue((s) => s);
   const settings = useSettings();
   if (!settings.username) return null;
   return (

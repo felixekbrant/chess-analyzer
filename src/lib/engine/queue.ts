@@ -7,6 +7,7 @@ import { parsePgn } from '../pgn/parse';
 import { upsertPuzzlesFromAnalysis } from '../training/puzzles';
 import type { PositionEval, Settings, StoredGame } from '../types';
 import { Engine } from './engine';
+import { isMobile } from '../device';
 
 export interface QueueStatus {
   running: boolean;
@@ -24,10 +25,14 @@ export interface QueueStatus {
 
 type Listener = (s: QueueStatus) => void;
 
-/** Engine workers for each speed setting. Each worker is a single-threaded Stockfish on its own core. */
+/**
+ * Engine workers for each speed setting. Each worker is a single-threaded Stockfish on its own core.
+ * Phones get at most two, since several engines at once make them hot and the UI laggy.
+ */
 export function workerCount(speed: Settings['analysisSpeed']): number {
   const cores = typeof navigator !== 'undefined' ? navigator.hardwareConcurrency || 2 : 2;
   if (speed === 'light') return 1;
+  if (isMobile()) return speed === 'max' ? 2 : 1;
   if (speed === 'max') return Math.max(1, cores - 1);
   return Math.max(1, Math.min(3, cores - 2));
 }
@@ -45,26 +50,76 @@ class AnalysisQueue {
   private loops = 0;
   private depthOverride = new Map<string, number>();
   private durations: number[] = [];
+  /** The status last sent to listeners. Progress ticks are batched, so this lags `status` slightly. */
+  private published: QueueStatus = this.status;
+  private emitTimer?: ReturnType<typeof setTimeout>;
+  private interactive = 0;
+  private yieldWaiters: (() => void)[] = [];
 
-  subscribe(fn: Listener) {
+  /** For useSyncExternalStore: `subscribe` returns an unsubscribe function, `getSnapshot` the published status. */
+  subscribe = (fn: Listener) => {
     this.listeners.add(fn);
-    fn(this.status);
-    return () => this.listeners.delete(fn);
+    return () => void this.listeners.delete(fn);
+  };
+
+  getSnapshot = () => this.published;
+
+  private emit() {
+    clearTimeout(this.emitTimer);
+    this.emitTimer = undefined;
+    this.published = this.status;
+    for (const l of this.listeners) l(this.published);
   }
 
-  private set(patch: Partial<QueueStatus>) {
+  /**
+   * Updates the status. Structural changes (start/stop, pause, counts) are sent right away;
+   * progress ticks are batched to at most one update every 400 ms, which keeps pages from
+   * re-rendering many times a second while games are analysed.
+   */
+  private set(patch: Partial<QueueStatus>, urgent = true) {
     this.status = { ...this.status, ...patch };
     const avg = this.durations.length ? this.durations.reduce((a, b) => a + b, 0) / this.durations.length : undefined;
     this.status.avgSeconds = avg;
-    this.status.etaSeconds = avg !== undefined ? (avg * this.status.pending) / Math.max(1, this.status.workers) : undefined;
-    for (const l of this.listeners) l(this.status);
+    // One game is too few to estimate from.
+    this.status.etaSeconds =
+      avg !== undefined && this.durations.length >= 2 ? (avg * this.status.pending) / Math.max(1, this.status.workers) : undefined;
+    if (urgent) this.emit();
+    else this.emitTimer ??= setTimeout(() => this.emit(), 400);
   }
 
   private setProgress(gameId: string, p: number | undefined) {
     const active = { ...this.status.active };
+    const started = !(gameId in active);
     if (p === undefined) delete active[gameId];
     else active[gameId] = p;
-    this.set({ active, running: Object.keys(active).length > 0 });
+    this.set({ active, running: Object.keys(active).length > 0 }, started || p === undefined);
+  }
+
+  /**
+   * Interactive engine use (exploring, puzzles) registers here. On phones the background analysis
+   * waits while it's active, and while the app is in the background, so the device stays responsive
+   * and doesn't drain the battery.
+   */
+  setInteractive(on: boolean) {
+    this.interactive = Math.max(0, this.interactive + (on ? 1 : -1));
+    this.wakeIfFree();
+  }
+
+  private shouldYield() {
+    return isMobile() && (this.interactive > 0 || (typeof document !== 'undefined' && document.hidden));
+  }
+
+  /** Resumes waiting workers if nothing requires them to yield any more. */
+  wakeIfFree() {
+    if (this.shouldYield()) return;
+    const waiters = this.yieldWaiters;
+    this.yieldWaiters = [];
+    for (const w of waiters) w();
+  }
+
+  private yieldPoint(): Promise<void> {
+    if (!this.shouldYield()) return Promise.resolve();
+    return new Promise((resolve) => this.yieldWaiters.push(resolve));
   }
 
   pause() {
@@ -166,7 +221,7 @@ class AnalysisQueue {
   }
 
   private getEngine(idx: number) {
-    if (!this.engines[idx]) this.engines[idx] = new Engine(32);
+    if (!this.engines[idx]) this.engines[idx] = new Engine(isMobile() ? 16 : 32);
     return this.engines[idx];
   }
 
@@ -181,6 +236,7 @@ class AnalysisQueue {
     let inBook = true;
     for (let i = 0; i < fens.length; i++) {
       if (this.status.paused && !this.priority.includes(game.id)) throw new Error('paused');
+      await this.yieldPoint();
       const over = terminalScore(fens[i]);
       if (over) {
         evals.push({ fen: fens[i], depth: 0, lines: [{ score: over, pv: [] }] });
@@ -219,6 +275,10 @@ class AnalysisQueue {
 }
 
 export const analysisQueue = new AnalysisQueue();
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => analysisQueue.wakeIfFree());
+}
 
 // During development, hot-reloading this module must not leave the old queue running.
 import.meta.hot?.dispose(() => analysisQueue.dispose());

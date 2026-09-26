@@ -1,22 +1,13 @@
 import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
   CartesianGrid,
   Legend,
   Line,
   LineChart,
-  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from 'recharts';
-import { CLASS_META } from '../lib/classificationMeta';
-import { formatScore, scoreToPawns } from '../lib/analysis/winprob';
-import { formatDuration } from '../lib/pgn/parse';
-import type { MoveAnalysis, Score } from '../lib/types';
 
 const axisProps = {
   stroke: 'var(--muted)',
@@ -36,137 +27,6 @@ const tooltipStyle = {
   labelStyle: { color: 'var(--muted)' },
   itemStyle: { color: 'var(--text)' },
 };
-
-const SHOW_DOT = new Set(['blunder', 'mistake', 'miss', 'brilliant', 'great']);
-
-/** Evaluation over the game (White POV, clamped to ±10). Click a point to jump to that move. */
-export function EvalGraph({
-  evals,
-  moves,
-  current,
-  onSelect,
-  height = 110,
-}: {
-  evals: Score[];
-  moves: MoveAnalysis[];
-  current: number;
-  onSelect: (ply: number) => void;
-  height?: number;
-}) {
-  const data = evals.map((s, i) => ({ i, v: scoreToPawns(s), label: formatScore(s), move: moves[i - 1] }));
-  return (
-    <div style={{ height }} className="w-full rounded-md overflow-hidden bg-[#403d39]">
-      <ResponsiveContainer>
-        <AreaChart
-          data={data}
-          margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
-          onClick={(e) => {
-            const idx = Number(e?.activeTooltipIndex);
-            if (Number.isFinite(idx)) onSelect(idx);
-          }}
-          style={{ cursor: 'pointer' }}
-        >
-          <YAxis domain={[-10, 10]} hide />
-          <XAxis dataKey="i" hide />
-          <ReferenceLine y={0} stroke="#8b8987" strokeWidth={1} />
-          <ReferenceLine x={current} stroke="#81b64c" strokeWidth={2} />
-          <Tooltip
-            {...tooltipStyle}
-            formatter={(_v, _n, item) => [item.payload.label, 'Eval']}
-            labelFormatter={(i) => {
-              const m = data[Number(i)]?.move as MoveAnalysis | undefined;
-              return m ? `${m.moveNumber}${m.color === 'w' ? '.' : '...'} ${m.san} (${CLASS_META[m.classification].label})` : 'Start';
-            }}
-          />
-          <Area
-            type="monotone"
-            dataKey="v"
-            baseValue={-10}
-            stroke="#c8c6c3"
-            strokeWidth={1}
-            fill="#f4f4f4"
-            fillOpacity={1}
-            isAnimationActive={false}
-            dot={(props: { cx?: number; cy?: number; index?: number }) => {
-              const m = data[props.index ?? 0]?.move;
-              if (!m || !SHOW_DOT.has(m.classification) || props.cx === undefined) return <g key={props.index} />;
-              return (
-                <circle
-                  key={props.index}
-                  cx={props.cx}
-                  cy={props.cy}
-                  r={4}
-                  fill={CLASS_META[m.classification].color}
-                  stroke="#403d39"
-                  strokeWidth={2}
-                />
-              );
-            }}
-          />
-        </AreaChart>
-      </ResponsiveContainer>
-    </div>
-  );
-}
-
-/** Seconds spent per move for both players, mirrored around the axis. */
-export function TimeChart({ moves, current, onSelect, userColor }: { moves: MoveAnalysis[]; current: number; onSelect: (ply: number) => void; userColor: 'w' | 'b' | null }) {
-  const byMove = new Map<number, { move: number; w?: number; b?: number; wPly?: number; bPly?: number }>();
-  for (const m of moves) {
-    if (m.timeSpent === undefined) continue;
-    const row = byMove.get(m.moveNumber) ?? { move: m.moveNumber };
-    if (m.color === 'w') {
-      row.w = m.timeSpent;
-      row.wPly = m.ply;
-    } else {
-      row.b = -m.timeSpent;
-      row.bPly = m.ply;
-    }
-    byMove.set(m.moveNumber, row);
-  }
-  const data = [...byMove.values()];
-  if (!data.length) return <p className="muted text-sm">No clock data for this game.</p>;
-  const youW = userColor !== 'b';
-  const currentMove = moves[current - 1]?.moveNumber;
-  return (
-    <div className="h-36 w-full">
-      <ResponsiveContainer>
-        <BarChart data={data} stackOffset="sign" margin={{ top: 4, right: 4, bottom: 0, left: -16 }} barCategoryGap={1}>
-          <CartesianGrid vertical={false} stroke="var(--grid)" />
-          <XAxis dataKey="move" {...axisProps} interval="preserveStartEnd" />
-          <YAxis {...axisProps} tickFormatter={(v) => `${Math.abs(v)}s`} />
-          {currentMove && <ReferenceLine x={currentMove} stroke="#81b64c" />}
-          <ReferenceLine y={0} stroke="var(--border)" />
-          <Tooltip
-            {...tooltipStyle}
-            cursor={{ fill: 'var(--panel-2)' }}
-            labelFormatter={(m) => `Move ${m}`}
-            formatter={(v, name) => [formatDuration(Math.abs(Number(v))), name]}
-          />
-          <Legend wrapperStyle={{ fontSize: 12 }} />
-          <Bar
-            dataKey="w"
-            name={youW ? 'White (you)' : 'White'}
-            stackId="t"
-            fill={youW ? 'var(--series-1)' : 'var(--series-2)'}
-            radius={[3, 3, 0, 0]}
-            onClick={(d: { payload?: { wPly?: number } }) => d.payload?.wPly !== undefined && onSelect(d.payload.wPly + 1)}
-            isAnimationActive={false}
-          />
-          <Bar
-            dataKey="b"
-            name={!youW ? 'Black (you)' : 'Black'}
-            stackId="t"
-            fill={!youW ? 'var(--series-1)' : 'var(--series-2)'}
-            radius={[3, 3, 0, 0]}
-            onClick={(d: { payload?: { bPly?: number } }) => d.payload?.bPly !== undefined && onSelect(d.payload.bPly + 1)}
-            isAnimationActive={false}
-          />
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
-  );
-}
 
 export function LineTrend<T extends object>({
   data,

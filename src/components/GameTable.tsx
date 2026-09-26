@@ -1,6 +1,6 @@
 import { opponentElo, opponentName, userElo } from '../lib/games/build';
 import { analysisQueue } from '../lib/engine/queue';
-import { useQueueStatus } from '../hooks/useStores';
+import { useQueueProgress } from '../hooks/useStores';
 import type { StoredGame } from '../lib/types';
 import { ResultPill, TIME_CLASS_ICON, formatDate } from './ui';
 
@@ -19,7 +19,6 @@ export function GameTable({
   sort?: SortKey;
   onSort?: (k: SortKey) => void;
 }) {
-  const queue = useQueueStatus();
   const header = (k: SortKey, label: string) =>
     onSort ? (
       <button className={`font-semibold ${sort === k ? 'text-[var(--text)]' : ''}`} onClick={() => onSort(k)} aria-pressed={sort === k}>
@@ -42,7 +41,6 @@ export function GameTable({
       </thead>
       <tbody>
         {games.map((g) => {
-          const progress = queue.active[g.id];
           return (
             <tr key={g.id} className="clickable" onClick={() => onOpen(g)}>
               <td className="w-8">
@@ -63,28 +61,7 @@ export function GameTable({
               </td>
               {!compact && <td className="muted max-w-64 truncate">{g.openingName ?? g.eco ?? ''}</td>}
               <td className="tabular-nums whitespace-nowrap">
-                {g.analysisStatus === 'done' && g.userAccuracy !== undefined ? (
-                  <>
-                    <span className="font-semibold">{g.userAccuracy.toFixed(1)}</span>
-                    <span className="muted"> / {g.opponentAccuracy?.toFixed(1)}</span>
-                  </>
-                ) : progress !== undefined ? (
-                  <div className="w-20 h-1.5 rounded bg-[var(--panel-2)]" title={`Analysing… ${Math.round(progress * 100)}%`}>
-                    <div className="h-1.5 rounded bg-accent transition-all" style={{ width: `${progress * 100}%` }} />
-                  </div>
-                ) : g.analysisStatus === 'error' ? (
-                  <span className="muted">failed</span>
-                ) : (
-                  <button
-                    className="text-xs underline muted hover:text-[var(--text)]"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      analysisQueue.prioritize(g.id);
-                    }}
-                  >
-                    Analyse
-                  </button>
-                )}
+                <AccuracyCell g={g} />
               </td>
               {!compact && <td className="muted tabular-nums">{Math.ceil(g.plyCount / 2)}</td>}
               <td className="muted whitespace-nowrap">
@@ -96,5 +73,35 @@ export function GameTable({
         })}
       </tbody>
     </table>
+  );
+}
+
+/** Accuracy, or live analysis progress. Subscribes only to this game's progress. */
+function AccuracyCell({ g }: { g: StoredGame }) {
+  const progress = useQueueProgress(g.id);
+  if (g.analysisStatus === 'done' && g.userAccuracy !== undefined)
+    return (
+      <>
+        <span className="font-semibold">{g.userAccuracy.toFixed(1)}</span>
+        <span className="muted"> / {g.opponentAccuracy?.toFixed(1)}</span>
+      </>
+    );
+  if (progress !== undefined)
+    return (
+      <div className="w-20 h-1.5 rounded bg-[var(--panel-2)]" title={`Analysing… ${Math.round(progress * 100)}%`}>
+        <div className="h-1.5 rounded bg-accent transition-all" style={{ width: `${progress * 100}%` }} />
+      </div>
+    );
+  if (g.analysisStatus === 'error') return <span className="muted">failed</span>;
+  return (
+    <button
+      className="text-xs underline muted hover:text-[var(--text)]"
+      onClick={(e) => {
+        e.stopPropagation();
+        analysisQueue.prioritize(g.id);
+      }}
+    >
+      Analyse
+    </button>
   );
 }
