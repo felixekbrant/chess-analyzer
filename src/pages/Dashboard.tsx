@@ -12,6 +12,8 @@ const LineTrend = lazy(() => import('../components/charts').then((m) => ({ defau
 import { AccuracyPill, GameCardList } from '../components/GameTable';
 import { MiniBoard } from '../components/MiniBoard';
 import { Icon } from '../components/Icon';
+import { isIos, isStandalone, useInstallPrompt } from '../pwa/install';
+import { isMobile } from '../lib/device';
 import { opponentName } from '../lib/games/build';
 import { parsePgn } from '../lib/pgn/parse';
 import type { StoredGame } from '../lib/types';
@@ -53,6 +55,8 @@ export default function Dashboard() {
     <div className="space-y-4 max-w-[1300px]">
       <PageHeader title={settings.username ? `Hi, ${settings.username}` : 'Home'} subtitle={`${ov.games} games · ${ov.analyzed} analysed`} />
       <ProgressCard analysed={doneCount} />
+
+      <InstallHint />
 
       <div className="grid md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] gap-3">
         {hero && <LatestGameCard game={hero} unreviewed={unreviewed.length} onOpen={() => open(hero)} />}
@@ -152,6 +156,46 @@ function PuzzlesCard({ due }: { due: number }) {
       </div>
       <span className="btn btn-primary !px-3 shrink-0">{due ? 'Start' : 'Practise'}</span>
     </Link>
+  );
+}
+
+/** On phones in a browser tab: suggest installing (once; dismissible). */
+function InstallHint() {
+  const [hidden, setHidden] = useState(() => {
+    try {
+      return localStorage.getItem('install-hint-dismissed') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const { canPrompt, prompt } = useInstallPrompt();
+  if (hidden || isStandalone() || !isMobile()) return null;
+  const dismiss = () => {
+    setHidden(true);
+    try {
+      localStorage.setItem('install-hint-dismissed', '1');
+    } catch {
+      // Private mode: just hide it for now.
+    }
+  };
+  return (
+    <div className="panel p-3 flex items-center gap-3 text-sm">
+      <Icon name="install" size={22} className="text-accent" />
+      <div className="flex-1 min-w-0">
+        <b>Install the app</b>
+        <div className="muted text-xs">
+          {canPrompt ? 'Full screen, instant start, works offline.' : isIos() ? 'Tap Share, then "Add to Home Screen".' : 'Use your browser menu: "Add to Home screen".'}
+        </div>
+      </div>
+      {canPrompt && (
+        <button className="btn btn-primary !px-3" onClick={() => void prompt()}>
+          Install
+        </button>
+      )}
+      <button className="icon-btn !min-w-9 !min-h-9" onClick={dismiss} aria-label="Dismiss">
+        <Icon name="close" size={16} />
+      </button>
+    </div>
   );
 }
 

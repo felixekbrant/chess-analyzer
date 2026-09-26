@@ -12,6 +12,10 @@ import { analysisQueue } from '../lib/engine/queue';
 import { exportBackup, importBackup } from '../lib/backup';
 import { PageHeader, Section } from '../components/ui';
 import { timeAgo } from '../lib/format';
+import { BOARD_THEMES } from '../lib/boardThemes';
+import { playSound, setSoundEnabled } from '../lib/sound';
+import { isIos, isStandalone, useInstallPrompt } from '../pwa/install';
+import type { BoardTheme } from '../lib/types';
 
 export default function SettingsPage() {
   const settings = useSettings();
@@ -175,15 +179,64 @@ export default function SettingsPage() {
         </div>
       </Section>
 
-      <Section title="Appearance">
-        <div className="flex gap-2">
-          {(['system', 'light', 'dark'] as const).map((t) => (
-            <button key={t} className={`btn ${settings.theme === t ? 'btn-primary' : ''}`} onClick={() => saveSettings({ theme: t })}>
-              {t[0].toUpperCase() + t.slice(1)}
-            </button>
-          ))}
+      <Section title="Appearance & sound">
+        <div className="space-y-4 text-sm">
+          <div>
+            <div className="font-semibold mb-1">Theme</div>
+            <div className="flex gap-2">
+              {(['system', 'light', 'dark'] as const).map((t) => (
+                <button key={t} className={`btn ${settings.theme === t ? 'btn-primary' : ''}`} onClick={() => saveSettings({ theme: t })}>
+                  {t[0].toUpperCase() + t.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <div className="font-semibold mb-1">Board</div>
+            <div className="grid grid-cols-4 gap-2 max-w-md">
+              {(Object.keys(BOARD_THEMES) as BoardTheme[]).map((k) => {
+                const t = BOARD_THEMES[k];
+                return (
+                  <button
+                    key={k}
+                    onClick={() => saveSettings({ boardTheme: k })}
+                    className={`rounded-lg p-1.5 border-2 ${settings.boardTheme === k ? 'border-accent' : 'border-transparent'}`}
+                    aria-pressed={settings.boardTheme === k}
+                  >
+                    <span className="grid grid-cols-2 aspect-square rounded overflow-hidden">
+                      <span style={{ background: t.light }} />
+                      <span style={{ background: t.dark }} />
+                      <span style={{ background: t.dark }} />
+                      <span style={{ background: t.light }} />
+                    </span>
+                    <span className="block text-xs mt-1">{t.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={settings.showCoordinates} onChange={(e) => saveSettings({ showCoordinates: e.target.checked })} />
+            Show coordinates on the board
+          </label>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={settings.sounds}
+              onChange={async (e) => {
+                await saveSettings({ sounds: e.target.checked });
+                if (e.target.checked) {
+                  setSoundEnabled(true);
+                  playSound('move');
+                }
+              }}
+            />
+            Move sounds
+          </label>
         </div>
       </Section>
+
+      <InstallSection />
 
       <Section title="Data">
         <p className="text-sm muted mb-3">
@@ -243,5 +296,31 @@ export default function SettingsPage() {
         Engine: Stockfish 19 (lite, WebAssembly, GPLv3). Opening names: lichess chess-openings (CC0). Games: chess.com Published-Data API.
       </p>
     </div>
+  );
+}
+
+/** "Install as an app": a one-tap button where the browser supports it, instructions otherwise. */
+function InstallSection() {
+  const { canPrompt, prompt } = useInstallPrompt();
+  if (isStandalone()) return null;
+  return (
+    <Section title="Install as an app">
+      <p className="text-sm muted mb-3">
+        Put Chess Analyzer on your home screen: it opens full screen like a normal app, starts instantly and works offline.
+      </p>
+      {canPrompt ? (
+        <button className="btn btn-primary" onClick={() => void prompt()}>
+          Install app
+        </button>
+      ) : isIos() ? (
+        <p className="text-sm">
+          In Safari, tap the <b>Share</b> button (the square with an arrow), then <b>Add to Home Screen</b>.
+        </p>
+      ) : (
+        <p className="text-sm">
+          In your browser menu, choose <b>Install app</b> or <b>Add to Home screen</b>.
+        </p>
+      )}
+    </Section>
   );
 }

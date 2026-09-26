@@ -69,3 +69,15 @@ describe('database v3 migration', () => {
     expect(await db.games.count()).toBe(2);
   });
 });
+
+describe('service worker', () => {
+  it('precaches the page, built assets and the engine under a versioned cache', async () => {
+    const { buildServiceWorker } = await import('../../pwa/buildServiceWorker');
+    const sw = buildServiceWorker(['index.html', 'assets/index-abc.js', 'stockfish/stockfish.wasm'], 'v123');
+    expect(sw).toContain("const CACHE = 'chess-analyzer-v123'");
+    const list = JSON.parse(/const PRECACHE = (\[.*\]);/.exec(sw)![1]);
+    expect(list).toEqual(['./index.html', './assets/index-abc.js', './stockfish/stockfish.wasm']);
+    // Other origins (the chess.com API) are never intercepted.
+    expect(sw).toContain('url.origin !== self.location.origin');
+  });
+});

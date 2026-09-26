@@ -1,1 +1,23 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="#81b64c"/><path d="M11 25h10l-1-3h-8zm2-4h6l-1-6 2-2-2-4h-4l-2 4 2 2z" fill="#fff"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="112" fill="#81b64c"/>
+  <g transform="translate(256 256) scale(1) translate(-256 -256)">
+  <rect x="128" y="112" width="64" height="64" fill="#ffffff" fill-opacity="1"/>
+  <rect x="192" y="112" width="64" height="64" fill="#ffffff" fill-opacity="0.28"/>
+  <rect x="256" y="112" width="64" height="64" fill="#ffffff" fill-opacity="1"/>
+  <rect x="320" y="112" width="64" height="64" fill="#ffffff" fill-opacity="0.28"/>
+  <rect x="128" y="176" width="64" height="64" fill="#ffffff" fill-opacity="0.28"/>
+  <rect x="192" y="176" width="64" height="64" fill="#ffffff" fill-opacity="1"/>
+  <rect x="256" y="176" width="64" height="64" fill="#ffffff" fill-opacity="0.28"/>
+  <rect x="320" y="176" width="64" height="64" fill="#ffffff" fill-opacity="1"/>
+  <rect x="128" y="240" width="64" height="64" fill="#ffffff" fill-opacity="1"/>
+  <rect x="192" y="240" width="64" height="64" fill="#ffffff" fill-opacity="0.28"/>
+  <rect x="256" y="240" width="64" height="64" fill="#ffffff" fill-opacity="1"/>
+  <rect x="320" y="240" width="64" height="64" fill="#ffffff" fill-opacity="0.28"/>
+  <rect x="128" y="304" width="64" height="64" fill="#ffffff" fill-opacity="0.28"/>
+  <rect x="192" y="304" width="64" height="64" fill="#ffffff" fill-opacity="1"/>
+  <rect x="256" y="304" width="64" height="64" fill="#ffffff" fill-opacity="0.28"/>
+  <rect x="320" y="304" width="64" height="64" fill="#ffffff" fill-opacity="1"/>
+  <circle cx="352" cy="336" r="76" fill="#81b64c" stroke="#ffffff" stroke-width="30"/>
+  <line x1="408" y1="392" x2="452" y2="436" stroke="#ffffff" stroke-width="36" stroke-linecap="round"/>
+  </g>
+</svg>
