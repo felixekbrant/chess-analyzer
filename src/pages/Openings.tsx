@@ -36,7 +36,12 @@ export default function Openings() {
           .filter((c) => filters.color === 'all' || filters.color === c)
           .map((c) => (
             <Section key={c} title={c === 'w' ? 'As White' : 'As Black'}>
-              <OpeningTable rows={stats.filter((s) => s.color === c)} />
+              <div className="hidden md:block">
+                <OpeningTable rows={stats.filter((s) => s.color === c)} />
+              </div>
+              <div className="md:hidden">
+                <OpeningCards rows={stats.filter((s) => s.color === c)} />
+              </div>
             </Section>
           ))
       )}
@@ -96,6 +101,48 @@ function OpeningTable({ rows }: { rows: OpeningStat[] }) {
         </tbody>
       </table>
     </div>
+  );
+}
+
+/** Phones: one card per opening instead of a wide table. */
+function OpeningCards({ rows }: { rows: OpeningStat[] }) {
+  if (!rows.length) return <Empty>No games.</Empty>;
+  return (
+    <ul className="divide-y divide-[var(--border)] -mx-1">
+      {rows.map((r) => (
+        <li key={r.key} className="px-1 py-3 space-y-1.5">
+          <div className="flex items-start justify-between gap-2">
+            <span className="font-semibold leading-snug">{r.name}</span>
+            <span
+              className="text-sm font-bold tabular-nums shrink-0"
+              style={{ color: r.games >= 3 ? (r.score >= 55 ? '#6a9e36' : r.score < 40 ? '#e02828' : undefined) : undefined }}
+            >
+              {fmtPct(r.score)}
+            </span>
+          </div>
+          <WDL w={r.wins} d={r.draws} l={r.losses} />
+          <div className="muted text-xs">
+            {r.games} game{r.games === 1 ? '' : 's'} · {r.wins}W {r.draws}D {r.losses}L
+            {r.accuracy !== undefined && ` · accuracy ${fmtPct(r.accuracy)}`}
+            {r.avgBookExit ? ` · leave book ~move ${r.avgBookExit.toFixed(0)}` : ''}
+          </div>
+          {r.commonErrors.length > 0 && (
+            <div className="text-xs flex flex-wrap gap-x-3 gap-y-1 items-center">
+              <span className="muted">You go wrong with</span>
+              {r.commonErrors.map((e, i) => (
+                <Link key={i} className="font-semibold underline" to={`/game/${encodeURIComponent(e.ref.gameId)}?ply=${e.ref.ply + 1}`}>
+                  {e.moveLabel}
+                  {e.count > 1 ? ` (${e.count}×)` : ''}
+                </Link>
+              ))}
+              <Link className="chip" to={`/training?opening=${encodeURIComponent(r.name)}`}>
+                Drill
+              </Link>
+            </div>
+          )}
+        </li>
+      ))}
+    </ul>
   );
 }
 

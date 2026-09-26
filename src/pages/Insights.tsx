@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useInsightData, DEFAULT_FILTERS, type InsightFilters } from '../hooks/useInsightData';
 import {
   MOTIF_LABEL,
@@ -33,6 +33,12 @@ export default function Insights() {
     storeFilters(f);
   };
   const { games, summaries, ag, loading } = useInsightData(filters);
+  const [params, setParams] = useSearchParams();
+  const tab = (TABS.some(([id]) => id === params.get('tab')) ? params.get('tab') : 'overview') as Tab;
+  const setTab = (t: Tab) => {
+    setParams(t === 'overview' ? {} : { tab: t }, { replace: true });
+    window.scrollTo({ top: 0 });
+  };
 
   const data = useMemo(() => {
     const tr = trend(games, summaries);
@@ -69,7 +75,9 @@ export default function Insights() {
       {!loading && !games.length && <Empty>No games for these filters.</Empty>}
       {games.length > 0 && (
         <>
-          <SectionNav />
+          <TabBar tab={tab} onChange={setTab} />
+          {tab === 'overview' && (
+          <>
           <div id="overview" className="grid grid-cols-2 lg:grid-cols-5 gap-3 scroll-mt-16">
             <Stat label="Score" value={fmtPct(data.ov.score)} sub={`${data.ov.wins}W ${data.ov.draws}D ${data.ov.losses}L`} />
             <Stat label="Accuracy" value={fmtPct(data.ov.accuracy, 1)} />
@@ -109,6 +117,11 @@ export default function Insights() {
             </Section>
           </div>
 
+          </>
+          )}
+
+          {tab === 'mistakes' && (
+          <>
           <div className="grid lg:grid-cols-2 gap-4">
             <Section title="Game phases" id="phases">
               <div className="overflow-x-auto">
@@ -166,6 +179,36 @@ export default function Insights() {
             </Section>
           </div>
 
+          <Section title="Repeated mistakes" id="repeated" right={data.repeated.length > 0 && <Link className="text-sm underline" to="/training?repeated=1">Drill them →</Link>}>
+            {!data.repeated.length ? (
+              <Empty>No position where you made the same mistake twice. 👍</Empty>
+            ) : (
+              <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                {data.repeated.slice(0, 8).map((r) => (
+                  <div key={r.key} className="space-y-2">
+                    <Link className="block max-w-[240px]" to={`/game/${encodeURIComponent(r.refs[r.refs.length - 1].gameId)}?ply=${r.refs[r.refs.length - 1].ply + 1}`}>
+                      <MiniBoard fen={r.fen} orientation={r.fen.split(' ')[1] === 'w' ? 'white' : 'black'} />
+                    </Link>
+                    <div className="text-sm">
+                      You played <b>{r.moveLabel}</b> {r.count}× {r.bestSan && <>— better is <b>{r.bestSan}</b></>}
+                    </div>
+                    {r.opening && <div className="muted text-xs">{r.opening}</div>}
+                    <div className="flex flex-wrap gap-1">
+                      {r.refs.map((x, i) => (
+                        <Link key={i} className="chip hover:underline" to={`/game/${encodeURIComponent(x.gameId)}?ply=${x.ply + 1}`}>
+                          game {i + 1}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Section>
+
+          </>
+          )}
+          {tab === 'time' && (
           <Section title="Time management" id="time">
             {data.mixesDailyAndLive && (
               <p className="muted text-xs mb-3">
@@ -240,33 +283,8 @@ export default function Insights() {
             )}
           </Section>
 
-          <Section title="Repeated mistakes" id="repeated" right={data.repeated.length > 0 && <Link className="text-sm underline" to="/training?repeated=1">Drill them →</Link>}>
-            {!data.repeated.length ? (
-              <Empty>No position where you made the same mistake twice. 👍</Empty>
-            ) : (
-              <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">
-                {data.repeated.slice(0, 8).map((r) => (
-                  <div key={r.key} className="space-y-2">
-                    <Link className="block max-w-[240px]" to={`/game/${encodeURIComponent(r.refs[r.refs.length - 1].gameId)}?ply=${r.refs[r.refs.length - 1].ply + 1}`}>
-                      <MiniBoard fen={r.fen} orientation={r.fen.split(' ')[1] === 'w' ? 'white' : 'black'} />
-                    </Link>
-                    <div className="text-sm">
-                      You played <b>{r.moveLabel}</b> {r.count}× {r.bestSan && <>— better is <b>{r.bestSan}</b></>}
-                    </div>
-                    {r.opening && <div className="muted text-xs">{r.opening}</div>}
-                    <div className="flex flex-wrap gap-1">
-                      {r.refs.map((x, i) => (
-                        <Link key={i} className="chip hover:underline" to={`/game/${encodeURIComponent(x.gameId)}?ply=${x.ply + 1}`}>
-                          game {i + 1}
-                        </Link>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Section>
-
+          )}
+          {tab === 'results' && (
           <div id="results" className="grid lg:grid-cols-3 gap-4 scroll-mt-16">
             <Section title="Winning & losing positions">
               <div className="space-y-3 text-sm">
@@ -316,7 +334,9 @@ export default function Insights() {
               <HBarList data={data.term.wins.map((t) => ({ label: t.name, value: t.value }))} />
             </Section>
           </div>
+          )}
 
+          {tab === 'sessions' && (
           <Section title="Sessions & tilt" id="sessions">
             <div className="grid md:grid-cols-3 gap-6">
               <div className="space-y-3 text-sm">
@@ -335,6 +355,7 @@ export default function Insights() {
             </div>
             <p className="muted text-xs mt-3">A session = games less than 45 minutes apart.</p>
           </Section>
+          )}
         </>
       )}
     </div>
@@ -373,26 +394,31 @@ function ExampleList({ refs }: { refs: MoveRef[] }) {
   );
 }
 
-const NAV_SECTIONS = [
+type Tab = 'overview' | 'mistakes' | 'time' | 'results' | 'sessions';
+
+const TABS: [Tab, string][] = [
   ['overview', 'Overview'],
-  ['trends', 'Trends'],
-  ['phases', 'Phases'],
   ['mistakes', 'Mistakes'],
   ['time', 'Time'],
-  ['repeated', 'Repeated'],
   ['results', 'Results'],
   ['sessions', 'Sessions'],
-] as const;
+];
 
-/** Sticky jump links. Uses scrollIntoView because the URL hash is taken by the router. */
-function SectionNav() {
+/** Sticky tabs. Only the active tab is rendered, so phones never draw every chart at once. */
+function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
   return (
-    <nav className="sticky top-0 z-10 -mx-4 md:-mx-6 px-4 md:px-6 py-2 bg-[var(--bg)]/95 backdrop-blur border-b border-[var(--border)] flex gap-1 overflow-x-auto">
-      {NAV_SECTIONS.map(([id, label]) => (
+    <nav
+      className="sticky top-12 md:top-0 z-20 -mx-4 md:-mx-6 px-4 md:px-6 py-2 bg-[var(--bg)]/95 backdrop-blur border-b border-[var(--border)] flex gap-1 overflow-x-auto no-scrollbar"
+      role="tablist"
+      aria-label="Insight sections"
+    >
+      {TABS.map(([id, label]) => (
         <button
           key={id}
-          className="chip !py-1 !px-3 whitespace-nowrap hover:bg-[var(--panel)]"
-          onClick={() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+          role="tab"
+          aria-selected={tab === id}
+          className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-semibold ${tab === id ? 'bg-[var(--text)] text-[var(--bg)]' : 'bg-[var(--panel-2)] muted'}`}
+          onClick={() => onChange(id)}
         >
           {label}
         </button>
