@@ -2,7 +2,7 @@ import { opponentElo, opponentName, userElo } from '../lib/games/build';
 import { analysisQueue } from '../lib/engine/queue';
 import { useQueueProgress } from '../hooks/useStores';
 import type { StoredGame } from '../lib/types';
-import { ResultPill, TIME_CLASS_ICON, formatDate } from './ui';
+import { ResultPill, TimeClassIcon, formatDate } from './ui';
 
 export type SortKey = 'date' | 'accuracy';
 
@@ -48,7 +48,7 @@ export function GameTable({
               </td>
               <td>
                 <div className="flex items-center gap-2">
-                  <span title={g.timeClass}>{TIME_CLASS_ICON[g.timeClass]}</span>
+                  <TimeClassIcon tc={g.timeClass} />
                   <span
                     className="inline-block w-3 h-3 rounded-sm border border-[var(--border)]"
                     style={{ background: g.userColor === 'b' ? '#f4f4f4' : '#403d39' }}

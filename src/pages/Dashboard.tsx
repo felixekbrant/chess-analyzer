@@ -178,7 +178,11 @@ function Welcome() {
 /** Shown while games are being imported or analysed, so the first minutes don't feel empty. */
 function ProgressCard({ analysed }: { analysed: number }) {
   const sync = useSyncStatus();
-  const queue = useQueue((s) => s);
+  // Narrow subscriptions: this card changes when a game finishes, not on every engine tick.
+  const pending = useQueue((s) => s.pending);
+  const paused = useQueue((s) => s.paused);
+  const etaSeconds = useQueue((s) => s.etaSeconds);
+  const queue = { pending, paused, etaSeconds };
   const importing = sync.syncing && sync.progress?.phase === 'months';
   if (!importing && !(queue.pending > 0 && !queue.paused)) return null;
   const total = analysed + queue.pending;

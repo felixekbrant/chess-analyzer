@@ -11,7 +11,7 @@ import { syncManager } from '../lib/syncManager';
 import { analysisQueue } from '../lib/engine/queue';
 import { exportBackup, importBackup } from '../lib/backup';
 import { PageHeader, Section } from '../components/ui';
-import { timeAgo } from '../App';
+import { timeAgo } from '../lib/format';
 
 export default function SettingsPage() {
   const settings = useSettings();

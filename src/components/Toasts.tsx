@@ -8,7 +8,7 @@ export function Toasts() {
   const [list, setList] = useState<Toast[]>([]);
   useEffect(() => subscribeToasts(setList), []);
   return (
-    <div className="fixed bottom-4 right-4 left-4 sm:left-auto z-50 flex flex-col gap-2 items-end pointer-events-none" aria-live="polite">
+    <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] md:bottom-4 right-4 left-4 sm:left-auto z-50 flex flex-col gap-2 items-end pointer-events-none" aria-live="polite">
       {list.map((t) => (
         <div
           key={t.id}

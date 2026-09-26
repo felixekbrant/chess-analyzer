@@ -1,12 +1,14 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { Icon } from './Icon';
 import type { StoredGame } from '../lib/types';
 
 export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: ReactNode; actions?: ReactNode }) {
   return (
     <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
       <div>
-        <h1 className="text-2xl font-extrabold tracking-tight">{title}</h1>
+        {/* On phones the top bar already shows the page title. */}
+        <h1 className="hidden md:block text-2xl font-extrabold tracking-tight">{title}</h1>
         {subtitle && <p className="muted text-sm mt-1">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
@@ -88,11 +90,11 @@ export function fmtPct(v: number | undefined, digits = 0) {
   return v === undefined || Number.isNaN(v) ? '–' : `${v.toFixed(digits)}%`;
 }
 
-export const TIME_CLASS_ICON: Record<string, string> = {
-  bullet: '⚡',
-  blitz: '🔥',
-  rapid: '⏱',
-  daily: '☀',
-  classical: '🕰',
-  unknown: '•',
-};
+export function TimeClassIcon({ tc, size = 16 }: { tc: string; size?: number }) {
+  const name = tc === 'bullet' || tc === 'blitz' || tc === 'rapid' || tc === 'daily' ? tc : 'rapid';
+  return (
+    <span title={tc} className="inline-flex muted">
+      <Icon name={name} size={size} />
+    </span>
+  );
+}
