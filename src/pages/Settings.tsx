@@ -21,7 +21,9 @@ export default function SettingsPage() {
   const syncState = useLiveQuery(() => (settings.username ? db.sync.get(settings.username.toLowerCase()) : undefined), [settings.username]);
   const counts = useLiveQuery(async () => ({ games: await db.games.count(), analysed: await db.analyses.count(), puzzles: await db.puzzles.count() }), []);
 
-  useEffect(() => setUsername(settings.username), [settings.username]);
+  useEffect(() => {
+    setUsername(settings.username);
+  }, [settings.username]);
 
   async function saveUsername() {
     const u = username.trim();

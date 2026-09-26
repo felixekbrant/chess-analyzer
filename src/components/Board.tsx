@@ -54,7 +54,9 @@ function BoardImpl({ fen, orientation = 'white', arrows = [], lastMove, badge, m
 
   // Tap-to-move: first tap selects a piece, second tap picks the target square.
   const [selected, setSelected] = useState<string | null>(null);
-  useEffect(() => setSelected(null), [fen]);
+  useEffect(() => {
+    setSelected(null);
+  }, [fen]);
   const targets = useMemo(() => {
     if (!selected) return [];
     try {

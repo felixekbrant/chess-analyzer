@@ -1,5 +1,7 @@
 import { memo } from 'react';
 import { defaultPieces } from 'react-chessboard';
+import { useSettings } from '../hooks/useStores';
+import { BOARD_THEMES } from '../lib/boardThemes';
 
 const FILES = 'abcdefgh';
 
@@ -18,6 +20,7 @@ export const MiniBoard = memo(function MiniBoard({
   highlight?: string[];
   size?: number;
 }) {
+  const theme = BOARD_THEMES[useSettings().boardTheme] ?? BOARD_THEMES.green;
   const rows = fen.split(' ')[0].split('/');
   const cells: { sq: string; piece?: string }[] = [];
   rows.forEach((row, r) => {
@@ -43,7 +46,7 @@ export const MiniBoard = memo(function MiniBoard({
         const light = (FILES.indexOf(sq[0]) + Number(sq[1])) % 2 === 1;
         const hl = highlight.includes(sq);
         return (
-          <div key={sq} className="aspect-square" style={{ background: hl ? (light ? '#f5f682' : '#b9ca43') : light ? '#ebecd0' : '#779556' }}>
+          <div key={sq} className="aspect-square" style={{ background: hl ? (light ? '#f5f682' : '#b9ca43') : light ? theme.light : theme.dark }}>
             {piece && defaultPieces[piece]?.({ svgStyle: { width: '100%', height: '100%' } })}
           </div>
         );

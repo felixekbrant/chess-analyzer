@@ -13,7 +13,7 @@ import { StatusIndicator } from './components/StatusIndicator';
 
 // Pages other than the dashboard are loaded on first visit to keep the initial download small.
 const Games = lazy(() => import('./pages/Games'));
-const Review = lazy(() => import('./pages/Review'));
+const Review = lazy(() => import('./pages/review'));
 const Insights = lazy(() => import('./pages/Insights'));
 const Openings = lazy(() => import('./pages/Openings'));
 const Training = lazy(() => import('./pages/Training'));
