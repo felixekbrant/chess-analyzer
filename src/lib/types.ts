@@ -31,6 +31,8 @@ export interface StoredGame {
   /** The user's accuracy once analysed. */
   userAccuracy?: number;
   opponentAccuracy?: number;
+  /** chess.com's own accuracy, present once someone has run Game Review on chess.com. */
+  chesscomAccuracy?: { w: number; b: number };
   addedAt: number;
   /** When the user last opened this game's review (for "new games to review"). */
   reviewedAt?: number;
@@ -105,6 +107,8 @@ export interface MoveAnalysis {
   /** Best line from the position before the move, in SAN. */
   bestLineSan: string[];
   bestLineUci: string[];
+  /** Score of the engine's second choice before the move, kept so analyses can be rebuilt offline. */
+  secondScore?: Score;
   /** Opponent's best reply line after the move, in SAN. */
   replyLineSan: string[];
   /** Win % (0-100) from the mover's point of view. */
@@ -123,6 +127,8 @@ export interface MoveAnalysis {
 
 export interface GameAnalysis {
   gameId: string;
+  /** ANALYSIS_MODEL this was built with; older analyses are rebuilt from their stored evals. */
+  model?: number;
   depth: number;
   createdAt: number;
   moves: MoveAnalysis[];

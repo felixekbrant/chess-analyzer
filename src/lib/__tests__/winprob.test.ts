@@ -3,11 +3,11 @@ import { gameAccuracy, moveAccuracy } from '../analysis/accuracy';
 import { winPercent, winPercentFromCp } from '../analysis/winprob';
 
 describe('win percent', () => {
-  it('matches the lichess curve', () => {
+  it('follows the chess.com-calibrated curve', () => {
     expect(winPercentFromCp(0)).toBeCloseTo(50);
-    expect(winPercentFromCp(100)).toBeCloseTo(59.1, 1);
-    expect(winPercentFromCp(-300)).toBeCloseTo(24.9, 1);
-    expect(winPercentFromCp(5000)).toBe(winPercentFromCp(1000));
+    expect(winPercentFromCp(100)).toBeCloseTo(55.7, 1);
+    expect(winPercentFromCp(-300)).toBeCloseTo(33.5, 1);
+    expect(winPercentFromCp(2000)).toBeGreaterThan(98);
   });
   it('handles mate and finished games', () => {
     expect(winPercent({ kind: 'mate', v: 3 })).toBe(100);
@@ -22,8 +22,10 @@ describe('accuracy', () => {
     expect(moveAccuracy(50, 60)).toBe(100);
   });
   it('drops with win-% loss', () => {
-    expect(moveAccuracy(50, 45)).toBeGreaterThan(80);
-    expect(moveAccuracy(80, 20)).toBeLessThan(10);
+    expect(moveAccuracy(50, 49)).toBe(100);
+    expect(moveAccuracy(50, 48)).toBeGreaterThan(85);
+    expect(moveAccuracy(50, 45)).toBeLessThan(60);
+    expect(moveAccuracy(80, 20)).toBeLessThan(16);
   });
   it('gives a perfect game 100 and punishes a blunder', () => {
     const flat = Array(41).fill(50);

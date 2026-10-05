@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { ensureOpenings } from '../openings/eco';
-import { buildAnalysis, detectMotifs, isSacrifice } from '../analysis/analyzeGame';
+import { ANALYSIS_MODEL, buildAnalysis, classify, detectMotifs, isSacrifice, rebuildAnalysis } from '../analysis/analyzeGame';
 import { parsePgn, type ParsedPly } from '../pgn/parse';
 import { playUci } from '../analysis/board';
 import type { PositionEval, Score } from '../types';
@@ -105,6 +105,27 @@ describe('buildAnalysis', () => {
     expect(a.moves[6].classification).toBe('best');
     expect(a.moves[5].motifs).toContain('allowed_mate');
     expect(a.accuracy.b).toBeLessThan(a.accuracy.w);
+
+    // An analysis from an older model is rebuilt offline to the same result.
+    const old = { ...a, model: 1, accuracy: { w: 0, b: 0 }, moves: a.moves.map((m) => ({ ...m, classification: 'good' as const })) };
+    const rebuilt = rebuildAnalysis(old, parsed);
+    expect(rebuilt.model).toBe(ANALYSIS_MODEL);
+    expect(rebuilt.moves.map((m) => m.classification)).toEqual(a.moves.map((m) => m.classification));
+    expect(rebuilt.accuracy).toEqual(a.accuracy);
+    expect(rebuilt.moves[5].motifs).toContain('allowed_mate');
+  });
+
+  it("calls a missed win after the opponent's error a Miss, like chess.com", () => {
+    const fen = 'r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3';
+    const ply = plyFrom(fen, 'f1c4');
+    const before = { fen, depth: 14, lines: [{ score: cp(600), pv: ['f3e5'] }] };
+    const base = { ply, before, isBook: false, prevTo: 'c6' };
+    // Was winning after their blunder, still better afterwards: Miss rather than Blunder.
+    expect(classify({ ...base, winBefore: 90, winAfter: 60, winLoss: 30, prevWinLoss: 35 })).toBe('miss');
+    // Same loss but now worse than before their error: a plain blunder.
+    expect(classify({ ...base, winBefore: 70, winAfter: 30, winLoss: 40, prevWinLoss: 20 })).toBe('blunder');
+    // No error by the opponent: a mistake.
+    expect(classify({ ...base, winBefore: 70, winAfter: 58, winLoss: 12, prevWinLoss: 0 })).toBe('mistake');
   });
 });
 

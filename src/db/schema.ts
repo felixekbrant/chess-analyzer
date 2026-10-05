@@ -97,12 +97,19 @@ export async function saveSettings(patch: Partial<Settings>): Promise<Settings> 
   return next;
 }
 
-/** Splits built games into the games and pgns tables. Existing games are left untouched. Returns how many were new. */
+/**
+ * Splits built games into the games and pgns tables. Existing games are left untouched, except that
+ * chess.com's accuracy is picked up once the game has been reviewed there. Returns how many were new.
+ */
 export async function addGames(database: ChessDB, games: NewGame[]): Promise<number> {
   if (!games.length) return 0;
   return database.transaction('rw', database.games, database.pgns, async () => {
-    const existing = new Set((await database.games.bulkGet(games.map((g) => g.id))).filter(Boolean).map((g) => g!.id));
-    const fresh = games.filter((g) => !existing.has(g.id));
+    const stored = new Map((await database.games.bulkGet(games.map((g) => g.id))).filter((g) => !!g).map((g) => [g.id, g]));
+    for (const g of games) {
+      const old = stored.get(g.id);
+      if (old && g.chesscomAccuracy && !old.chesscomAccuracy) await database.games.update(g.id, { chesscomAccuracy: g.chesscomAccuracy });
+    }
+    const fresh = games.filter((g) => !stored.has(g.id));
     await database.games.bulkAdd(fresh.map(withoutPgn));
     await database.pgns.bulkPut(fresh.map((g) => ({ gameId: g.id, pgn: g.pgn })));
     return fresh.length;

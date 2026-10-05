@@ -103,6 +103,7 @@ export function buildGameFromChessCom(g: ChessComGame, username: string): NewGam
     timeClass: (['bullet', 'blitz', 'rapid', 'daily'].includes(g.time_class) ? g.time_class : game.timeClass) as TimeClass,
     timeControl: g.time_control,
     rated: g.rated,
+    ...(g.accuracies ? { chesscomAccuracy: { w: g.accuracies.white, b: g.accuracies.black } } : {}),
   };
 }
 

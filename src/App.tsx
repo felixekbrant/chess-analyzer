@@ -1,4 +1,5 @@
 import { Suspense, lazy, useEffect, useState } from 'react';
+import { upgradeStoredAnalyses } from './lib/analysis/upgrade';
 import { NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { useApplyTheme } from './hooks/useTheme';
 import { useSettings } from './hooks/useStores';
@@ -58,6 +59,7 @@ export default function App() {
   useEffect(() => {
     syncManager.start();
     void analysisQueue.refreshCount();
+    void upgradeStoredAnalyses();
   }, []);
 
   // A game review is a full-screen view on phones with its own bottom action bar.

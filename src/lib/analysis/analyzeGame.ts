@@ -29,8 +29,11 @@ import {
 import { winPercent, winPercentFor } from './winprob';
 import { formatDuration } from '../pgn/parse';
 
-/** Win-% loss thresholds (mover POV) for each classification. */
+/** Win-% loss thresholds (mover POV) for each classification: chess.com's expected-points cutoffs. */
 export const THRESHOLDS = { excellent: 2, good: 5, inaccuracy: 10, mistake: 20 } as const;
+
+/** Bumped whenever classification or accuracy changes, so stored analyses get rebuilt. */
+export const ANALYSIS_MODEL = 2;
 
 export function phaseOf(fen: string, ply: number): Phase {
   if (nonPawnMaterial(fen) <= 26) return 'endgame';
@@ -89,6 +92,7 @@ export function buildAnalysis(gameId: string, parsed: ParsedGame, evals: Positio
       prevWinLoss: prev?.winLoss ?? 0,
       prevTo: prev?.uci.slice(2, 4),
     });
+    const second = before.lines[1]?.score;
 
     const motifs: Motif[] = [];
     let explanation = '';
@@ -116,6 +120,7 @@ export function buildAnalysis(gameId: string, parsed: ParsedGame, evals: Positio
       bestSan: bestLine.sans[0],
       bestLineSan: bestLine.sans,
       bestLineUci: best?.pv.slice(0, 10) ?? [],
+      ...(second ? { secondScore: second } : {}),
       replyLineSan: replyLine.sans,
       winBefore,
       winAfter,
@@ -141,6 +146,7 @@ export function buildAnalysis(gameId: string, parsed: ParsedGame, evals: Positio
 
   return {
     gameId,
+    model: ANALYSIS_MODEL,
     depth,
     createdAt: Date.now(),
     moves,
@@ -167,10 +173,12 @@ export function classify(c: ClassifyInput): Classification {
   if (legalMoveCount(ply.fenBefore) === 1) return 'forced';
 
   const isBest = before.lines[0]?.pv[0] === ply.uci;
-  const opponentJustErred = c.prevWinLoss >= THRESHOLDS.inaccuracy;
 
+  // chess.com: a Miss is failing to cash in on the opponent's mistake. It replaces mistake or
+  // blunder as long as you are not worse off than before their error.
+  const opponentJustErred = c.prevWinLoss >= THRESHOLDS.inaccuracy;
+  if (winLoss >= THRESHOLDS.good && opponentJustErred && winBefore >= 60 && winAfter >= 35) return 'miss';
   if (winLoss >= THRESHOLDS.mistake) return 'blunder';
-  if (winLoss >= THRESHOLDS.good && opponentJustErred && winBefore >= 60) return 'miss';
   if (winLoss >= THRESHOLDS.inaccuracy) return 'mistake';
   if (winLoss >= THRESHOLDS.good) return 'inaccuracy';
 
@@ -181,8 +189,9 @@ export function classify(c: ClassifyInput): Classification {
     const isRecapture = c.prevTo === ply.uci.slice(2, 4);
     if (second && !isRecapture && !isInCheck(ply.fenBefore)) {
       const secondWin = winPercentFor(second.score, ply.color);
-      // Only in a real fight: finding the only move when already totally winning isn't special.
-      if (winAfter - secondWin >= 15 && winAfter >= 30 && winBefore < 90) return 'great';
+      // A critical move: every alternative is at least a mistake. Only in a real fight, since
+      // finding the only move when already totally winning isn't special.
+      if (winAfter - secondWin >= THRESHOLDS.inaccuracy && winAfter >= 30 && winBefore < 90) return 'great';
     }
     return 'best';
   }
@@ -396,4 +405,33 @@ function median(xs: number[]): number {
   const s = [...xs].sort((a, b) => a - b);
   const m = Math.floor(s.length / 2);
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+
+/**
+ * Rebuilds an analysis made with an older ANALYSIS_MODEL from what it stored, without the engine.
+ * Each position's best line is stored with the move played from it, and the reply line after a move
+ * is the next move's best line. Analyses from before `secondScore` was stored can't re-check Great
+ * moves, so a Great move that is still the best move stays Great.
+ */
+export function rebuildAnalysis(old: GameAnalysis, parsed: ParsedGame): GameAnalysis {
+  const n = parsed.plies.length;
+  if (old.moves.length !== n) throw new Error('stored analysis does not match the game');
+  const evals: PositionEval[] = [];
+  for (let i = 0; i <= n; i++) {
+    const m = old.moves[i];
+    const fen = i < n ? parsed.plies[i].fenBefore : parsed.plies[n - 1]?.fenAfter ?? parsed.startFen;
+    const lines = m ? [{ score: m.evalBefore, pv: m.bestLineUci }] : [{ score: old.evals[n], pv: [] }];
+    if (m?.secondScore) lines.push({ score: m.secondScore, pv: [] });
+    evals.push({ fen, depth: old.depth, lines });
+  }
+  const next = buildAnalysis(old.gameId, parsed, evals, old.depth);
+  next.createdAt = old.createdAt;
+  next.moves.forEach((m, i) => {
+    const was = old.moves[i];
+    if (was.classification === 'great' && !was.secondScore && m.classification === 'best') {
+      m.classification = 'great';
+      m.explanation = was.explanation;
+    }
+  });
+  return next;
 }

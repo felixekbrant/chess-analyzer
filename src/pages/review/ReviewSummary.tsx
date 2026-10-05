@@ -78,6 +78,11 @@ export function ReviewSummary({
                   </div>
                   <div className="text-3xl font-extrabold tabular-nums">{analysis.accuracy[c].toFixed(1)}</div>
                   <div className="text-[10px] uppercase tracking-wide opacity-70">accuracy</div>
+                  {game.chesscomAccuracy && (
+                    <div className="text-[11px] opacity-70 mt-0.5 tabular-nums" title="chess.com's Game Review accuracy for this game">
+                      chess.com: {game.chesscomAccuracy[c].toFixed(1)}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

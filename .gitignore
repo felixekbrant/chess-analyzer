@@ -4,3 +4,4 @@ public/stockfish
 *.tsbuildinfo
 .DS_Store
 .claude/
+scripts/calibration/*.json

@@ -7,6 +7,7 @@ A free, private game-review and coaching app for chess.com players. It runs enti
 - **Auto-import.** Enter your chess.com username. Your games are pulled from chess.com's public API when the app opens and every 10 minutes while it's open.
 - **Guided game review (chess.com style).**
   - It opens on a summary: the coach's verdict, accuracy for both players, grades for opening, middlegame and endgame, and move counts.
+  - Accuracy and move classifications follow chess.com's Game Review: the formulas are fitted to chess.com's own accuracy on 129 reviewed games (about 2.5 points apart on average; see `scripts/calibration`). When a game has been reviewed on chess.com, its accuracy is shown alongside.
   - Then it walks you through the moves with a coach bubble for each one, plus **Best** (plays the engine's line) and **Retry** (try your mistakes again).
   - There's an eval bar and graph, live engine lines, explore mode, and time spent per move.
   - Stockfish 19 does the analysis, running in the browser (WebAssembly).

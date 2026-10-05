@@ -1,9 +1,15 @@
 import type { Color, Score } from '../types';
 
-/** Lichess' win-percentage model: maps centipawns (White POV) to White's winning chances 0-100. */
+/**
+ * Slope of the expected-points curve. Fitted so that game accuracy matches chess.com's Game Review
+ * on 129 reviewed chess.com games (see scripts/calibration/README.md). chess.com's curve is flatter
+ * than lichess' (0.00368): +100 is 56% here, 59% on lichess.
+ */
+export const EP_SLOPE = 0.00229;
+
+/** chess.com-style expected points: maps centipawns (White POV) to White's winning chances 0-100. */
 export function winPercentFromCp(cp: number): number {
-  const c = Math.max(-1000, Math.min(1000, cp));
-  return 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * c)) - 1);
+  return 100 / (1 + Math.exp(-EP_SLOPE * cp));
 }
 
 /** White's win % for any score. */

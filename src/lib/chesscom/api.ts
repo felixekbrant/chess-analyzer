@@ -22,6 +22,8 @@ export interface ChessComGame {
   white: ChessComPlayer;
   black: ChessComPlayer;
   eco?: string;
+  /** Only present when the game has been reviewed on chess.com. */
+  accuracies?: { white: number; black: number };
 }
 
 export type Fetcher = (url: string) => Promise<Response>;
