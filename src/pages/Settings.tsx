@@ -179,6 +179,20 @@ export default function SettingsPage() {
         </div>
       </Section>
 
+      <Section title="Daily training">
+        <div className="text-sm">
+          <div className="font-semibold mb-1">Length of the Today plan</div>
+          <div className="flex gap-2">
+            {([10, 15, 25] as const).map((m) => (
+              <button key={m} className={`btn ${settings.sessionMinutes === m ? 'btn-primary' : ''}`} onClick={() => saveSettings({ sessionMinutes: m })}>
+                {m} min
+              </button>
+            ))}
+          </div>
+          <p className="muted text-xs mt-1">How many game reviews and puzzles Home suggests each day.</p>
+        </div>
+      </Section>
+
       <Section title="Appearance & sound">
         <div className="space-y-4 text-sm">
           <div>

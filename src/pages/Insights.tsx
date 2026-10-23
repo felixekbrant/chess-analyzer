@@ -21,6 +21,8 @@ import {
 import { coachReport } from '../lib/insights/coach';
 import { formatDuration } from '../lib/pgn/parse';
 import { CoachReport } from '../components/CoachReport';
+import { SkillsTab } from '../components/SkillsTab';
+import { useSkills } from '../hooks/useSkills';
 import { Filters, loadFilters, storeFilters } from '../components/Filters';
 import { HBarList, LineTrend } from '../components/charts';
 import { MiniBoard } from '../components/MiniBoard';
@@ -34,9 +36,9 @@ export default function Insights() {
   };
   const { games, summaries, ag, loading } = useInsightData(filters);
   const [params, setParams] = useSearchParams();
-  const tab = (TABS.some(([id]) => id === params.get('tab')) ? params.get('tab') : 'overview') as Tab;
+  const tab = (TABS.some(([id]) => id === params.get('tab')) ? params.get('tab') : 'skills') as Tab;
   const setTab = (t: Tab) => {
-    setParams(t === 'overview' ? {} : { tab: t }, { replace: true });
+    setParams(t === 'skills' ? {} : { tab: t }, { replace: true });
     window.scrollTo({ top: 0 });
   };
 
@@ -63,6 +65,9 @@ export default function Insights() {
     };
   }, [games, summaries, ag]);
 
+  // Filtered data must not move the weekly focus; Home manages that.
+  const skills = useSkills(games, ag, false);
+
   const dateFmt = (t: number) => new Date(t).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 
   return (
@@ -76,6 +81,7 @@ export default function Insights() {
       {games.length > 0 && (
         <>
           <TabBar tab={tab} onChange={setTab} />
+          {tab === 'skills' && <SkillsTab data={skills} />}
           {tab === 'overview' && (
           <>
           <div id="overview" className="grid grid-cols-2 lg:grid-cols-5 gap-3 scroll-mt-16">
@@ -394,9 +400,10 @@ function ExampleList({ refs }: { refs: MoveRef[] }) {
   );
 }
 
-type Tab = 'overview' | 'mistakes' | 'time' | 'results' | 'sessions';
+type Tab = 'skills' | 'overview' | 'mistakes' | 'time' | 'results' | 'sessions';
 
 const TABS: [Tab, string][] = [
+  ['skills', 'Skills'],
   ['overview', 'Overview'],
   ['mistakes', 'Mistakes'],
   ['time', 'Time'],

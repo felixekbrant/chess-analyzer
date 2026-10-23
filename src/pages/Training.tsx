@@ -14,6 +14,19 @@ import { MOTIF_LABEL } from '../lib/insights/compute';
 import { playSound } from '../lib/sound';
 import { isTouch } from '../lib/device';
 import type { Motif, Phase, Puzzle } from '../lib/types';
+import { SKILL_AREAS, SKILL_META, type SkillArea } from '../lib/insights/skills';
+import type { FocusStore } from '../lib/training/focus';
+import {
+  FOCUS_KEY,
+  PROGRESS_KEY,
+  SESSION_TARGETS,
+  addProgress,
+  drillPuzzles,
+  progressFor,
+  puzzleArea,
+  type SessionMinutes,
+  type TodayProgress,
+} from '../lib/training/today';
 import { Board } from '../components/Board';
 import { ClassificationBadge } from '../components/ClassificationBadge';
 import { Icon } from '../components/Icon';
@@ -31,6 +44,8 @@ export default function Training() {
   const phase = params.get('phase') as Phase | null;
   const opening = params.get('opening');
   const repeated = params.get('repeated') === '1';
+  const area = params.get('area') as SkillArea | null;
+  const inSession = params.get('session') === 'today';
   const [practiceAll, setPracticeAll] = useState(false);
   const [session, setSession] = useState({ solved: 0, failed: 0, streak: 0, best: 0 });
   const [skipped, setSkipped] = useState<string[]>([]);
@@ -39,6 +54,7 @@ export default function Training() {
 
   const puzzles = useLiveQuery(() => db.puzzles.toArray(), []);
   const now = Date.now();
+  const sess = useTodaySession(puzzles, settings.sessionMinutes);
 
   const filtered = useMemo(
     () =>
@@ -47,26 +63,49 @@ export default function Training() {
           (!motif || p.motifs.includes(motif)) &&
           (!phase || p.phase === phase) &&
           (!opening || (p.opening ?? '').startsWith(opening)) &&
-          (!repeated || p.occurrences >= 2),
+          (!repeated || p.occurrences >= 2) &&
+          (!area || puzzleArea(p) === area),
       ),
-    [puzzles, motif, phase, opening, repeated],
+    [puzzles, motif, phase, opening, repeated, area],
   );
   const due = filtered.filter((p) => p.due <= now);
   const queue = useMemo(() => {
+    if (inSession) {
+      // Due puzzles first; if you skip past them all, carry on with the drill.
+      if (sess.stage === 'due') {
+        const due = sortQueue((puzzles ?? []).filter((p) => p.due <= now && !skipped.includes(p.id)));
+        if (due.length) return due;
+      }
+      if (sess.stage !== 'done' && sess.focus && sess.progress.drill < sess.targets.drill) {
+        return drillPuzzles(puzzles ?? [], sess.focus).filter((p) => !skipped.includes(p.id));
+      }
+      return [];
+    }
     const pool = (practiceAll ? filtered : due).filter((p) => !skipped.includes(p.id));
     // Repeated mistakes first, then concrete tactics, then by due date and size of the mistake.
-    const quiet = (p: Puzzle) => (p.motifs.every((m) => QUIET.includes(m)) ? 1 : 0);
-    return [...pool].sort((a, b) => b.occurrences - a.occurrences || quiet(a) - quiet(b) || a.due - b.due || b.winLoss - a.winLoss);
+    return sortQueue(pool);
     // `due` is derived from `filtered` and the clock; recomputing on puzzle changes is enough.
-  }, [filtered, practiceAll, skipped, puzzles]);
+  }, [filtered, practiceAll, skipped, puzzles, inSession, sess]);
 
   const current = queue[0];
-  const focusLabel = motif ? MOTIF_LABEL[motif] : phase ? phase[0].toUpperCase() + phase.slice(1) : opening ? opening : repeated ? 'Repeated mistakes' : 'All puzzles';
+  // In today's session the counter shows progress through the current part of the plan.
+  const inDuePart = sess.stage === 'due' && !!current && current.due <= now;
+  const sessionPart = inDuePart ? { done: sess.progress.puzzles, target: sess.targets.puzzles } : { done: sess.progress.drill, target: sess.targets.drill };
+  const focusLabel = area ? SKILL_META[area].label : motif ? MOTIF_LABEL[motif] : phase ? phase[0].toUpperCase() + phase.slice(1) : opening ? opening : repeated ? 'Repeated mistakes' : 'All puzzles';
 
   const motifCounts = useMemo(() => {
     const m = new Map<Motif, number>();
     for (const p of puzzles ?? []) for (const x of p.motifs) if (x !== 'long_think') m.set(x, (m.get(x) ?? 0) + 1);
     return [...m.entries()].sort((a, b) => b[1] - a[1]);
+  }, [puzzles]);
+
+  const areaCounts = useMemo(() => {
+    const m = new Map<SkillArea, number>();
+    for (const p of puzzles ?? []) {
+      const a = puzzleArea(p);
+      if (a) m.set(a, (m.get(a) ?? 0) + 1);
+    }
+    return SKILL_AREAS.filter((a) => m.has(a)).map((a) => [a, m.get(a)!] as const);
   }, [puzzles]);
 
   const setFocus = (p: Record<string, string>) => {
@@ -82,11 +121,24 @@ export default function Training() {
 
       {/* One compact row instead of a wall of filter chips. */}
       <div className="flex items-center gap-2">
+        {inSession ? (
+          <div className="min-w-0">
+            <div className="font-bold truncate">Today's session</div>
+            <div className="muted text-xs">
+              {inDuePart
+                ? `Puzzles from your mistakes · ${sess.progress.puzzles}/${sess.targets.puzzles}`
+                : current && sess.focus
+                  ? `Focus drill: ${SKILL_META[sess.focus].label} · ${sess.progress.drill}/${sess.targets.drill}`
+                  : 'Done'}
+            </div>
+          </div>
+        ) : (
         <button className="btn min-w-0" onClick={() => setFocusOpen(true)} aria-haspopup="dialog">
           <Icon name="filter" size={16} />
           <span className="truncate">{focusLabel}</span>
           <span className="muted">▾</span>
         </button>
+        )}
         <div className="ml-auto flex items-center gap-3 text-sm tabular-nums">
           {session.streak > 1 && <span title="Solved in a row">🔥 {session.streak}</span>}
           <span className="muted" title="Solved / missed this session">
@@ -96,8 +148,12 @@ export default function Training() {
       </div>
       <Sheet open={focusOpen} onClose={() => setFocusOpen(false)} title="What to practise">
         <div className="grid gap-1">
-          <FocusItem active={!motif && !phase && !opening && !repeated} onClick={() => setFocus({})} label="All puzzles" count={puzzles?.length} />
+          <FocusItem active={!motif && !phase && !opening && !repeated && !area} onClick={() => setFocus({})} label="All puzzles" count={puzzles?.length} />
           <FocusItem active={repeated} onClick={() => setFocus({ repeated: '1' })} label="Repeated mistakes" count={puzzles?.filter((p) => p.occurrences >= 2).length} />
+          <div className="muted text-xs font-semibold uppercase tracking-wide mt-3 mb-1 px-3">Skill area</div>
+          {areaCounts.map(([a, n]) => (
+            <FocusItem key={a} active={area === a} onClick={() => setFocus({ area: a })} label={SKILL_META[a].label} count={n} />
+          ))}
           <div className="muted text-xs font-semibold uppercase tracking-wide mt-3 mb-1 px-3">Game phase</div>
           {(['opening', 'middlegame', 'endgame'] as Phase[]).map((ph) => (
             <FocusItem key={ph} active={phase === ph} onClick={() => setFocus({ phase: ph })} label={ph[0].toUpperCase() + ph.slice(1)} count={puzzles?.filter((p) => p.phase === ph).length} />
@@ -121,6 +177,18 @@ export default function Training() {
         </Section>
       ) : !puzzles ? (
         <div className="skeleton aspect-square max-w-[560px]" />
+      ) : inSession && !current ? (
+        <Section>
+          <div className="text-center py-8 space-y-3">
+            <div className="text-lg font-bold">🎉 {sess.stage === 'done' ? "Today's puzzles are done!" : 'Nothing left in this part.'}</div>
+            <p className="muted text-sm">
+              Solved {session.solved}, missed {session.failed}. Missed ones come back soon, so they stick.
+            </p>
+            <Link className="btn btn-primary" to="/">
+              Back to Today
+            </Link>
+          </div>
+        </Section>
       ) : !current ? (
         <Section>
           <div className="text-center py-8 space-y-3">
@@ -146,12 +214,16 @@ export default function Training() {
         <PuzzleView
           key={current.id + (practiceAll ? '-p' : '')}
           puzzle={current}
-          remaining={queue.length}
-          done={session.solved + session.failed}
+          remaining={inSession ? Math.max(1, sessionPart.target - sessionPart.done) : queue.length}
+          done={inSession ? sessionPart.done : session.solved + session.failed}
           autoNext={settings.autoNextPuzzle}
           onDone={async (grade) => {
             const next = schedule(current, grade);
             await db.puzzles.update(current.id, { ...next, lastResult: grade === 'again' ? 'failed' : 'solved' });
+            if (inSession && sess.stage !== 'done') {
+              await addProgress(inDuePart ? 'puzzles' : 'drill');
+              setSkipped((s) => [...s, current.id]);
+            }
             const clean = grade === 'good' || grade === 'easy';
             setSession((s) => {
               const streak = clean ? s.streak + 1 : 0;
@@ -162,7 +234,7 @@ export default function Training() {
                 best: Math.max(s.best, streak),
               };
             });
-            if (practiceAll) setSkipped((s) => [...s, current.id]);
+            if (practiceAll && !inSession) setSkipped((s) => [...s, current.id]);
           }}
           onSkip={() => setSkipped((s) => [...s, current.id])}
         />
@@ -480,4 +552,29 @@ function PuzzleView({
       </div>
     </div>
   );
+}
+
+/** Repeated mistakes first, then concrete tactics, then by due date and size of the mistake. */
+function sortQueue(pool: Puzzle[]): Puzzle[] {
+  const quiet = (p: Puzzle) => (p.motifs.every((m) => QUIET.includes(m)) ? 1 : 0);
+  return [...pool].sort((a, b) => b.occurrences - a.occurrences || quiet(a) - quiet(b) || a.due - b.due || b.winLoss - a.winLoss);
+}
+
+/** Where today's plan stands: due puzzles first, then the focus drill. */
+function useTodaySession(puzzles: Puzzle[] | undefined, minutes: SessionMinutes) {
+  const stored = useLiveQuery(async () => (await db.kv.get(PROGRESS_KEY))?.value as TodayProgress | undefined, []);
+  const focusStore = useLiveQuery(async () => (await db.kv.get(FOCUS_KEY))?.value as FocusStore | undefined, []);
+  return useMemo(() => {
+    const now = Date.now();
+    const progress = progressFor(stored, now);
+    const focus = focusStore?.current?.area;
+    const t = SESSION_TARGETS[minutes];
+    const due = (puzzles ?? []).filter((p) => p.due <= now).length;
+    const targets = {
+      puzzles: Math.min(t.puzzles, progress.puzzles + due),
+      drill: focus && focus !== 'time' ? Math.min(t.drill, drillPuzzles(puzzles ?? [], focus).length) : 0,
+    };
+    const stage: 'due' | 'drill' | 'done' = progress.puzzles < targets.puzzles ? 'due' : progress.drill < targets.drill ? 'drill' : 'done';
+    return { progress, targets, focus, stage };
+  }, [stored, focusStore, puzzles, minutes]);
 }

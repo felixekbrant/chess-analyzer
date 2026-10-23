@@ -5,3 +5,5 @@ public/stockfish
 .DS_Store
 .claude/
 scripts/calibration/*.json
+scripts/baselines/*.json
+scripts/baselines/*.log

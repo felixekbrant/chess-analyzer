@@ -21,6 +21,9 @@ A free, private game-review and coaching app for chess.com players. It runs enti
   - conversion of winning positions
   - results by opponent rating
   - tilt and session analysis
+- **Today plan.** A short daily session on the Home screen (10, 15 or 25 minutes): review your new games, the puzzles that are due, and a drill on this week's focus. Finishing it builds a streak.
+- **Skill profile.** Every error is counted in one of 9 areas (blunder check, opponent's tactics, spotting your chances, opening, converting, defending, endgame, middlegame, time management). Each area shows what you lose per game next to what players at your rating typically lose, and an estimated "plays like" rating. The reference numbers come from about 1,500 rated chess.com games analysed with the app's own engine (see `scripts/baselines`).
+- **Weekly focus.** The app picks the area that holds you back most compared with players at your rating and keeps it for a week. Then it checks your games: clearly better, and it moves on; not yet, and you get one more week. You can change it any time.
 - **Coach report.** Your top weaknesses, ranked by how many points they cost you, each with evidence, a tip and a drill.
 - **Training.** Puzzles made from your own mistakes, scheduled with spaced repetition (SM-2). Mistakes you repeat come first. An opening drill shows the line that led to each opening error.
 

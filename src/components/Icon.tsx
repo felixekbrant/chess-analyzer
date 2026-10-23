@@ -66,6 +66,13 @@ const PATHS: Record<string, ReactNode> = {
     </>
   ),
   install: <path d="M12 3v12M7 10l5 5 5-5M5 21h14" />,
+  target: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="12" cy="12" r="5" />
+      <circle cx="12" cy="12" r="1" />
+    </>
+  ),
   eye: (
     <>
       <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />

@@ -1,36 +1,30 @@
 import { Suspense, lazy, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db/schema';
-import { usePgn, useQueue, useQueueProgress, useSettings, useSyncStatus } from '../hooks/useStores';
+import { useQueue, useSettings, useSyncStatus } from '../hooks/useStores';
 import { DEFAULT_FILTERS, useInsightData } from '../hooks/useInsightData';
 import { overview, trend } from '../lib/insights/compute';
 import { coachReport } from '../lib/insights/coach';
 import { CoachReport } from '../components/CoachReport';
+import { FocusCard, PointsCard, TodayCard } from '../components/Coaching';
+import { MIN_PROFILE_GAMES, useSkills } from '../hooks/useSkills';
 // Charts (recharts) are loaded after the rest of the dashboard so first paint isn't blocked by them.
 const LineTrend = lazy(() => import('../components/charts').then((m) => ({ default: m.LineTrend })));
-// The mini board uses the chessboard library's piece art; loading it lazily keeps that library out
-// of the first download (the thumbnail appears a moment after the page).
-const MiniBoard = lazy(() => import('../components/MiniBoard').then((m) => ({ default: m.MiniBoard })));
-import { AccuracyPill, GameCardList } from '../components/GameTable';
+import { GameCardList } from '../components/GameTable';
 import { Icon } from '../components/Icon';
 import { isIos, isStandalone, useInstallPrompt } from '../pwa/install';
 import { isMobile } from '../lib/device';
-import { opponentName } from '../lib/games/build';
-import { parsePgn } from '../lib/pgn/parse';
-import type { StoredGame } from '../lib/types';
-import { PageHeader, ResultPill, Section, Stat, fmtPct } from '../components/ui';
+import { PageHeader, Section, Stat, fmtPct } from '../components/ui';
 import { connectAccount } from '../lib/account';
-import { formatEta, relativeDay } from '../lib/format';
+import { formatEta } from '../lib/format';
 import { Link } from 'react-router-dom';
 
 export default function Dashboard() {
   const settings = useSettings();
   const navigate = useNavigate();
   const { games, summaries, ag, loading } = useInsightData(DEFAULT_FILTERS);
-  const due = useLiveQuery(() => db.puzzles.where('due').belowOrEqual(Date.now()).count(), []);
 
   const recentAg = useMemo(() => ag.slice(-50), [ag]);
+  const skills = useSkills(games, ag);
   const ov = useMemo(() => overview(games, ag), [games, ag]);
   const tr = useMemo(() => trend(games, summaries), [games, summaries]);
   const report = useMemo(
@@ -45,9 +39,6 @@ export default function Dashboard() {
   const ratingData = useMemo(() => tr.filter((p) => p.rating && p.timeClass === mainClass).slice(-100), [tr, mainClass]);
   const recentGames = useMemo(() => games.slice(0, 6), [games]);
   const doneCount = useMemo(() => games.filter((g) => g.analysisStatus === 'done').length, [games]);
-  // Games from the last two weeks that you haven't opened yet.
-  const unreviewed = useMemo(() => games.filter((g) => !g.reviewedAt && g.endTime > Date.now() - 14 * 86400000), [games]);
-  const hero = unreviewed[0] ?? games[0];
   const open = (g: { id: string }) => navigate(`/game/${encodeURIComponent(g.id)}`);
 
   if (!settings.username && !loading && !games.length) return <Welcome />;
@@ -60,9 +51,13 @@ export default function Dashboard() {
 
       <InstallHint />
 
-      <div className="grid lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] gap-3">
-        {hero && <LatestGameCard game={hero} unreviewed={unreviewed.length} onOpen={() => open(hero)} />}
-        <PuzzlesCard due={due ?? 0} />
+      <div className="grid lg:grid-cols-2 gap-3 items-start">
+        <TodayCard games={games} focus={skills.ready ? skills.focus.current?.area : undefined} minutes={settings.sessionMinutes} />
+        {skills.ready && skills.focus.current ? (
+          <FocusCard store={skills.focus} ranked={skills.ranked} ag={skills.ag} rating={skills.rating} timeClass={skills.timeClass} />
+        ) : (
+          <ProfilePending analysed={skills.ag.length} />
+        )}
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -73,9 +68,13 @@ export default function Dashboard() {
       </div>
 
       <div className="grid xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] gap-4">
-        <Section title="Your coach says" right={<span className="muted text-xs">last {recentAg.length} analysed games</span>}>
-          <CoachReport items={report.items} strengths={report.strengths} analysed={recentAg.length} limit={3} />
-        </Section>
+        {skills.ready ? (
+          <PointsCard ranked={skills.ranked} stats={skills.profile.stats} rating={skills.rating} timeClass={skills.timeClass} games={skills.profile.games} />
+        ) : (
+          <Section title="Your coach says" right={<span className="muted text-xs">last {recentAg.length} analysed games</span>}>
+            <CoachReport items={report.items} strengths={report.strengths} analysed={recentAg.length} limit={3} />
+          </Section>
+        )}
         <div className="space-y-4">
           <Section title="Recent games" right={<Link to="/games" className="text-sm underline muted">All games</Link>}>
             <GameCardList games={recentGames} onOpen={open} grouped={false} />
@@ -101,67 +100,26 @@ export default function Dashboard() {
   );
 }
 
-/** Chess.com-style "review your last game" card. */
-function LatestGameCard({ game, unreviewed, onOpen }: { game: StoredGame; unreviewed: number; onOpen: () => void }) {
-  const pgn = usePgn(game.id);
-  const fen = useMemo(() => {
-    if (!pgn) return undefined;
-    try {
-      return parsePgn(pgn).plies.at(-1)?.fenAfter;
-    } catch {
-      return undefined;
-    }
-  }, [pgn]);
-  const progress = useQueueProgress(game.id);
-  const resultText = game.userResult === 'win' ? 'You won' : game.userResult === 'loss' ? 'You lost' : game.userResult === 'draw' ? 'Draw' : game.result;
+/** Before there are enough analysed games for a skill profile. */
+function ProfilePending({ analysed }: { analysed: number }) {
   return (
-    <div className="panel p-3 flex gap-3 items-stretch">
-      <button className="w-28 sm:w-32 shrink-0" onClick={onOpen} aria-label="Open game review">
-        {fen && (
-          <Suspense fallback={<div className="skeleton aspect-square" />}>
-            <MiniBoard fen={fen} orientation={game.userColor === 'b' ? 'black' : 'white'} />
-          </Suspense>
-        )}
-      </button>
-      <div className="min-w-0 flex-1 flex flex-col">
-        <div className="muted text-xs font-semibold uppercase tracking-wide">
-          {unreviewed > 1 ? `${unreviewed} new games to review` : game.reviewedAt ? 'Latest game' : 'New game to review'}
+    <section className="panel p-4">
+      <div className="flex items-start gap-3">
+        <span className="w-10 h-10 rounded-xl bg-[var(--panel-2)] text-accent flex items-center justify-center shrink-0">
+          <Icon name="target" size={22} />
+        </span>
+        <div className="min-w-0">
+          <div className="font-bold">Your skill profile is on its way</div>
+          <p className="muted text-sm mt-1">
+            Once {MIN_PROFILE_GAMES} games are analysed ({Math.min(analysed, MIN_PROFILE_GAMES)}/{MIN_PROFILE_GAMES} so far), you'll see where you lose the most
+            points compared with players at your rating, and get a weekly focus to train.
+          </p>
+          <div className="h-1.5 rounded-full bg-[var(--panel-2)] mt-3 overflow-hidden">
+            <div className="h-full bg-accent rounded-full" style={{ width: `${(100 * Math.min(analysed, MIN_PROFILE_GAMES)) / MIN_PROFILE_GAMES}%` }} />
+          </div>
         </div>
-        <div className="font-bold truncate mt-0.5">vs {opponentName(game)}</div>
-        <div className="muted text-xs flex items-center gap-1.5 mt-0.5">
-          <ResultPill g={game} /> {resultText} · {relativeDay(game.endTime)}
-        </div>
-        <div className="mt-1 text-xs">
-          {game.userAccuracy !== undefined ? (
-            <span className="inline-flex items-center gap-1">
-              Accuracy <AccuracyPill value={game.userAccuracy} />
-            </span>
-          ) : progress !== undefined ? (
-            <span className="muted">Analysing… {Math.round(progress * 100)}%</span>
-          ) : (
-            <span className="muted">Waiting for analysis</span>
-          )}
-        </div>
-        <button className="btn btn-primary justify-center mt-auto !py-2.5" onClick={onOpen}>
-          <Icon name="star" size={16} /> Game Review
-        </button>
       </div>
-    </div>
-  );
-}
-
-function PuzzlesCard({ due }: { due: number }) {
-  return (
-    <Link to="/training" className="panel p-3 flex items-center gap-3 hover:brightness-110">
-      <span className="w-14 h-14 rounded-xl bg-[var(--panel-2)] flex items-center justify-center text-accent shrink-0">
-        <Icon name="puzzle" size={30} />
-      </span>
-      <div className="min-w-0 flex-1">
-        <div className="font-bold">{due ? `${due} puzzle${due === 1 ? '' : 's'} due` : 'Puzzles: all caught up'}</div>
-        <div className="muted text-xs">{due ? 'From your own mistakes. A few a day fixes them for good.' : 'New ones appear as your games are analysed.'}</div>
-      </div>
-      <span className="btn btn-primary !px-3 shrink-0">{due ? 'Start' : 'Practise'}</span>
-    </Link>
+    </section>
   );
 }
 

@@ -184,6 +184,8 @@ export interface Settings {
   sounds: boolean;
   boardTheme: BoardTheme;
   showCoordinates: boolean;
+  /** Length of the daily Today plan, in minutes. */
+  sessionMinutes: 10 | 15 | 25;
 }
 
 export type BoardTheme = 'green' | 'brown' | 'blue' | 'gray';
@@ -200,4 +202,5 @@ export const DEFAULT_SETTINGS: Settings = {
   sounds: true,
   boardTheme: 'green',
   showCoordinates: true,
+  sessionMinutes: 15,
 };
