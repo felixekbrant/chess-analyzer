@@ -6,6 +6,7 @@ import { skillLevel, typicalCost } from '../insights/baselines';
 import { chooseFocus, rankAreas, updateFocus, type AreaRank, type FocusStore } from '../training/focus';
 import { buildToday, currentStreak, dateKey, nextStreak, progressFor } from '../training/today';
 import type { Motif, StoredGame } from '../types';
+import { mainTimeClass } from '../../hooks/useSkills';
 
 const DAY = 86400000;
 
@@ -180,5 +181,14 @@ describe('today', () => {
     expect(currentStreak(s2, now + 2 * DAY)).toBe(2);
     expect(currentStreak(s2, now + 3 * DAY)).toBe(0);
     expect(nextStreak(s2, now + 4 * DAY).count).toBe(1);
+  });
+});
+
+describe('main time control', () => {
+  const tc = (...xs: string[]) => xs.map((timeClass) => ({ timeClass }) as StoredGame);
+  it('prefers your most-played timed control over daily', () => {
+    expect(mainTimeClass(tc('daily', 'daily', 'daily', 'blitz', 'rapid', 'blitz'))).toBe('blitz');
+    expect(mainTimeClass(tc('daily', 'daily'))).toBe('daily');
+    expect(mainTimeClass([])).toBe('blitz');
   });
 });

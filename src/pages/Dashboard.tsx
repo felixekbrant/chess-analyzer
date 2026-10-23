@@ -31,11 +31,8 @@ export default function Dashboard() {
     () => coachReport(recentAg, games.filter((g) => g.endTime >= (recentAg[0]?.game.endTime ?? 0)), summaries),
     [recentAg, games, summaries],
   );
-  const mainClass = useMemo(() => {
-    const c = new Map<string, number>();
-    for (const g of games) c.set(g.timeClass, (c.get(g.timeClass) ?? 0) + 1);
-    return [...c.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
-  }, [games]);
+  // The same time control as the skill profile: your most-played timed one.
+  const mainClass = skills.timeClass;
   const ratingData = useMemo(() => tr.filter((p) => p.rating && p.timeClass === mainClass).slice(-100), [tr, mainClass]);
   const recentGames = useMemo(() => games.slice(0, 6), [games]);
   const doneCount = useMemo(() => games.filter((g) => g.analysisStatus === 'done').length, [games]);
