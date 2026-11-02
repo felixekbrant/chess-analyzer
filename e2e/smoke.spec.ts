@@ -79,7 +79,6 @@ test('first visit: connect form imports games from chess.com', async ({ page }) 
   await page.getByLabel('History to import').selectOption('0');
   await page.getByRole('button', { name: 'Start' }).click();
   await expect(page.getByText(/29 new games imported from chess\.com/)).toBeVisible();
-  await expect(page.getByText(/^29 games · \d+ analysed$/)).toBeVisible();
 
   await openTab(page, 'Games');
   await expect(page.locator('[data-game-id]')).not.toHaveCount(0);
@@ -88,7 +87,6 @@ test('first visit: connect form imports games from chess.com', async ({ page }) 
 test('home: Today plan and skill focus', async ({ page }) => {
   await seed(page);
   await openTab(page, 'Home');
-  await expect(page.getByText(/^29 games · 29 analysed$/)).toBeVisible();
   const today = page.locator('section', { has: page.getByRole('heading', { name: 'Today', exact: true }) });
   await expect(today).toBeVisible();
   await expect(today.getByRole('listitem').first()).toBeVisible();
@@ -140,7 +138,7 @@ test('game review: summary, walkthrough and the line viewer', async ({ page }) =
   await page.getByRole('button', { name: 'Game summary' }).click();
   await page.getByRole('button', { name: 'Start review' }).click();
   await page.getByRole('button', { name: 'Next', exact: true }).click();
-  await expect(page.getByText(/winning chances \d+% → \d+%/).first()).toBeVisible();
+  await expect(page.getByText(/ is (a book move|best|excellent|good|forced|great|brilliant|an inaccuracy|a mistake|a blunder|a miss)$/).first()).toBeVisible();
 });
 
 test('training: solve a puzzle, reveal the next and see the full line', async ({ page }) => {
@@ -182,7 +180,7 @@ test('insights: skills tab and game filters', async ({ page }) => {
   await openTab(page, 'Insights');
   const tabs = page.getByRole('tablist', { name: 'Insight sections' });
   await expect(tabs.getByRole('tab', { name: 'Skills' })).toHaveAttribute('aria-selected', 'true');
-  await expect(page.getByText(/Each mistake in your last \d+ rapid games/)).toBeVisible();
+  await expect(page.getByText(/last \d+ rapid games/)).toBeVisible();
 
   // Expand an area for its examples.
   await page.locator('button[aria-expanded="false"]').first().click();
@@ -191,7 +189,7 @@ test('insights: skills tab and game filters', async ({ page }) => {
   const which = page.getByLabel('Which games');
   for (const option of ['g50', 'g100', 'g200', 'd0']) {
     await which.selectOption(option);
-    await expect(page.getByText(/Each mistake in your last \d+ rapid games/)).toBeVisible();
+    await expect(page.getByText(/last \d+ rapid games/)).toBeVisible();
   }
   for (const name of ['Overview', 'Mistakes', 'Time', 'Results', 'Sessions', 'Skills']) {
     await tabs.getByRole('tab', { name }).click();
@@ -245,7 +243,7 @@ test('focus drill: tops up with Lichess puzzles and plays one', async ({ page })
   // This player has plenty of their own middlegame positions; pick an area with few, so the drill needs Lichess puzzles.
   await page.getByRole('button', { name: 'Change' }).click();
   await page.getByRole('dialog').getByRole('button', { name: /^Opening/ }).click();
-  await expect(today.getByText(/Lichess puzzles on/)).toBeVisible();
+  await expect(today.getByText(/Lichess puzzles/)).toBeVisible();
   // The pack for the focus area is downloaded and its puzzles stored in the browser.
   await expect
     .poll(() =>
@@ -284,7 +282,7 @@ test('focus drill: tops up with Lichess puzzles and plays one', async ({ page })
     expect(i, 'a Lichess puzzle in the session').toBeLessThan(30);
     await page.getByRole('button', { name: /Skip/ }).click();
   }
-  await expect(page.getByText(/from the Lichess puzzle database \(rated \d+\)/)).toBeVisible();
+  await expect(page.getByText(/Lichess puzzle · \d+/)).toBeVisible();
   if (process.env.E2E_SHOTS) await page.screenshot({ path: `${process.env.E2E_SHOTS}/lichess-puzzle.png`, fullPage: true });
   await page.getByRole('button', { name: /Solution/ }).click();
   await expect(page.getByText(/^Solution:/)).toBeVisible();

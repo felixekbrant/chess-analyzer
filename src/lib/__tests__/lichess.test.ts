@@ -73,8 +73,8 @@ describe('focus drill with Lichess puzzles', () => {
 
   it('says where the drill puzzles come from', () => {
     const base = { now, minutes: 10 as const, games: [], progress: { date: '', puzzles: 0, drill: 0 }, due: 0, focus: 'endgame' as const, opponent: () => 'x' };
-    expect(buildToday({ ...base, drillAvailable: 5, drillOwn: 0 }).items[0].detail).toBe("Lichess puzzles on this week's focus");
-    expect(buildToday({ ...base, drillAvailable: 5, drillOwn: 2 }).items[0].detail).toMatch(/plus Lichess/);
-    expect(buildToday({ ...base, drillAvailable: 5, drillOwn: 5 }).items[0].detail).toMatch(/^Your own positions from/);
+    expect(buildToday({ ...base, drillAvailable: 5, drillOwn: 0 }).items[0].detail).toBe('Lichess puzzles');
+    expect(buildToday({ ...base, drillAvailable: 5, drillOwn: 2 }).items[0].detail).toMatch(/\+ Lichess/);
+    expect(buildToday({ ...base, drillAvailable: 5, drillOwn: 5 }).items[0].detail).toBe('Your positions');
   });
 });

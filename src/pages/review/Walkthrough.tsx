@@ -9,7 +9,7 @@ import { playUci } from '../../lib/analysis/board';
 import { explainLine, type ExplainedLine } from '../../lib/analysis/lines';
 import { LineViewer } from '../../components/LineViewer';
 import { formatScore, winPercentFor } from '../../lib/analysis/winprob';
-import { formatDuration, type ParsedGame } from '../../lib/pgn/parse';
+import type { ParsedGame } from '../../lib/pgn/parse';
 import { CLASS_META } from '../../lib/classificationMeta';
 import { MOTIF_LABEL } from '../../lib/insights/compute';
 import { playSound } from '../../lib/sound';
@@ -651,57 +651,59 @@ function Coach({
 
   const meta = CLASS_META[current.classification];
   const isError = ERROR_CLASSES.includes(current.classification) || current.classification === 'inaccuracy';
+  const special = current.classification === 'brilliant' || current.classification === 'great';
   const yours = current.color === me;
   const who = yours ? '' : `${opponent}'s `;
-  const verdict = isError
-    ? `${who}${moveLabel(current)} is ${article(meta.label)} ${meta.label.toLowerCase()}`
-    : `${who}${moveLabel(current)} is ${article(meta.label)} ${meta.label.toLowerCase()} move`;
+  // Short, like a coach talking: "c6 is excellent", "Bf7 is a blunder", "e4 is a book move".
+  const label = meta.label.toLowerCase();
+  const noun = isError || current.classification === 'book';
+  const verdict = `${who}${current.san} is ${noun ? `${article(label)} ${label}${current.classification === 'book' ? ' move' : ''}` : label}`;
   const showBest = current.bestSan && current.bestUci !== current.uci && !['book', 'forced', 'best'].includes(current.classification);
-  const explanation = !yours && isError ? `This is your chance${current.replyLineSan[0] ? `: ${current.replyLineSan[0]} punishes it` : ''}.` : current.explanation;
+  const explanation = !yours && isError ? `Your chance${current.replyLineSan[0] ? `: ${current.replyLineSan[0]} punishes it` : ''}.` : isError || special ? current.explanation : undefined;
+  const motifs = isError
+    ? current.motifs.filter((m) => m !== 'long_think' && !(m === 'positional' && current.motifs.includes('threw_advantage'))).slice(0, 2)
+    : [];
 
   return (
-    <CoachBubble tone={isError && yours ? 'bad' : current.classification === 'brilliant' || current.classification === 'great' ? 'good' : 'neutral'}>
+    <CoachBubble color={(isError && yours) || special ? meta.color : undefined}>
       <div className="flex items-center gap-2">
-        <ClassificationBadge c={current.classification} size={22} />
-        <p className="font-bold leading-snug" style={{ color: meta.color }}>
+        <span key={ply} className="pop inline-flex">
+          <ClassificationBadge c={current.classification} size={24} />
+        </span>
+        <p className="font-extrabold text-base leading-snug flex-1 min-w-0" style={{ color: meta.color }}>
           {verdict}
         </p>
+        <span className="tabular-nums font-bold text-xs rounded px-1.5 py-0.5 bg-[var(--panel-2)]">{formatScore(analysis.evals[ply])}</span>
       </div>
       {explanation && <p className="mt-1.5">{explanation}</p>}
-      {showBest && (
-        <p className="mt-1.5">
-          <span className="muted">Best was </span>
-          <b>{current.bestSan}</b>.
+      {showBest && !isError && (
+        <p className="mt-1 muted">
+          Best: <b className="text-[var(--text)]">{current.bestSan}</b>
         </p>
       )}
-      {(onShowRefutation && isError) || (onShowBest && (showBest || current.classification === 'brilliant' || current.classification === 'great')) ? (
-        <div className="flex flex-wrap gap-2 mt-2">
+      {motifs.length > 0 && (
+        <div className="flex flex-wrap gap-1 mt-2">
+          {motifs.map((m) => (
+            <span key={m} className="chip">
+              {MOTIF_LABEL[m]}
+            </span>
+          ))}
+        </div>
+      )}
+      {(onShowRefutation && isError) || (onShowBest && (isError || special) && (showBest || special)) ? (
+        <div className="flex flex-wrap gap-2 mt-2.5">
           {onShowRefutation && isError && (
             <button className="btn !py-1.5 !text-sm" onClick={onShowRefutation}>
               <Icon name="play" size={14} /> {yours ? 'Why it fails' : 'How to punish it'}
             </button>
           )}
-          {onShowBest && (showBest || current.classification === 'brilliant' || current.classification === 'great') && (
+          {onShowBest && (isError || special) && (showBest || special) && (
             <button className="btn !py-1.5 !text-sm" onClick={onShowBest}>
               <Icon name="star" size={14} /> {showBest ? 'Best line' : 'See the idea'}
             </button>
           )}
         </div>
       ) : null}
-      <div className="flex flex-wrap items-center gap-1 mt-2">
-        {current.motifs
-          // "Positional" next to "threw away a winning position" says nothing new.
-          .filter((m) => (m !== 'long_think' || isError) && !(m === 'positional' && current.motifs.includes('threw_advantage')))
-          .map((m) => (
-            <span key={m} className="chip">
-              {MOTIF_LABEL[m]}
-            </span>
-          ))}
-        {current.timeSpent !== undefined && <span className="chip">⏱ {formatDuration(current.timeSpent)}</span>}
-        <span className="chip muted" title={`Engine evaluation ${formatScore(analysis.evals[ply])}`}>
-          {yours ? 'Your' : `${opponent}'s`} winning chances {current.winBefore.toFixed(0)}% → {current.winAfter.toFixed(0)}%
-        </span>
-      </div>
     </CoachBubble>
   );
 }

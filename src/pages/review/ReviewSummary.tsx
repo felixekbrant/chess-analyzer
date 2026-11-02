@@ -58,58 +58,39 @@ export function ReviewSummary({
         ) : (
           <>
             <CoachBubble>
-              <div className="space-y-1.5 leading-relaxed">
-                {summary.lines.map((l) => (
-                  <p key={l}>{l}</p>
-                ))}
-                {summary.turningPoint && summary.turningPoint.winLoss >= 15 && (
-                  <button className="btn !py-1.5 !text-sm mt-1" onClick={() => onStart({ ply: summary.turningPoint!.ply + 1 })}>
-                    <Icon name="play" size={14} /> See the turning point
-                  </button>
-                )}
-              </div>
+              <p className="font-semibold leading-relaxed">{summary.lines[0]}</p>
+              {summary.turningPoint && summary.turningPoint.winLoss >= 15 && (
+                <button className="btn !py-1.5 !text-sm mt-2" onClick={() => onStart({ ply: summary.turningPoint!.ply + 1 })}>
+                  <Icon name="play" size={14} /> Turning point
+                </button>
+              )}
             </CoachBubble>
 
             <div className="grid grid-cols-2 gap-2">
               {(['w', 'b'] as Color[]).map((c) => (
                 <div
                   key={c}
-                  className="rounded-xl p-3 text-center"
+                  className="pop rounded-xl p-3 text-center"
                   style={{ background: c === 'w' ? '#f4f4f4' : '#403d39', color: c === 'w' ? '#1d1d1b' : '#f4f4f4' }}
                 >
-                  <div className="text-xs opacity-70 truncate">
+                  <div className="text-xs font-semibold opacity-70 truncate">
                     {c === 'w' ? game.white : game.black}
                     {me === c ? ' (you)' : ''}
                   </div>
-                  <div className="text-3xl font-extrabold tabular-nums">{analysis.accuracy[c].toFixed(1)}</div>
-                  <div className="text-[10px] uppercase tracking-wide opacity-70">accuracy</div>
+                  <div className="text-4xl font-black tabular-nums tracking-tight">{analysis.accuracy[c].toFixed(1)}</div>
+                  <div className="text-[10px] font-bold uppercase tracking-wider opacity-60">accuracy</div>
                   {game.chesscomAccuracy && (
-                    <div className="text-[11px] opacity-70 mt-0.5 tabular-nums" title="chess.com's Game Review accuracy for this game">
-                      chess.com: {game.chesscomAccuracy[c].toFixed(1)}
+                    <div className="text-[11px] opacity-60 mt-0.5 tabular-nums" title="chess.com's Game Review accuracy for this game">
+                      chess.com {game.chesscomAccuracy[c].toFixed(1)}
                     </div>
                   )}
                 </div>
               ))}
             </div>
 
-            <div className="grid grid-cols-3 gap-2">
-              {PHASES.map((ph) => {
-                const g = summary.grades[ph];
-                return (
-                  <div key={ph} className="panel p-2 text-center">
-                    <div className="text-xs muted capitalize">{ph}</div>
-                    <div className="flex justify-center my-1">
-                      {g ? <ClassificationBadge c={GRADE_META[g].badge} size={26} /> : <span className="muted">–</span>}
-                    </div>
-                    <div className="text-xs font-semibold">{g ? GRADE_META[g].label : 'Not reached'}</div>
-                  </div>
-                );
-              })}
-            </div>
-
             <div className="grid gap-2">
-              <button className="btn btn-primary justify-center !py-3 !text-base" onClick={() => onStart({ ply: 0 })}>
-                <Icon name="play" size={18} /> Start review
+              <button className="btn btn-primary justify-center !py-3.5 !text-lg" onClick={() => onStart({ ply: 0 })}>
+                Start Review
               </button>
               <div className="grid grid-cols-2 gap-2">
                 <button className="btn justify-center !py-2.5" onClick={() => onStart({ keyOnly: true })} disabled={!keyCount}>
@@ -121,14 +102,27 @@ export function ReviewSummary({
               </div>
             </div>
 
+            <div className="panel p-3">
+              <ClassificationTable analysis={analysis} game={game} />
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              {PHASES.map((ph) => {
+                const g = summary.grades[ph];
+                return (
+                  <div key={ph} className="panel p-2 text-center">
+                    <div className="text-xs font-semibold muted capitalize">{ph}</div>
+                    <div className="flex justify-center my-1">
+                      {g ? <ClassificationBadge c={GRADE_META[g].badge} size={26} /> : <span className="muted">–</span>}
+                    </div>
+                    <div className="text-xs font-bold">{g ? GRADE_META[g].label : '–'}</div>
+                  </div>
+                );
+              })}
+            </div>
+
             <details className="panel p-3">
-              <summary className="cursor-pointer font-semibold text-sm">Move breakdown</summary>
-              <div className="mt-3">
-                <ClassificationTable analysis={analysis} game={game} />
-              </div>
-            </details>
-            <details className="panel p-3">
-              <summary className="cursor-pointer font-semibold text-sm">Time usage</summary>
+              <summary className="cursor-pointer font-bold text-sm">Time usage</summary>
               <div className="mt-3">
                 <TimeChart moves={analysis.moves} current={-1} onSelect={(p) => onStart({ ply: p })} userColor={game.userColor} />
               </div>
@@ -148,7 +142,7 @@ function GameHeading({ game }: { game: StoredGame }) {
         {game.white} <span className="muted font-normal">vs</span> {game.black}
       </div>
       <div className="muted text-xs mt-0.5">
-        {resultText} · {game.termination || game.endReason} · {game.timeControl} {game.timeClass} · {formatDate(game.endTime)}
+        {resultText} · {game.timeClass} · {formatDate(game.endTime)}
       </div>
       {game.openingName && <div className="muted text-xs mt-0.5 truncate">{game.openingName}</div>}
     </div>
@@ -166,7 +160,7 @@ function Analysing({ gameId, failed, onBrowse }: { gameId: string; failed: boole
           <div className="h-2 mt-2 rounded bg-[var(--panel-2)]">
             <div className="h-2 rounded bg-accent transition-all" style={{ width: `${(progress ?? 0) * 100}%` }} />
           </div>
-          <p className="muted text-xs mt-2">{progress === undefined ? 'Waiting for the engine…' : `${Math.round(progress * 100)}% done.`} The review opens here when it's ready.</p>
+          <p className="muted text-xs mt-2 tabular-nums">{progress === undefined ? 'Waiting for the engine…' : `${Math.round(progress * 100)}%`}</p>
         </>
       )}
       <div className="flex flex-wrap gap-2 mt-3">
@@ -176,7 +170,7 @@ function Analysing({ gameId, failed, onBrowse }: { gameId: string; failed: boole
           </button>
         )}
         <button className="btn" onClick={onBrowse}>
-          {failed ? 'Browse the moves' : 'Browse the moves meanwhile'}
+          Browse the moves
         </button>
       </div>
     </CoachBubble>

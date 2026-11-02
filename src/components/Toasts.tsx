@@ -8,13 +8,13 @@ export function Toasts() {
   const [list, setList] = useState<Toast[]>([]);
   useEffect(() => subscribeToasts(setList), []);
   return (
-    <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] md:bottom-4 right-4 left-4 sm:left-auto z-50 flex flex-col gap-2 items-end pointer-events-none" aria-live="polite">
+    // Phones: a slim bar under the top bar, clear of the board and the tab bar. Desktop: bottom right.
+    <div className="fixed top-[calc(3.25rem+env(safe-area-inset-top))] md:top-auto md:bottom-4 right-3 left-3 md:left-auto z-50 flex flex-col gap-2 items-center md:items-end pointer-events-none" aria-live="polite">
       {list.map((t) => (
         <div
           key={t.id}
           role={t.kind === 'error' ? 'alert' : 'status'}
-          className="panel pointer-events-auto shadow-lg px-4 py-3 text-sm flex items-center gap-3 max-w-sm w-full sm:w-auto"
-          style={{ borderLeft: `4px solid ${COLOR[t.kind]}` }}
+          className="rise pointer-events-auto rounded-full shadow-lg px-4 py-2 text-sm font-semibold flex items-center gap-2.5 max-w-sm bg-[var(--panel-2)] text-[var(--text)]"
         >
           <span style={{ color: COLOR[t.kind] }}>{ICON[t.kind]}</span>
           <span className="flex-1">{t.message}</span>

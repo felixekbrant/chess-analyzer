@@ -37,8 +37,8 @@ export function PlayerStrip({ name, elo, clock, isUser, active }: { name: string
 }
 
 /** The coach's speech bubble (chess.com style): avatar on the left, message on the right. */
-export function CoachBubble({ children, tone = 'neutral' }: { children: ReactNode; tone?: 'neutral' | 'good' | 'bad' }) {
-  const border = tone === 'good' ? '#81b64c' : tone === 'bad' ? '#e02828' : 'var(--border)';
+export function CoachBubble({ children, tone = 'neutral', color }: { children: ReactNode; tone?: 'neutral' | 'good' | 'bad'; color?: string }) {
+  const border = color ?? (tone === 'good' ? '#81b64c' : tone === 'bad' ? '#e02828' : 'var(--border)');
   return (
     <div className="flex gap-2 items-start">
       <span className="shrink-0 w-10 h-10 rounded-full bg-accent text-white flex items-center justify-center text-xl shadow" aria-hidden="true">
@@ -231,8 +231,10 @@ export function ActionButton({
       disabled={disabled}
       title={title}
       aria-label={label ?? title}
-      className={`flex-1 min-h-12 rounded-xl flex flex-col items-center justify-center gap-0.5 text-[11px] font-semibold transition disabled:opacity-35 ${
-        primary ? 'bg-accent text-white' : 'bg-[var(--panel-2)] hover:brightness-110'
+      className={`flex-1 min-h-12 mb-[3px] rounded-xl flex flex-col items-center justify-center gap-0.5 text-[11px] font-bold transition-[transform,box-shadow] duration-75 disabled:opacity-35 active:enabled:translate-y-[2px] ${
+        primary
+          ? 'bg-accent text-white shadow-[0_3px_0_#45753c] active:enabled:shadow-[0_1px_0_#45753c]'
+          : 'bg-[var(--btn)] shadow-[0_3px_0_var(--btn-edge)] active:enabled:shadow-[0_1px_0_var(--btn-edge)] hover:brightness-110'
       }`}
     >
       {icon}

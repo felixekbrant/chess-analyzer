@@ -162,7 +162,7 @@ export function buildToday(x: TodayInput): TodayPlan {
       id: 'puzzles',
       kind: 'puzzles',
       title: 'Puzzles from your mistakes',
-      detail: 'Positions due for another try',
+      detail: 'Due again',
       minutes: puzzles * PUZZLE_MIN,
       done: x.progress.puzzles >= puzzles,
       progress: [Math.min(x.progress.puzzles, puzzles), puzzles],
@@ -177,10 +177,10 @@ export function buildToday(x: TodayInput): TodayPlan {
       title: 'Focus drill',
       detail:
         (x.drillOwn ?? drill) >= drill
-          ? 'Your own positions from this week\'s focus'
+          ? 'Your positions'
           : x.drillOwn
-            ? 'Your own positions, plus Lichess puzzles on the theme'
-            : 'Lichess puzzles on this week\'s focus',
+            ? 'Your positions + Lichess puzzles'
+            : 'Lichess puzzles',
       minutes: drill * PUZZLE_MIN,
       done: x.progress.drill >= drill,
       progress: [Math.min(x.progress.drill, drill), drill],

@@ -8,7 +8,7 @@ export function EvalBar({ score, orientation = 'white', thinking }: { score?: Sc
   const whiteOnBottom = orientation === 'white';
   const whiteAhead = white >= 50;
   return (
-    <div className="relative w-4 lg:w-6 rounded-md overflow-hidden shrink-0 bg-[#403d39]" style={{ alignSelf: 'stretch' }}>
+    <div className="relative w-4 lg:w-6 rounded-md overflow-hidden shrink-0 bg-[#403d39] ring-1 ring-black/10" style={{ alignSelf: 'stretch' }}>
       <div
         className="absolute left-0 right-0 bg-[#f4f4f4] transition-all duration-500 ease-out"
         style={whiteOnBottom ? { bottom: 0, height: `${white}%` } : { top: 0, height: `${white}%` }}

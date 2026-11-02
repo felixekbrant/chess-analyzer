@@ -38,20 +38,13 @@ export function SkillsTab({ data }: { data: SkillsData }) {
 
   return (
     <div className="space-y-4">
-      <Section>
-        <p className="text-sm">
-          Each mistake in your last {profile.games} {timeClass} games is counted in one area, by how much winning chance it cost you.
-          {ranked.some((r) => r.typical !== undefined) && rating
-            ? ` The grey bar is what players rated about ${Math.round(rating / 100) * 100} typically lose.`
-            : ''}
-        </p>
-        {ranked.some((r) => r.level) && (
-          <p className="muted text-xs mt-2">
-            "Plays like" is an estimate that starts from your rating and only moves away from it when your games clearly show it. It's hidden
-            where {profile.games} games aren't enough to tell, and for areas where strong and weak players lose about the same.
-          </p>
-        )}
-      </Section>
+      <p
+        className="muted text-xs"
+        title={`Each mistake is counted in one area, by how much winning chance it cost. "Plays like" starts from your rating and only moves when your games clearly show it.`}
+      >
+        Win chance lost per game · last {profile.games} {timeClass} games
+        {ranked.some((r) => r.typical !== undefined) && rating ? ` · grey: typical ~${Math.round(rating / 100) * 100}` : ''}
+      </p>
       <div className="grid lg:grid-cols-2 gap-3">
         {/* Daily games have no clock pressure to speak of. */}
         {SKILL_AREAS.filter((a) => a !== 'time' || timeClass !== 'daily').map((area) => {

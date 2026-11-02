@@ -221,7 +221,7 @@ export const DEFAULT_SETTINGS: Settings = {
   autoAnalyze: true,
   autoAnalyzeLimit: 150,
   historyMonths: 6,
-  theme: 'system',
+  theme: 'dark',
   analysisSpeed: 'balanced',
   autoNextPuzzle: true,
   sounds: true,

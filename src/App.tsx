@@ -1,5 +1,6 @@
 import { Suspense, lazy, useEffect, useState } from 'react';
 import { upgradeStoredAnalyses } from './lib/analysis/upgrade';
+import { db, getSettings, saveSettings } from './db/schema';
 import { NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { useApplyTheme } from './hooks/useTheme';
 import { useSettings } from './hooks/useStores';
@@ -60,6 +61,7 @@ export default function App() {
     syncManager.start();
     void analysisQueue.refreshCount();
     void upgradeStoredAnalyses();
+    void adoptDarkLook();
   }, []);
 
   // A game review is a full-screen view on phones with its own bottom action bar.
@@ -90,6 +92,14 @@ export default function App() {
       <Toasts />
     </div>
   );
+}
+
+/** The app's look became dark by default; switch existing installs over once (Settings can change it back). */
+async function adoptDarkLook() {
+  if (await db.kv.get('look-v2')) return;
+  const s = await getSettings();
+  if (s.theme === 'system') await saveSettings({ theme: 'dark' });
+  await db.kv.put({ key: 'look-v2', value: true });
 }
 
 function Logo() {

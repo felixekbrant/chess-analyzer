@@ -635,20 +635,19 @@ function PuzzleView({
           <LichessInfoPanel info={puzzle.lichess} />
         ) : (
         <div className="panel p-3 text-sm space-y-2">
-          <p>
-            In the game you played{' '}
-            <span className="inline-flex items-center gap-1 font-semibold">
-              <ClassificationBadge c={puzzle.classification} size={14} /> {puzzle.playedSan}
+          <p className="flex items-center gap-1.5 flex-wrap">
+            <span className="muted">You played</span>
+            <span className="inline-flex items-center gap-1 font-bold">
+              <ClassificationBadge c={puzzle.classification} size={16} /> {puzzle.playedSan}
             </span>
-            , losing {puzzle.winLoss.toFixed(0)}% win chance.
+            <span className="muted tabular-nums">−{puzzle.winLoss.toFixed(0)}%</span>
+            {puzzle.occurrences > 1 && (
+              <span className="chip" style={{ color: '#e5713f' }}>
+                ×{puzzle.occurrences} games
+              </span>
+            )}
           </p>
-          {puzzle.occurrences > 1 && <p style={{ color: '#e02828' }}>⚠ You've made this exact mistake in {puzzle.occurrences} games.</p>}
-          {done && puzzle.explanation && (
-            <p className="rounded-lg bg-[var(--panel-2)] p-2">
-              <span className="muted">Why {puzzle.playedSan} was wrong: </span>
-              {puzzle.explanation}
-            </p>
-          )}
+          {done && puzzle.explanation && <p>{puzzle.explanation}</p>}
           <div className="flex flex-wrap gap-1">
             {puzzle.motifs
               .filter((m) => m !== 'long_think')
@@ -720,8 +719,7 @@ function LichessInfoPanel({ info }: { info: NonNullable<Puzzle['lichess']> }) {
   return (
     <div className="panel p-3 text-sm space-y-2">
       <p>
-        {/^[AEIOU]/.test(SKILL_META[info.area].label) ? 'An' : 'A'} <b>{SKILL_META[info.area].label}</b> puzzle for this week's focus, from the Lichess puzzle database (rated {info.rating}). It comes from
-        another player's game, so the position is new to you.
+        <b>{SKILL_META[info.area].label}</b> <span className="muted">· Lichess puzzle · {info.rating}</span>
       </p>
       {themes.length > 0 && (
         <div className="flex flex-wrap gap-1">

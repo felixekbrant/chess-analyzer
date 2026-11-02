@@ -166,7 +166,7 @@ export function FocusCard({
         <div className="rounded-lg bg-[var(--panel-2)] p-2.5 text-sm mb-3">
           {last.improved ? (
             <>
-              🎉 Nice! {SKILL_META[last.area].label}: down {Math.round((1 - last.after / Math.max(0.01, last.before)) * 100)}% ({fmt(last.before)} →{' '}
+              Nice! {SKILL_META[last.area].label}: down {Math.round((1 - last.after / Math.max(0.01, last.before)) * 100)}% ({fmt(last.before)} →{' '}
               {fmt(last.after)} per game). On to the next one.
             </>
           ) : (
@@ -182,17 +182,30 @@ export function FocusCard({
           <Icon name="target" size={22} />
         </span>
         <div className="min-w-0 flex-1">
-          <div className="muted text-xs font-semibold uppercase tracking-wide">
-            This week's focus · day {focusDay(f)} of {FOCUS_DAYS}
+          <div className="muted text-xs font-bold uppercase tracking-wide">
+            Focus · day {focusDay(f)}/{FOCUS_DAYS}
           </div>
-          <div className="font-bold text-lg leading-tight">{meta.label}</div>
-          <p className="text-sm muted mt-1">
-            {r ? <Comparison r={r} rating={rating} timeClass={timeClass} /> : meta.about}
-            {f.manual ? ' You picked this one.' : ''}
-          </p>
+          <div className="font-extrabold text-lg leading-tight">{meta.label}</div>
+          {r ? (
+            <div className="flex items-baseline gap-3 mt-1 text-sm tabular-nums">
+              <span>
+                <b className="text-base" style={{ color: r.verdict === 'worse' ? '#e5713f' : undefined }}>
+                  {fmt(r.cost)}%
+                </b>{' '}
+                <span className="muted">lost / game</span>
+              </span>
+              {r.typical !== undefined && rating ? (
+                <span className="muted" title={`Typical for ${Math.round(rating / 100) * 100} ${tcName(timeClass)} players`}>
+                  typical {fmt(r.typical)}%
+                </span>
+              ) : null}
+            </div>
+          ) : (
+            <p className="text-sm muted mt-1">{meta.about}</p>
+          )}
         </div>
       </div>
-      {showTip && <p className="text-sm mt-3">💡 {meta.tip}</p>}
+      {showTip && <p className="text-sm mt-3">{meta.tip}</p>}
       <div className="flex flex-wrap gap-2 mt-3">
         {f.area !== 'time' && (
           <Link className="btn btn-primary !py-1.5 !text-sm" to={`/training?area=${f.area}`}>
@@ -200,14 +213,13 @@ export function FocusCard({
           </Link>
         )}
         <button className="btn !py-1.5 !text-sm" onClick={() => setShowTip((v) => !v)}>
-          <Icon name="bulb" size={14} /> {showTip ? 'Hide tip' : 'Tips'}
+          <Icon name="bulb" size={14} /> Tip
         </button>
         <button className="btn !py-1.5 !text-sm ml-auto" onClick={() => setPicking(true)}>
           Change
         </button>
       </div>
       <Sheet open={picking} onClose={() => setPicking(false)} title="Choose your focus">
-        <p className="muted text-sm mb-2">Ordered by how much each area holds you back compared with players at your rating.</p>
         <div className="grid gap-1">
           {ranked.map((x) => (
             <button
@@ -261,8 +273,8 @@ export function CostBars({ cost, typical, max, verdict }: { cost: number; typica
 }
 
 export function TrendChip({ trend }: { trend?: SkillStat['trend'] }) {
-  if (trend === 'improving') return <span className="chip" style={{ color: '#6a9e36' }}>↓ improving</span>;
-  if (trend === 'worsening') return <span className="chip" style={{ color: '#e02828' }}>↑ getting worse</span>;
+  if (trend === 'improving') return <span className="chip whitespace-nowrap" style={{ color: '#81b64c' }}>↓ improving</span>;
+  if (trend === 'worsening') return <span className="chip whitespace-nowrap" style={{ color: '#e5713f' }}>↑ worse</span>;
   return null;
 }
 

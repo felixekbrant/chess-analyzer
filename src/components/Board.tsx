@@ -104,7 +104,7 @@ function BoardImpl({ fen, orientation = 'white', arrows = [], lastMove, badge, m
     allowDragging: canMove,
     allowDrawingArrows: true,
     clearArrowsOnPositionChange: true,
-    animationDurationInMs: 150,
+    animationDurationInMs: 200,
     showNotation: settings.showCoordinates,
     darkSquareStyle: { backgroundColor: theme.dark },
     lightSquareStyle: { backgroundColor: theme.light },
@@ -121,12 +121,12 @@ function BoardImpl({ fen, orientation = 'white', arrows = [], lastMove, badge, m
           <div style={{ position: 'relative', width: '100%', height: '100%', ...squareStyles[square] }}>
             {children}
             {badge && square === badge.square && (
-              <div style={{ position: 'absolute', top: -6, right: -6, zIndex: 20, pointerEvents: 'none' }}>
+              <div key={badge.square + badge.classification} className="pop" style={{ position: 'absolute', top: -6, right: -6, zIndex: 20, pointerEvents: 'none' }}>
                 <ClassificationBadge c={badge.classification} size={22} />
               </div>
             )}
             {marker && square === marker.square && (
-              <div style={{ position: 'absolute', top: -6, right: -6, zIndex: 20, pointerEvents: 'none' }}>
+              <div key={marker.square + marker.kind} className="pop" style={{ position: 'absolute', top: -6, right: -6, zIndex: 20, pointerEvents: 'none' }}>
                 <span
                   className="inline-flex items-center justify-center rounded-full text-white font-bold"
                   style={{ width: 22, height: 22, fontSize: 13, background: marker.kind === 'correct' ? '#81b64c' : '#e02828', boxShadow: '0 1px 2px rgba(0,0,0,.35)' }}

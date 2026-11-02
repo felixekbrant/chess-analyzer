@@ -9,12 +9,15 @@
 }
 
 :root {
-  --bg: #f4f4f2;
+  --bg: #efeeeb;
   --panel: #ffffff;
   --panel-2: #f0efec;
-  --text: #1d1d1b;
-  --muted: #6b6a66;
-  --border: #e2e0db;
+  --text: #22211f;
+  --muted: #6e6c68;
+  --border: #e3e1dc;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  --btn: #e6e5e1;
+  --btn-edge: #c9c7c1;
   --series-1: #2a78d6;
   --series-2: #eb6834;
   --series-3: #1baf7a;
@@ -23,18 +26,22 @@
   color-scheme: light;
 }
 
+/* The default look: chess.com-like warm dark greys. */
 .dark {
-  --bg: #1f1e1b;
-  --panel: #2a2926;
-  --panel-2: #333230;
-  --text: #ecebe8;
-  --muted: #a3a19c;
-  --border: #3d3c39;
+  --bg: #312e2b;
+  --panel: #262421;
+  --panel-2: #3c3a37;
+  --text: #ffffff;
+  --muted: #a7a6a2;
+  --border: #3c3a37;
+  --shadow: none;
+  --btn: #45423e;
+  --btn-edge: #2b2926;
   --series-1: #3987e5;
-  --series-2: #d95926;
+  --series-2: #e5713f;
   --series-3: #199e70;
-  --series-4: #c98500;
-  --grid: #3a3936;
+  --series-4: #e0a020;
+  --grid: #3e3c39;
   color-scheme: dark;
 }
 
@@ -43,47 +50,111 @@ body {
   color: var(--text);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
 }
 
+h1,
+h2,
+h3 {
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+/* Cards: flat surfaces, no outlines (a border is only drawn when a component asks for a colour). */
 .panel {
   background: var(--panel);
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   border-radius: 0.75rem;
+  box-shadow: var(--shadow);
 }
 
 .muted {
   color: var(--muted);
 }
 
+/* Chunky buttons with a bottom edge that press down, like a physical key. */
 .btn {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  border-radius: 0.5rem;
-  padding: 0.45rem 0.9rem;
-  font-weight: 600;
+  border-radius: 0.6rem;
+  padding: 0.5rem 0.95rem;
+  font-weight: 700;
   font-size: 0.875rem;
-  background: var(--panel-2);
-  border: 1px solid var(--border);
-  transition: filter 0.15s;
+  background: var(--btn);
+  color: var(--text);
+  border: 0;
+  box-shadow: 0 3px 0 var(--btn-edge);
+  margin-bottom: 3px;
+  transition:
+    transform 0.06s,
+    box-shadow 0.06s,
+    filter 0.15s;
   cursor: pointer;
+  user-select: none;
 }
 .btn:hover {
-  filter: brightness(1.08);
+  filter: brightness(1.07);
+}
+.btn:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--btn-edge);
 }
 .btn:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: default;
 }
 .btn-primary {
   background: var(--color-accent);
-  border-color: var(--color-accent-strong);
+  box-shadow: 0 3px 0 #45753c;
   color: white;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.15);
+}
+.btn-primary:active:not(:disabled) {
+  box-shadow: 0 1px 0 #45753c;
+}
+
+/* Small pop for things that appear (classification badges, results). */
+@keyframes pop {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.pop {
+  animation: pop 0.28s cubic-bezier(0.2, 0.8, 0.3, 1.2) both;
+}
+@keyframes rise {
+  from {
+    transform: translateY(6px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+.rise {
+  animation: rise 0.2s ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pop,
+  .rise {
+    animation: none;
+  }
 }
 
 .input {
   background: var(--panel-2);
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
+  font-weight: 600;
   border-radius: 0.5rem;
   padding: 0.45rem 0.7rem;
   font-size: 0.875rem;
@@ -99,10 +170,10 @@ body {
   align-items: center;
   gap: 0.25rem;
   font-size: 0.75rem;
+  font-weight: 600;
   padding: 0.1rem 0.5rem;
   border-radius: 999px;
   background: var(--panel-2);
-  border: 1px solid var(--border);
 }
 
 .tab {

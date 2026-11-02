@@ -73,7 +73,7 @@ export default function Insights() {
     <div className="space-y-4 max-w-[1300px]">
       <PageHeader
         title="Insights"
-        subtitle={loading ? 'Loading…' : `${games.length} games, ${ag.length} analysed. Everything here is computed from your own games.`}
+        subtitle={loading ? 'Loading…' : `${ag.length} analysed games`}
         actions={<Filters value={filters} onChange={setFilters} />}
       />
       {!loading && !games.length && <Empty>No games for these filters.</Empty>}

@@ -5,7 +5,7 @@ import { DEFAULT_FILTERS, useInsightData } from '../hooks/useInsightData';
 import { overview, trend } from '../lib/insights/compute';
 import { coachReport } from '../lib/insights/coach';
 import { CoachReport } from '../components/CoachReport';
-import { FocusCard, PointsCard, TodayCard } from '../components/Coaching';
+import { FocusCard, TodayCard } from '../components/Coaching';
 import { MIN_PROFILE_GAMES, useSkills } from '../hooks/useSkills';
 // Charts (recharts) are loaded after the rest of the dashboard so first paint isn't blocked by them.
 const LineTrend = lazy(() => import('../components/charts').then((m) => ({ default: m.LineTrend })));
@@ -43,7 +43,7 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-4 max-w-[1300px]">
-      <PageHeader title={settings.username ? `Hi, ${settings.username}` : 'Home'} subtitle={`${ov.games} games · ${ov.analyzed} analysed`} />
+      <PageHeader title={settings.username ? `Hi, ${settings.username}` : 'Home'} desktopOnly />
       <ProgressCard analysed={doneCount} />
 
 
@@ -58,16 +58,15 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <Stat label="Score" value={fmtPct(ov.score)} sub={`${ov.wins}W ${ov.draws}D ${ov.losses}L`} />
-        <Stat label="Avg accuracy" value={fmtPct(ov.accuracy, 1)} sub="analysed games" />
+        <Stat label="Avg accuracy" value={fmtPct(ov.accuracy, 1)} />
         <Stat label="Blunders / game" value={ov.blundersPerGame.toFixed(2)} sub={`${ov.mistakesPerGame.toFixed(2)} mistakes / game`} />
         <Stat label={`${mainClass ?? ''} rating`} value={ratingData[ratingData.length - 1]?.rating ?? '–'} sub={ratingDelta(ratingData)} />
       </div>
 
       <div className="grid xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] gap-4">
-        {skills.ready ? (
-          <PointsCard ranked={skills.ranked} stats={skills.profile.stats} rating={skills.rating} timeClass={skills.timeClass} games={skills.profile.games} />
-        ) : (
-          <Section title="Your coach says" right={<span className="muted text-xs">last {recentAg.length} analysed games</span>}>
+        {/* Before the skill profile exists, the coach report fills its place; after, the focus card and Insights cover it. */}
+        {!skills.ready && (
+          <Section title="Your coach says">
             <CoachReport items={report.items} strengths={report.strengths} analysed={recentAg.length} limit={3} />
           </Section>
         )}
