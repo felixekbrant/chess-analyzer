@@ -35,8 +35,9 @@ export function GameTable({
           <th></th>
           <th>Opponent</th>
           {!compact && <th>Opening</th>}
-          <th>{header('accuracy', 'Accuracy')}</th>
+          <th title="Your accuracy, and your opponent's">{header('accuracy', 'Accuracy')}</th>
           {!compact && <th>Moves</th>}
+          {!compact && <th>You</th>}
           <th>{header('date', 'Date')}</th>
         </tr>
       </thead>
@@ -50,11 +51,6 @@ export function GameTable({
               <td>
                 <div className="flex items-center gap-2">
                   <TimeClassIcon tc={g.timeClass} />
-                  <span
-                    className="inline-block w-3 h-3 rounded-sm border border-[var(--border)]"
-                    style={{ background: g.userColor === 'b' ? '#f4f4f4' : '#403d39' }}
-                    title={g.userColor === 'b' ? 'Opponent had White' : 'Opponent had Black'}
-                  />
                   <span className="font-semibold">{g.userColor ? opponentName(g) : `${g.white} – ${g.black}`}</span>
                   {opponentElo(g) && <span className="muted">({opponentElo(g)})</span>}
                 </div>
@@ -65,10 +61,12 @@ export function GameTable({
                 <AccuracyCell g={g} />
               </td>
               {!compact && <td className="muted tabular-nums">{Math.ceil(g.plyCount / 2)}</td>}
-              <td className="muted whitespace-nowrap">
-                {formatDate(g.endTime)}
-                {!compact && userElo(g) && <span className="ml-2 text-xs">({userElo(g)})</span>}
-              </td>
+              {!compact && (
+                <td className="muted tabular-nums whitespace-nowrap" title="Your rating in this game">
+                  {userElo(g) ?? ''}
+                </td>
+              )}
+              <td className="muted whitespace-nowrap">{formatDate(g.endTime)}</td>
             </tr>
           );
         })}
@@ -83,8 +81,10 @@ function AccuracyCell({ g }: { g: StoredGame }) {
   if (g.analysisStatus === 'done' && g.userAccuracy !== undefined)
     return (
       <>
-        <span className="font-semibold">{g.userAccuracy.toFixed(1)}</span>
-        <span className="muted"> / {g.opponentAccuracy?.toFixed(1)}</span>
+        <AccuracyPill value={g.userAccuracy} />
+        <span className="muted text-xs ml-1.5" title="Opponent's accuracy">
+          vs {g.opponentAccuracy?.toFixed(1)}
+        </span>
       </>
     );
   if (progress !== undefined)

@@ -118,7 +118,7 @@ export default function Insights() {
                 xFormat={dateFmt}
               />
             </Section>
-            <Section title="Accuracy & blunders (10-game rolling average)">
+            <Section title="Accuracy & blunders" right={<span className="muted text-xs">10-game average</span>}>
               <LineTrend
                 data={data.tr.filter((p) => p.accuracyAvg !== undefined)}
                 x="t"
@@ -164,7 +164,7 @@ export default function Insights() {
               </div>
             </Section>
 
-            <Section title="Mistake types" id="mistakes">
+            <Section title="Mistake types" id="mistakes" right={<span className="muted text-xs" title="Compared with your earlier games in this selection"><span style={{ color: "#6a9e36" }}>↓</span> less often · <span style={{ color: "#e02828" }}>↑</span> more often</span>}>
               {!data.motifs.length ? (
                 <Empty>No errors detected yet.</Empty>
               ) : (
@@ -218,41 +218,30 @@ export default function Insights() {
           </>
           )}
           {tab === 'time' && (
-          <Section title="Time management" id="time">
-            {data.mixesDailyAndLive && (
-              <p className="muted text-xs mb-3">
-                Tip: daily games have no clock, so these numbers only cover your live games. Filter by one time control for a sharper picture.
-              </p>
-            )}
+          <Section title={data.mixesDailyAndLive ? 'Time management · live games' : 'Time management'} id="time">
             {data.time.gamesWithClock === 0 ? (
               <Empty>No clock data (daily games don't have clocks).</Empty>
             ) : (
               <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-6">
                 <div>
-                  <div className="grid grid-cols-2 gap-3 mb-4">
-                    <MiniStat label="Games in time trouble" value={fmtPct(data.time.timeTroubleGamesPct)} hint="clock under 10% of starting time" />
-                    <MiniStat
-                      label="Errors made in time trouble"
-                      value={`${data.time.timeTroubleErrors} / ${data.time.errorsTotal}`}
-                      hint={fmtPct((100 * data.time.timeTroubleErrors) / Math.max(1, data.time.errorsTotal))}
-                    />
+                  {/* The three numbers that matter; the rest one tap away. */}
+                  <div className="grid grid-cols-3 gap-2 mb-2">
+                    <MiniStat label="Time trouble" value={fmtPct(data.time.timeTroubleGamesPct)} hint="of games" />
+                    <MiniStat label="Rushed errors" value={String(data.time.rushedErrors)} hint="under 2 s" />
                     <MiniStat
                       label="Lost on time"
-                      value={`${data.time.lostOnTime} / ${data.time.lossesTotal} losses`}
-                      hint={data.time.lostOnTimeWinning ? `${data.time.lostOnTimeWinning} while better on the board` : ''}
-                    />
-                    <MiniStat label="Rushed errors" value={String(data.time.rushedErrors)} hint="under 2s with time on the clock" />
-                    <MiniStat
-                      label="Long thinks"
-                      value={String(data.time.longThinks)}
-                      hint={`${fmtPct(data.time.longThinkAccuracy)} accuracy vs ${fmtPct(data.time.normalAccuracy)} normally`}
-                    />
-                    <MiniStat
-                      label="Long thinks ending in an error"
-                      value={fmtPct(data.time.longThinkErrorRate)}
-                      hint="spent a lot of time and still went wrong"
+                      value={`${data.time.lostOnTime}`}
+                      hint={data.time.lostOnTimeWinning ? `${data.time.lostOnTimeWinning} while better` : `of ${data.time.lossesTotal} losses`}
                     />
                   </div>
+                  <details className="mb-4 text-sm">
+                    <summary className="cursor-pointer muted text-xs font-semibold">More</summary>
+                    <div className="grid grid-cols-3 gap-2 mt-2">
+                      <MiniStat label="Errors in time trouble" value={`${data.time.timeTroubleErrors}/${data.time.errorsTotal}`} />
+                      <MiniStat label="Long thinks" value={String(data.time.longThinks)} hint={`${fmtPct(data.time.longThinkAccuracy)} accuracy`} />
+                      <MiniStat label="Long think → error" value={fmtPct(data.time.longThinkErrorRate)} />
+                    </div>
+                  </details>
                   <div className="font-semibold text-sm mb-2">Average time per move</div>
                   <HBarList
                     data={(['opening', 'middlegame', 'endgame'] as const)
@@ -262,7 +251,9 @@ export default function Insights() {
                   />
                 </div>
                 <div>
-                  <div className="font-semibold text-sm mb-1">Clock remaining (% of starting time)</div>
+                  <div className="font-semibold text-sm mb-1" title="If your line drops faster than your opponents', you're spending too long early on.">
+                    Clock left · you vs opponents
+                  </div>
                   <LineTrend
                     data={data.time.clockCurve}
                     x="move"
@@ -274,7 +265,6 @@ export default function Insights() {
                     xFormat={(v) => `Move ${v}`}
                     yFormat={(v) => `${v}%`}
                   />
-                  <p className="muted text-xs">If your line drops faster than your opponents', you're spending too long early on.</p>
                   {data.time.examples.timeTroubleErrors.length > 0 && (
                     <>
                       <div className="font-semibold text-sm mt-3">Recent time-trouble errors</div>
@@ -396,13 +386,14 @@ function TrendArrow({ earlier, recent }: { earlier: number; recent: number }) {
 
 function ExampleList({ refs }: { refs: MoveRef[] }) {
   return (
-    <ul className="text-xs space-y-1 my-2">
+    <ul className="flex flex-wrap gap-1.5 my-2">
       {refs.map((r, i) => (
         <li key={i}>
-          <Link className="font-semibold hover:underline" to={`/game/${encodeURIComponent(r.gameId)}?ply=${r.ply + 1}`}>
-            {r.san}
-          </Link>{' '}
-          <span className="muted">{r.label}</span>
+          {/* Each opens the review at that move. */}
+          <Link className="chip !py-1 !px-2.5 hover:brightness-110" to={`/game/${encodeURIComponent(r.gameId)}?ply=${r.ply + 1}`}>
+            <Icon name="play" size={11} /> {r.san}
+            {r.label && <span className="muted font-normal">{r.label}</span>}
+          </Link>
         </li>
       ))}
     </ul>

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useInsightData, DEFAULT_FILTERS, type InsightFilters } from '../hooks/useInsightData';
 import { openingStats, type OpeningStat } from '../lib/insights/compute';
 import { Filters, loadFilters, storeFilters } from '../components/Filters';
+import { Picker } from '../components/Picker';
 import { Empty, PageHeader, Section, fmtPct } from '../components/ui';
 
 export default function Openings() {
@@ -13,19 +14,25 @@ export default function Openings() {
   };
   const [detailed, setDetailed] = useState(false);
   const { games, summaries, loading } = useInsightData(filters);
-  const stats = useMemo(() => openingStats(games, summaries, !detailed), [games, summaries, detailed]);
+  // Most-played first: those are the openings worth working on.
+  const stats = useMemo(() => [...openingStats(games, summaries, !detailed)].sort((a, b) => b.games - a.games), [games, summaries, detailed]);
 
   return (
     <div className="space-y-4 max-w-[1300px]">
       <PageHeader
         title="Openings"
-        subtitle="How you do in each opening, where you leave theory, and the moves that keep costing you."
         actions={
           <>
             <Filters value={filters} onChange={setFilters} />
-            <button className="btn" onClick={() => setDetailed((d) => !d)}>
-              {detailed ? 'Group by family' : 'Show variations'}
-            </button>
+            <Picker
+              label="Group"
+              value={detailed ? 'v' : 'f'}
+              onChange={(v) => setDetailed(v === 'v')}
+              options={[
+                { value: 'f', label: 'Openings' },
+                { value: 'v', label: 'Variations' },
+              ]}
+            />
           </>
         }
       />
@@ -104,44 +111,58 @@ function OpeningTable({ rows }: { rows: OpeningStat[] }) {
   );
 }
 
-/** Phones: one card per opening instead of a wide table. */
+/** Phones: one compact row per opening; tap for the details. */
 function OpeningCards({ rows }: { rows: OpeningStat[] }) {
+  const [open, setOpen] = useState<string | null>(null);
   if (!rows.length) return <Empty>No games.</Empty>;
   return (
     <ul className="divide-y divide-[var(--border)] -mx-1">
-      {rows.map((r) => (
-        <li key={r.key} className="px-1 py-3 space-y-1.5">
-          <div className="flex items-start justify-between gap-2">
-            <span className="font-semibold leading-snug">{r.name}</span>
-            <span
-              className="text-sm font-bold tabular-nums shrink-0"
-              style={{ color: r.games >= 3 ? (r.score >= 55 ? '#6a9e36' : r.score < 40 ? '#e02828' : undefined) : undefined }}
-            >
-              {fmtPct(r.score)}
-            </span>
-          </div>
-          <WDL w={r.wins} d={r.draws} l={r.losses} />
-          <div className="muted text-xs">
-            {r.games} game{r.games === 1 ? '' : 's'} · {r.wins}W {r.draws}D {r.losses}L
-            {r.accuracy !== undefined && ` · accuracy ${fmtPct(r.accuracy)}`}
-            {r.avgBookExit ? ` · leave book ~move ${r.avgBookExit.toFixed(0)}` : ''}
-          </div>
-          {r.commonErrors.length > 0 && (
-            <div className="text-xs flex flex-wrap gap-x-3 gap-y-1 items-center">
-              <span className="muted">You go wrong with</span>
-              {r.commonErrors.map((e, i) => (
-                <Link key={i} className="font-semibold underline" to={`/game/${encodeURIComponent(e.ref.gameId)}?ply=${e.ref.ply + 1}`}>
-                  {e.moveLabel}
-                  {e.count > 1 ? ` (${e.count}×)` : ''}
-                </Link>
-              ))}
-              <Link className="chip" to={`/training?opening=${encodeURIComponent(r.name)}`}>
-                Drill
-              </Link>
-            </div>
-          )}
-        </li>
-      ))}
+      {rows.map((r) => {
+        const few = r.games < 3;
+        const isOpen = open === r.key;
+        return (
+          <li key={r.key} className="px-1">
+            <button className="w-full text-left py-2.5 space-y-1.5" onClick={() => setOpen(isOpen ? null : r.key)} aria-expanded={isOpen}>
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="font-bold leading-snug truncate">{r.name}</span>
+                <span className="shrink-0 text-sm tabular-nums">
+                  <span className="muted text-xs mr-2">{r.games} game{r.games === 1 ? '' : 's'}</span>
+                  <b style={{ color: few ? undefined : r.score >= 55 ? '#81b64c' : r.score < 40 ? '#e5713f' : undefined }} className={few ? 'muted' : ''}>
+                    {fmtPct(r.score)}
+                  </b>
+                </span>
+              </div>
+              {/* Too few games to mean much: shown dimmed. */}
+              <div className={few ? 'opacity-30' : ''}>
+                <WDL w={r.wins} d={r.draws} l={r.losses} />
+              </div>
+            </button>
+            {isOpen && (
+              <div className="pb-3 space-y-2 text-sm">
+                <div className="muted text-xs">
+                  {r.wins}W {r.draws}D {r.losses}L
+                  {r.accuracy !== undefined && ` · accuracy ${fmtPct(r.accuracy)}`}
+                  {r.avgBookExit ? ` · out of book ~move ${r.avgBookExit.toFixed(0)}` : ''}
+                </div>
+                {r.commonErrors.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 items-center">
+                    {r.commonErrors.map((e, i) => (
+                      <Link key={i} className="chip !py-1 !px-2.5" to={`/game/${encodeURIComponent(e.ref.gameId)}?ply=${e.ref.ply + 1}`}>
+                        {e.moveLabel}
+                        {e.bestSan && <span className="muted font-normal"> → {e.bestSan}</span>}
+                        {e.count > 1 ? ` ×${e.count}` : ''}
+                      </Link>
+                    ))}
+                    <Link className="btn btn-primary !py-1 !px-3 !text-xs" to={`/training?opening=${encodeURIComponent(r.name)}`}>
+                      Drill
+                    </Link>
+                  </div>
+                )}
+              </div>
+            )}
+          </li>
+        );
+      })}
     </ul>
   );
 }
