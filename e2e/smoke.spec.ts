@@ -67,7 +67,7 @@ async function clickSquare(page: Page, square: string) {
 
 test('first visit: connect form imports games from chess.com', async ({ page }) => {
   await page.goto('./');
-  await expect(page.getByRole('heading', { name: /Welcome/ })).toBeVisible();
+  await expect(page.getByText('Your free, private chess coach', { exact: false })).toBeVisible();
 
   // Unknown player: a clear message, and the form stays.
   await page.getByLabel('chess.com username').fill('no-such-player-xyz');
@@ -78,7 +78,6 @@ test('first visit: connect form imports games from chess.com', async ({ page }) 
   await page.getByLabel('chess.com username').fill(USERNAME);
   await page.getByLabel('History to import').selectOption('0');
   await page.getByRole('button', { name: 'Start' }).click();
-  await expect(page.getByRole('heading', { name: `Hi, ${USERNAME}` })).toBeVisible();
   await expect(page.getByText(/29 new games imported from chess\.com/)).toBeVisible();
   await expect(page.getByText(/^29 games · \d+ analysed$/)).toBeVisible();
 
@@ -89,7 +88,7 @@ test('first visit: connect form imports games from chess.com', async ({ page }) 
 test('home: Today plan and skill focus', async ({ page }) => {
   await seed(page);
   await openTab(page, 'Home');
-  await expect(page.getByRole('heading', { name: `Hi, ${USERNAME}` })).toBeVisible();
+  await expect(page.getByText(/^29 games · 29 analysed$/)).toBeVisible();
   const today = page.locator('section', { has: page.getByRole('heading', { name: 'Today', exact: true }) });
   await expect(today).toBeVisible();
   await expect(today.getByRole('listitem').first()).toBeVisible();
@@ -141,7 +140,7 @@ test('game review: summary, walkthrough and the line viewer', async ({ page }) =
   await page.getByRole('button', { name: 'Game summary' }).click();
   await page.getByRole('button', { name: 'Start review' }).click();
   await page.getByRole('button', { name: 'Next', exact: true }).click();
-  await expect(page.getByText(/winning chances \d+% → \d+%/)).toBeVisible();
+  await expect(page.getByText(/winning chances \d+% → \d+%/).first()).toBeVisible();
 });
 
 test('training: solve a puzzle, reveal the next and see the full line', async ({ page }) => {
@@ -158,7 +157,7 @@ test('training: solve a puzzle, reveal the next and see the full line', async ({
   const move = current!.solutionUci[0];
   await clickSquare(page, move.slice(0, 2));
   await clickSquare(page, move.slice(2, 4));
-  await expect(page.getByText(/^✔/)).toBeVisible();
+  await expect(page.getByText(/^✔ /)).toBeVisible();
   const next = page.getByRole('button', { name: /Next puzzle/ });
   await expect(next).toBeVisible();
   // Auto-next may already move on; otherwise press Next.
@@ -173,7 +172,9 @@ test('training: solve a puzzle, reveal the next and see the full line', async ({
     await expect(page.getByText(/^The full line after/)).toBeVisible();
     await page.getByRole('button', { name: 'Close the line' }).click();
   }
-  await expect(page.getByText(/✗1/)).toBeVisible();
+  // A revealed puzzle counts as missed once you move on.
+  await page.getByRole('button', { name: /Next puzzle/ }).click();
+  await expect(page.getByTitle('Solved / missed this session')).toHaveText(/✓1\s*✗1/);
 });
 
 test('insights: skills tab and game filters', async ({ page }) => {
@@ -218,18 +219,18 @@ test('sync sheet: import and analysis controls', async ({ page }) => {
   await expect(sheet.getByText(/paused/)).toBeVisible();
 
   const autoImport = sheet.getByRole('switch').nth(0);
-  await autoImport.uncheck();
+  await autoImport.click();
   await expect(sheet.getByText('Off: only when you press Sync.')).toBeVisible();
-  await autoImport.check();
+  await autoImport.click();
   await expect(sheet.getByText('When the app opens and every 10 minutes.')).toBeVisible();
 
   const autoAnalyse = sheet.getByRole('switch').nth(1);
   await sheet.getByRole('button', { name: '50', exact: true }).click();
   await expect(sheet.getByText('Your latest 50 games are kept analysed.')).toBeVisible();
-  await autoAnalyse.uncheck();
+  await autoAnalyse.click();
   await expect(sheet.getByText('Off: a game is analysed when you open it.')).toBeVisible();
   await expect(sheet.getByRole('button', { name: '50', exact: true })).toHaveCount(0);
-  await autoAnalyse.check();
+  await autoAnalyse.click();
   await expect(sheet.getByRole('button', { name: '200', exact: true })).toBeVisible();
 
   await sheet.getByRole('button', { name: 'Sync', exact: true }).click();
