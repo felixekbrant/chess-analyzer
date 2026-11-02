@@ -193,7 +193,7 @@ test('insights: skills tab and game filters', async ({ page }) => {
     await pick(page, 'Which games', option);
     await expect(page.getByText(/last \d+ rapid games/)).toBeVisible();
   }
-  for (const name of ['Overview', 'Mistakes', 'Time', 'Results', 'Sessions', 'Skills']) {
+  for (const name of ['Overview', 'Mistakes', 'Time', 'Results', 'Skills']) {
     await tabs.getByRole('tab', { name }).click();
     await expect(tabs.getByRole('tab', { name })).toHaveAttribute('aria-selected', 'true');
   }
@@ -226,12 +226,12 @@ test('sync sheet: import and analysis controls', async ({ page }) => {
 
   const autoAnalyse = sheet.getByRole('switch').nth(1);
   await sheet.getByRole('button', { name: '50', exact: true }).click();
-  await expect(sheet.getByText('Your latest 50 games are kept analysed.')).toBeVisible();
+  await expect(sheet.getByText('Latest 50 games')).toBeVisible();
   await autoAnalyse.click();
   await expect(sheet.getByText('Off: a game is analysed when you open it.')).toBeVisible();
   await expect(sheet.getByRole('button', { name: '50', exact: true })).toHaveCount(0);
   await autoAnalyse.click();
-  await expect(sheet.getByRole('button', { name: '200', exact: true })).toBeVisible();
+  await expect(sheet.getByRole('button', { name: '300', exact: true })).toBeVisible();
 
   await sheet.getByRole('button', { name: 'Sync', exact: true }).click();
   await expect(sheet.getByText(/Synced .* ago|Synced just now|Synced/)).toBeVisible();

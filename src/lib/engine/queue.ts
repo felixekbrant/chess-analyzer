@@ -29,6 +29,15 @@ type Listener = (s: QueueStatus) => void;
  * Engine workers for each speed setting. Each worker is a single-threaded Stockfish on its own core.
  * Phones get at most two, since several engines at once make them hot and the UI laggy.
  */
+/** Choices for "keep your latest N games analysed" (100000 = all), shared by Settings and the sync sheet. */
+export const ANALYSE_LIMITS = [50, 100, 150, 300, 100000];
+export const limitLabel = (n: number) => (n >= 100000 ? 'All' : String(n));
+
+/** Speed choices worth showing on this device (on phones Light and Balanced both use one engine). */
+export function speedChoices(): Settings['analysisSpeed'][] {
+  return workerCount('balanced') === workerCount('light') ? ['light', 'max'] : ['light', 'balanced', 'max'];
+}
+
 export function workerCount(speed: Settings['analysisSpeed']): number {
   const cores = typeof navigator !== 'undefined' ? navigator.hardwareConcurrency || 2 : 2;
   if (speed === 'light') return 1;
@@ -205,7 +214,8 @@ class AnalysisQueue {
           await this.analyzeGame(game, depth, idx);
           this.durations = [...this.durations.slice(-9), (performance.now() - started) / 1000];
         } catch (e) {
-          if ((e as Error).message !== 'paused') {
+          // A game the user opened took this worker; this one stays pending and is picked up again later.
+          if ((e as Error).message !== 'paused' && (e as Error).message !== 'preempted') {
             console.error('analysis failed', game.id, e);
             await db.games.update(game.id, { analysisStatus: 'error' });
             this.set({ error: (e as Error).message });
@@ -241,6 +251,7 @@ class AnalysisQueue {
     let inBook = true;
     for (let i = 0; i < fens.length; i++) {
       if (this.status.paused && !this.priority.includes(game.id)) throw new Error('paused');
+      if (this.shouldMakeWay(game.id, i / fens.length)) throw new Error('preempted');
       await this.yieldPoint();
       const over = terminalScore(fens[i]);
       if (over) {
@@ -268,6 +279,16 @@ class AnalysisQueue {
       });
       if (game.userColor) await upsertPuzzlesFromAnalysis(game, analysis);
     });
+  }
+
+  /**
+   * A background game makes way when the user is waiting for a game nobody has started (every
+   * worker is busy), unless it is nearly done anyway.
+   */
+  private shouldMakeWay(gameId: string, progress: number): boolean {
+    if (progress > 0.75 || this.priority.includes(gameId)) return false;
+    if (this.claimed.size < (this.status.workers || 1)) return false; // a free worker will take it
+    return this.priority.some((id) => !this.claimed.has(id));
   }
 
   /** Marks a game for re-analysis at a new depth and puts it first in line. */

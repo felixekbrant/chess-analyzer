@@ -17,7 +17,13 @@ export function useSyncStatus(): SyncStatus {
     const unsub = syncManager.subscribe(setS);
     return () => void unsub();
   }, []);
-  return s;
+  // The stored last sync (also what Settings shows), until this session has synced itself; e.g.
+  // after restoring a backup, or while the first sync of the session is still running.
+  const stored = useLiveQuery(async () => {
+    const u = (await getSettings()).username;
+    return u ? (await db.sync.get(u.toLowerCase()))?.lastSync : undefined;
+  }, []);
+  return s.lastSync || !stored ? s : { ...s, lastSync: stored };
 }
 
 /**

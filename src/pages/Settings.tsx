@@ -4,7 +4,7 @@ import { db, getSettings, saveSettings } from '../db/schema';
 import { useSettings } from '../hooks/useStores';
 import { fetchArchives } from '../lib/chesscom/api';
 import { connectAccount } from '../lib/account';
-import { workerCount } from '../lib/engine/queue';
+import { ANALYSE_LIMITS, speedChoices, workerCount } from '../lib/engine/queue';
 import { toast } from '../lib/toast';
 import { monthIndex, syncMonths } from '../lib/chesscom/sync';
 import { syncManager } from '../lib/syncManager';
@@ -135,17 +135,13 @@ export default function SettingsPage() {
             label="Keep analysed"
             value={settings.autoAnalyzeLimit}
             onChange={(v) => void saveSettings({ autoAnalyzeLimit: v })}
-            options={[25, 50, 100, 150, 300, 1000, 100000].map((n) => ({ value: n, label: n >= 100000 ? 'All games' : `Latest ${n}` }))}
+            options={[...new Set([...ANALYSE_LIMITS, settings.autoAnalyzeLimit])].sort((a, b) => a - b).map((n) => ({ value: n, label: n >= 100000 ? 'All games' : `Latest ${n}` }))}
           />
         </Row>
         <Row label="Speed" hint={`${workerCount(settings.analysisSpeed)} engine${workerCount(settings.analysisSpeed) > 1 ? 's' : ''}`}>
           <Segmented
             value={settings.analysisSpeed}
-            options={[
-              ['light', 'Light'],
-              ['balanced', 'Balanced'],
-              ['max', 'Max'],
-            ]}
+            options={speedChoices().map((k) => [k, k[0].toUpperCase() + k.slice(1)] as [typeof k, string])}
             onChange={async (k) => {
               await saveSettings({ analysisSpeed: k });
               void analysisQueue.kick();

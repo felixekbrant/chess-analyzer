@@ -26,6 +26,7 @@ import { Icon } from './Icon';
 import { levelLabel } from '../lib/insights/baselines';
 import { Sheet } from './Sheet';
 import { useDrillStock } from '../hooks/useDrillStock';
+import { useQueue } from '../hooks/useStores';
 
 const fmt = (n: number) => (n >= 10 ? n.toFixed(0) : n.toFixed(1));
 const tcName = (tc: string) => (tc === 'daily' || tc === 'classical' ? 'rapid' : tc);
@@ -44,6 +45,7 @@ export function TodayCard({ games, focus, minutes }: { games: StoredGame[]; focu
   // null = no streak yet; undefined = still loading.
   const streak = useLiveQuery(async () => ((await db.kv.get(STREAK_KEY))?.value as Streak | undefined) ?? null, []);
   const ext = useDrillStock(focus, puzzles, games, minutes);
+  const pending = useQueue((s) => s.pending);
 
   const plan = useMemo(() => {
     const now = Date.now();
@@ -81,7 +83,9 @@ export function TodayCard({ games, focus, minutes }: { games: StoredGame[]; focu
       </div>
 
       {!plan.items.length ? (
-        <p className="muted text-sm">Nothing to do right now. Play a game: it is analysed automatically and turns into today's plan.</p>
+        <p className="muted text-sm">
+          {pending > 0 ? 'Your games are being analysed. Reviews and puzzles appear here as they finish.' : 'All done. Play a game and it turns into tomorrow’s plan.'}
+        </p>
       ) : (
         <ul className="space-y-1.5">
           {plan.items.map((i) => (

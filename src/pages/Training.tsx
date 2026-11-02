@@ -161,10 +161,6 @@ export default function Training() {
           {areaCounts.map(([a, n]) => (
             <FocusItem key={a} active={area === a} onClick={() => setFocus({ area: a })} label={SKILL_META[a].label} count={n} />
           ))}
-          <div className="muted text-xs font-semibold uppercase tracking-wide mt-3 mb-1 px-3">Game phase</div>
-          {(['opening', 'middlegame', 'endgame'] as Phase[]).map((ph) => (
-            <FocusItem key={ph} active={phase === ph} onClick={() => setFocus({ phase: ph })} label={ph[0].toUpperCase() + ph.slice(1)} count={puzzles?.filter((p) => p.phase === ph).length} />
-          ))}
           <div className="muted text-xs font-semibold uppercase tracking-wide mt-3 mb-1 px-3">Mistake type</div>
           {motifCounts.map(([m, n]) => (
             <FocusItem key={m} active={motif === m} onClick={() => setFocus({ motif: m })} label={MOTIF_LABEL[m]} count={n} />
@@ -224,6 +220,7 @@ export default function Training() {
           remaining={inSession ? Math.max(1, sessionPart.target - sessionPart.done) : queue.length}
           done={inSession ? sessionPart.done : session.solved + session.failed}
           autoNext={settings.autoNextPuzzle}
+          showProgress={inSession}
           onDone={async (grade) => {
             const next = schedule(current, grade);
             const lastResult = grade === 'again' ? 'failed' : 'solved';
@@ -271,6 +268,7 @@ function PuzzleView({
   onDone,
   onSkip,
   autoNext,
+  showProgress,
 }: {
   puzzle: Puzzle;
   remaining: number;
@@ -278,6 +276,7 @@ function PuzzleView({
   onDone: (g: Grade) => Promise<void>;
   onSkip: () => void;
   autoNext: boolean;
+  showProgress: boolean;
 }) {
   const [fen, setFenState] = useState(puzzle.fen);
   // The opponent's reply is played from a timeout, so the current position must be read from a ref.
@@ -515,27 +514,22 @@ function PuzzleView({
         Solution: <b>{solutionSan.join(' ')}</b>
       </span>
     ) : (
-      <span className="muted">{puzzle.solutionUci.length > 1 ? 'Find the winning line.' : 'Find the best move.'}</span>
+      <span className="inline-flex items-center gap-2">
+        <span className="inline-block w-3.5 h-3.5 rounded-sm ring-1 ring-black/30" style={{ background: toMove === 'white' ? '#f4f4f4' : '#403d39' }} />
+        <span>{toMove === 'white' ? 'White' : 'Black'} to move</span>
+        <span className="muted font-normal">· {puzzle.solutionUci.length > 1 ? 'find the winning line' : 'find the best move'}</span>
+      </span>
     );
 
   return (
     <div className="grid lg:grid-cols-[minmax(0,560px)_minmax(0,1fr)] gap-3 lg:gap-5">
       <div className="space-y-2">
-        <div className="flex items-center justify-between text-sm">
-          <span className="inline-flex items-center gap-2 font-bold">
-            <span
-              className="inline-block w-4 h-4 rounded-sm border border-[var(--border)]"
-              style={{ background: toMove === 'white' ? '#f4f4f4' : '#403d39' }}
-            />
-            {toMove === 'white' ? 'White' : 'Black'} to move
-          </span>
-          <span className="muted text-xs tabular-nums">
-            {doneCount + 1} / {total}
-          </span>
-        </div>
-        <div className="h-1 rounded bg-[var(--panel-2)]">
-          <div className="h-1 rounded bg-accent transition-all" style={{ width: `${(100 * doneCount) / Math.max(1, total)}%` }} />
-        </div>
+        {/* Progress only means something in today's session (a fixed number of puzzles). */}
+        {showProgress && (
+          <div className="h-1 rounded bg-[var(--panel-2)]" title={`${doneCount + 1} of ${total}`}>
+            <div className="h-1 rounded bg-accent transition-all" style={{ width: `${(100 * doneCount) / Math.max(1, total)}%` }} />
+          </div>
+        )}
         <div className="flex gap-1.5">
           {engine && settings.showEvalBar && <EvalBar score={live.result?.lines[0]?.score} orientation={toMove} thinking={!live.settled} />}
           <div className="flex-1 min-w-0">

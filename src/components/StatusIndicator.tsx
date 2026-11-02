@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQueue, useSettings, useSyncStatus } from '../hooks/useStores';
-import { analysisQueue, workerCount } from '../lib/engine/queue';
+import { ANALYSE_LIMITS, analysisQueue, limitLabel, speedChoices, workerCount } from '../lib/engine/queue';
 import { syncManager } from '../lib/syncManager';
 import { saveSettings } from '../db/schema';
 import { formatEta, timeAgo } from '../lib/format';
@@ -128,13 +128,13 @@ function StatusDetails({ onClose }: { onClose: () => void }) {
           checked={settings.autoAnalyze}
           onChange={(v) => void saveSettings({ autoAnalyze: v }).then(() => analysisQueue.refreshCount().then(() => analysisQueue.kick()))}
           label="Analyse new games automatically"
-          hint={settings.autoAnalyze ? `Your latest ${settings.autoAnalyzeLimit} games are kept analysed.` : 'Off: a game is analysed when you open it.'}
+          hint={settings.autoAnalyze ? `Latest ${limitLabel(settings.autoAnalyzeLimit).toLowerCase()} games` : 'Off: a game is analysed when you open it.'}
         />
         {settings.autoAnalyze && (
           <div className="mt-3">
-            <div className="muted text-xs mb-1">How many of your latest games to analyse</div>
-            <div className="grid grid-cols-4 gap-2">
-              {[50, 100, 150, 200].map((n) => (
+            <div className="muted text-xs mb-1">Keep your latest games analysed</div>
+            <div className="grid grid-cols-5 gap-2">
+              {ANALYSE_LIMITS.map((n) => (
                 <button
                   key={n}
                   className={`btn justify-center !px-2 ${settings.autoAnalyzeLimit === n ? 'btn-primary' : ''}`}
@@ -144,7 +144,7 @@ function StatusDetails({ onClose }: { onClose: () => void }) {
                     void analysisQueue.kick();
                   }}
                 >
-                  {n}
+                  {limitLabel(n)}
                 </button>
               ))}
             </div>
@@ -152,8 +152,8 @@ function StatusDetails({ onClose }: { onClose: () => void }) {
         )}
         <div className="mt-3">
           <div className="muted text-xs mb-1">Speed</div>
-          <div className="grid grid-cols-3 gap-2">
-            {(['light', 'balanced', 'max'] as const).map((k) => (
+          <div className={`grid gap-2 ${speedChoices().length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+            {speedChoices().map((k) => (
               <button
                 key={k}
                 className={`btn justify-center !px-2 ${settings.analysisSpeed === k ? 'btn-primary' : ''}`}

@@ -1,3 +1,5 @@
+import { opponentName } from '../lib/games/build';
+import { relativeDay } from '../lib/format';
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useInsightData, DEFAULT_FILTERS, type InsightFilters } from '../hooks/useInsightData';
@@ -138,35 +140,25 @@ export default function Insights() {
           <>
           <div className="grid lg:grid-cols-2 gap-4">
             <Section title="Game phases" id="phases">
-              <div className="overflow-x-auto">
-              <table className="data">
-                <thead>
-                  <tr>
-                    <th>Phase</th>
-                    <th>Accuracy</th>
-                    <th>Errors /100</th>
-                    <th>Share of loss</th>
-                    <th>Time / move</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.phases.map((p) => (
-                    <tr key={p.phase}>
-                      <td className="capitalize font-semibold">
-                        <Link className="hover:underline" to={`/training?phase=${p.phase}`}>
-                          {p.phase}
-                        </Link>
-                      </td>
-                      <td className="tabular-nums">{fmtPct(p.accuracy)}</td>
-                      <td className="tabular-nums">{p.errorsPer100.toFixed(1)}</td>
-                      <td className="tabular-nums">{fmtPct(p.shareOfLoss)}</td>
-                      <td className="tabular-nums">{formatDuration(p.avgTime) || '–'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="grid grid-cols-3 gap-2" title="Book moves are excluded. Errors = mistakes and blunders per 100 moves. Share = how much of the win chance you lost happened in that phase.">
+                {data.phases.map((p) => (
+                  <Link key={p.phase} to={`/training?phase=${p.phase}`} className="rounded-lg bg-[var(--panel-2)] p-2.5 text-center hover:brightness-110">
+                    <div className="muted text-xs font-bold capitalize">{p.phase}</div>
+                    <div className="text-xl font-black tabular-nums">{fmtPct(p.accuracy)}</div>
+                    <div className="muted text-[11px] tabular-nums leading-snug">
+                      {p.errorsPer100.toFixed(1)} errors/100
+                      <br />
+                      {fmtPct(p.shareOfLoss)} of losses
+                      {formatDuration(p.avgTime) ? (
+                        <>
+                          <br />
+                          {formatDuration(p.avgTime)} / move
+                        </>
+                      ) : null}
+                    </div>
+                  </Link>
+                ))}
               </div>
-              <p className="muted text-xs mt-2">Book moves are excluded. Errors /100 = mistakes and blunders per 100 moves. “Share of loss” = how much of the win chance you lost happened in that phase.</p>
             </Section>
 
             <Section title="Mistake types" id="mistakes">
@@ -318,11 +310,14 @@ export default function Insights() {
                   <div>
                     <div className="muted text-xs mb-1">Winning games you didn't win</div>
                     <div className="flex flex-wrap gap-1">
-                      {data.conv.thrownGameIds.slice(0, 10).map((id, i) => (
-                        <Link key={id} className="chip hover:underline" to={`/game/${encodeURIComponent(id)}`}>
-                          #{i + 1}
-                        </Link>
-                      ))}
+                      {data.conv.thrownGameIds.slice(0, 10).map((id) => {
+                        const g = games.find((x) => x.id === id);
+                        return (
+                          <Link key={id} className="chip hover:underline" to={`/game/${encodeURIComponent(id)}`}>
+                            {g ? `${opponentName(g)} · ${relativeDay(g.endTime)}` : 'Game'}
+                          </Link>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -347,34 +342,37 @@ export default function Insights() {
               <div className="font-semibold text-sm mt-4 mb-2">Your wins</div>
               <HBarList data={data.term.wins.map((t) => ({ label: t.name, value: t.value }))} />
             </Section>
+            {data.sessions.afterLossGames + data.sessions.afterWinGames >= 5 && (
+              <div className="lg:col-span-3">
+                <Section title="Sessions · live games" id="sessions">
+                  <div className="grid md:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-3 md:grid-cols-1 gap-2 text-sm">
+                      <MiniStat label="Score" value={fmtPct(data.sessions.overall)} />
+                      {data.sessions.afterLossGames > 0 && <MiniStat label="After a loss" value={fmtPct(data.sessions.afterLoss)} hint={plural(data.sessions.afterLossGames, 'game')} />}
+                      {data.sessions.afterWinGames > 0 && <MiniStat label="After a win" value={fmtPct(data.sessions.afterWin)} hint={plural(data.sessions.afterWinGames, 'game')} />}
+                    </div>
+                    <div>
+                      <div className="font-semibold text-sm mb-2">By game # in a session</div>
+                      <HBarList data={data.sessions.byIndex.map((b) => ({ label: b.label, value: b.score, sub: `(${b.games})` }))} format={(v) => `${v.toFixed(0)}%`} max={100} />
+                    </div>
+                    <div>
+                      <div className="font-semibold text-sm mb-2">By time of day</div>
+                      <HBarList data={data.sessions.byHour.map((b) => ({ label: b.label, value: b.score, sub: `(${b.games})` }))} format={(v) => `${v.toFixed(0)}%`} max={100} />
+                    </div>
+                  </div>
+                </Section>
+              </div>
+            )}
           </div>
           )}
 
-          {tab === 'sessions' && (
-          <Section title="Sessions & tilt" id="sessions">
-            <div className="grid md:grid-cols-3 gap-6">
-              <div className="space-y-3 text-sm">
-                <MiniStat label="Overall score" value={fmtPct(data.sessions.overall)} />
-                <MiniStat label="Right after a loss" value={fmtPct(data.sessions.afterLoss)} hint={`${data.sessions.afterLossGames} games`} />
-                <MiniStat label="Right after a win" value={fmtPct(data.sessions.afterWin)} hint={`${data.sessions.afterWinGames} games`} />
-              </div>
-              <div>
-                <div className="font-semibold text-sm mb-2">Score by game # in a session</div>
-                <HBarList data={data.sessions.byIndex.map((b) => ({ label: b.label, value: b.score, sub: `(${b.games})` }))} format={(v) => `${v.toFixed(0)}%`} max={100} />
-              </div>
-              <div>
-                <div className="font-semibold text-sm mb-2">Score by time of day</div>
-                <HBarList data={data.sessions.byHour.map((b) => ({ label: b.label, value: b.score, sub: `(${b.games})` }))} format={(v) => `${v.toFixed(0)}%`} max={100} />
-              </div>
-            </div>
-            <p className="muted text-xs mt-3">A session = games less than 45 minutes apart.</p>
-          </Section>
-          )}
         </>
       )}
     </div>
   );
 }
+
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 function MiniStat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
@@ -408,7 +406,7 @@ function ExampleList({ refs }: { refs: MoveRef[] }) {
   );
 }
 
-type Tab = 'skills' | 'overview' | 'mistakes' | 'time' | 'results' | 'sessions';
+type Tab = 'skills' | 'overview' | 'mistakes' | 'time' | 'results';
 
 const TABS: [Tab, string][] = [
   ['skills', 'Skills'],
@@ -416,7 +414,6 @@ const TABS: [Tab, string][] = [
   ['mistakes', 'Mistakes'],
   ['time', 'Time'],
   ['results', 'Results'],
-  ['sessions', 'Sessions'],
 ];
 
 /** Sticky tabs. Only the active tab is rendered, so phones never draw every chart at once. */

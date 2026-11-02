@@ -1,4 +1,4 @@
-import { Suspense, lazy, useMemo, useState } from 'react';
+import { Suspense, lazy, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueue, useSettings, useSyncStatus } from '../hooks/useStores';
 import { DEFAULT_FILTERS, useInsightData } from '../hooks/useInsightData';
@@ -14,7 +14,7 @@ import { Icon } from '../components/Icon';
 import { Picker } from '../components/Picker';
 import { isIos, isStandalone, useInstallPrompt } from '../pwa/install';
 import { isMobile } from '../lib/device';
-import { PageHeader, Section, Stat, fmtPct } from '../components/ui';
+import { PageHeader, Section, fmtPct } from '../components/ui';
 import { connectAccount } from '../lib/account';
 import { formatEta } from '../lib/format';
 import { Link } from 'react-router-dom';
@@ -57,11 +57,11 @@ export default function Dashboard() {
         )}
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <Stat label="Score" value={fmtPct(ov.score)} sub={`${ov.wins}W ${ov.draws}D ${ov.losses}L`} />
-        <Stat label="Avg accuracy" value={fmtPct(ov.accuracy, 1)} />
-        <Stat label="Blunders / game" value={ov.blundersPerGame.toFixed(2)} sub={`${ov.mistakesPerGame.toFixed(2)} mistakes / game`} />
-        <Stat label={`${mainClass ?? ''} rating`} value={ratingData[ratingData.length - 1]?.rating ?? '–'} sub={ratingDelta(ratingData)} />
+      {/* One compact strip (like chess.com's stats row) instead of four big tiles. */}
+      <div className="panel grid grid-cols-3 divide-x divide-[var(--border)] py-3 text-center">
+        <MiniFigure label={`${mainClass ?? ''} rating`} value={ratingData[ratingData.length - 1]?.rating ?? '–'} sub={ratingDelta(ratingData)} />
+        <MiniFigure label="Accuracy" value={ov.analyzed ? fmtPct(ov.accuracy, 1) : '–'} sub={ov.analyzed ? `${ov.analyzed} analysed` : 'analysing…'} />
+        <MiniFigure label="Score" value={fmtPct(ov.score)} sub={`${ov.wins}W ${ov.draws}D ${ov.losses}L`} />
       </div>
 
       <div className="grid xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] gap-4">
@@ -93,6 +93,16 @@ export default function Dashboard() {
         </div>
       </div>
       <InstallHint />
+    </div>
+  );
+}
+
+function MiniFigure({ label, value, sub }: { label: string; value: ReactNode; sub?: string }) {
+  return (
+    <div className="min-w-0 px-2">
+      <div className="muted text-[11px] font-bold uppercase tracking-wide truncate">{label}</div>
+      <div className="text-2xl font-black tabular-nums leading-tight mt-0.5">{value}</div>
+      {sub && <div className="muted text-[11px] font-semibold truncate">{sub}</div>}
     </div>
   );
 }
