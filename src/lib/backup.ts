@@ -16,16 +16,19 @@ export async function exportBackup() {
     sync: await db.sync.toArray(),
     kv: await db.kv.toArray(),
   };
-  const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+  // Gzipped where the browser can (about 6× smaller); plain JSON otherwise. Import reads both.
+  const json = new Blob([JSON.stringify(data)], { type: 'application/json' });
+  const gz = typeof CompressionStream !== 'undefined';
+  const blob = gz ? await new Response(json.stream().pipeThrough(new CompressionStream('gzip'))).blob() : json;
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `chess-analyzer-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  a.download = `chess-analyzer-backup-${new Date().toISOString().slice(0, 10)}.json${gz ? '.gz' : ''}`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
 export async function importBackup(file: File): Promise<number> {
-  const data = JSON.parse(await file.text());
+  const data = JSON.parse(await readBackupText(file));
   if (data.version !== 1 || !Array.isArray(data.games)) throw new Error('Not a Chess Analyzer backup file');
   await db.transaction('rw', [db.games, db.pgns, db.analyses, db.summaries, db.puzzles, db.extPuzzles, db.sync, db.kv], async () => {
     const games = data.games as NewGame[];
@@ -50,6 +53,16 @@ export async function importBackup(file: File): Promise<number> {
   });
   void upgradeStoredAnalyses();
   return data.games.length;
+}
+
+/** The backup's JSON text, gunzipping it first if it is a .gz file. */
+async function readBackupText(file: Blob): Promise<string> {
+  const head = new Uint8Array(await file.slice(0, 2).arrayBuffer());
+  if (head[0] === 0x1f && head[1] === 0x8b) {
+    if (typeof DecompressionStream === 'undefined') throw new Error('This browser cannot open compressed backups');
+    return new Response(file.stream().pipeThrough(new DecompressionStream('gzip'))).text();
+  }
+  return file.text();
 }
 
 async function gamesWithPgn(): Promise<NewGame[]> {

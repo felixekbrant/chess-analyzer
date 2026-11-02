@@ -2,6 +2,7 @@ import Dexie, { type Table } from 'dexie';
 import type { ExtPuzzle, GameAnalysis, NewGame, Puzzle, Settings, StoredGame } from '../lib/types';
 import { buildSummary, type GameSummary } from '../lib/insights/summary';
 import { DEFAULT_SETTINGS } from '../lib/types';
+import { packAnalysis, unpackAnalysis } from './packing';
 
 export interface SyncState {
   username: string;
@@ -85,6 +86,38 @@ export class ChessDB extends Dexie {
       });
     // v4: Lichess puzzles for focus drills, kept apart from the puzzles made from your own games.
     this.version(4).stores({ extPuzzles: 'id, area, due' });
+
+    // Analyses are stored packed (about 60% smaller, see packing.ts); everything above this layer
+    // reads and writes ordinary analyses.
+    this.use({
+      stack: 'dbcore',
+      name: 'pack-analyses',
+      create(down) {
+        return {
+          ...down,
+          table(name) {
+            const t = down.table(name);
+            if (name !== 'analyses') return t;
+            return {
+              ...t,
+              mutate: (req) =>
+                t.mutate(req.type === 'add' || req.type === 'put' ? { ...req, values: req.values.map((v) => packAnalysis(v)) } : req),
+              get: (req) => t.get(req).then((v) => unpackAnalysis(v)),
+              getMany: (req) => t.getMany(req).then((vs) => vs.map((v) => unpackAnalysis(v))),
+              query: (req) => t.query(req).then((res) => (req.values ? { ...res, result: res.result.map((v) => unpackAnalysis(v)) } : res)),
+              openCursor: (req) =>
+                t.openCursor(req).then((cursor) =>
+                  cursor
+                    ? Object.create(cursor, {
+                        value: { get: () => unpackAnalysis(cursor.value) },
+                      })
+                    : cursor,
+                ),
+            };
+          },
+        };
+      },
+    });
   }
 }
 

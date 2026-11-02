@@ -1,5 +1,5 @@
 import { test as base, expect, type Page } from '@playwright/test';
-import { USERNAME, mockChessCom, openTab, pick, seed } from './helpers';
+import { SEED_FILE, USERNAME, mockChessCom, openTab, pick, seed } from './helpers';
 
 // Click-through tests of the main flows at phone size. Every test starts with an empty browser;
 // most load e2e/fixtures/seed.json (29 analysed games) first. chess.com is answered from fixtures.
@@ -342,4 +342,27 @@ test('engine controls: open the engine and toggle eval bar and suggestions in re
   await expect(page.getByRole('button', { name: 'Start' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Back to puzzle' }).click();
   await expect(page.getByRole('button', { name: /Solution/ })).toBeVisible();
+});
+
+test('backup: export is compressed and restores into an empty app', async ({ page, browser }, testInfo) => {
+  await seed(page);
+  await page.goto('./#/settings');
+  const download = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export' }).click();
+  const file = await (await download).path();
+  const { readFileSync, statSync } = await import('node:fs');
+  const bytes = readFileSync(file);
+  expect([bytes[0], bytes[1]], 'gzip header').toEqual([0x1f, 0x8b]);
+  expect(statSync(file).size).toBeLessThan(statSync(SEED_FILE).size / 3);
+
+  // A fresh browser profile restores it.
+  const fresh = await browser.newContext({ ...testInfo.project.use, serviceWorkers: 'block' });
+  await mockChessCom(fresh);
+  const p2 = await fresh.newPage();
+  await p2.goto('./#/settings');
+  await p2.locator('input[type="file"]').setInputFiles({ name: 'backup.json.gz', mimeType: 'application/gzip', buffer: bytes });
+  await expect(p2.getByText('Restored 29 games from backup')).toBeVisible();
+  await p2.goto('./#/games');
+  await expect(p2.locator('[data-game-id]')).not.toHaveCount(0);
+  await fresh.close();
 });

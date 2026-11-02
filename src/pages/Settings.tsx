@@ -230,7 +230,7 @@ export default function SettingsPage() {
               Import
               <input
                 type="file"
-                accept="application/json"
+                accept="application/json,application/gzip,.json,.gz"
                 className="hidden"
                 onChange={async (e) => {
                   const f = e.target.files?.[0];

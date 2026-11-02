@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync, writeFileSync } from 'node:fs';
+import { gunzipSync } from 'node:zlib';
 import { SEED_FILE, USERNAME, fixture, mockChessCom, pick } from './helpers';
 
 // Regenerates e2e/fixtures/seed.json: imports the fixture games through the real connect flow,
@@ -36,7 +37,8 @@ test('generate seed backup', async ({ page, context }) => {
   const download = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export backup' }).click();
   const file = await (await download).path();
-  const data = JSON.parse(readFileSync(file, 'utf8'));
+  const bytes = readFileSync(file);
+  const data = JSON.parse((bytes[0] === 0x1f && bytes[1] === 0x8b ? gunzipSync(bytes) : bytes).toString('utf8'));
   writeFileSync(SEED_FILE, JSON.stringify(data));
   expect(data.games.length).toBe(total);
 });
