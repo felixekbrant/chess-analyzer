@@ -9,6 +9,8 @@ import { useStableCallback } from '../hooks/useStableCallback';
 import { schedule, type Grade } from '../lib/training/srs';
 import { winPercentFor } from '../lib/analysis/winprob';
 import { playUci } from '../lib/analysis/board';
+import { explainLine } from '../lib/analysis/lines';
+import { LineViewer } from '../components/LineViewer';
 import { parsePgn } from '../lib/pgn/parse';
 import { MOTIF_LABEL } from '../lib/insights/compute';
 import { playSound } from '../lib/sound';
@@ -301,6 +303,29 @@ function PuzzleView({
   const toMove = puzzle.fen.split(' ')[1] === 'w' ? 'white' : 'black';
   const expected = puzzle.solutionUci[step];
 
+  // Full engine lines from the game's analysis: the best line, and how the game move was punished.
+  const lines = useLiveQuery(async () => {
+    const gameId = puzzle.gameIds[puzzle.gameIds.length - 1];
+    const a = await db.analyses.get(gameId);
+    const m = a?.moves[puzzle.plies[puzzle.plies.length - 1]];
+    if (!a || !m || m.uci !== puzzle.playedUci) return null;
+    const color = m.color;
+    const names = { w: color === 'w' ? 'You' : 'Your opponent', b: color === 'b' ? 'You' : 'Your opponent' };
+    const refute = a.moves[m.ply + 1]?.bestLineUci ?? [];
+    return {
+      best: m.bestLineUci.length ? { start: m.fenBefore, uci: m.bestLineUci, line: explainLine(m.fenBefore, m.bestLineUci, color, names) } : undefined,
+      refute: refute.length ? { start: m.fenAfter, uci: refute, line: explainLine(m.fenAfter, refute, color, names) } : undefined,
+    };
+  }, [puzzle.id]);
+  const [lineView, setLineView] = useState<{ kind: 'best' | 'refute'; index: number } | null>(null);
+  const shownLine = lineView && lines ? lines[lineView.kind] : undefined;
+  const lineFen = useMemo(
+    () => (shownLine && lineView ? (lineView.index ? playUci(shownLine.start, shownLine.uci.slice(0, lineView.index)).fens.at(-1) : shownLine.start) : undefined),
+    [shownLine, lineView],
+  );
+  // At the start of "why it failed" the board shows your game move.
+  const lineLast = shownLine && lineView ? (lineView.index ? shownLine.uci[lineView.index - 1] : lineView.kind === 'refute' ? puzzle.playedUci : undefined) : undefined;
+
   const finished = useRef(false);
   async function finish(grade: Grade) {
     // Auto-next and a key press can both fire; only grade once.
@@ -469,11 +494,11 @@ function PuzzleView({
         </div>
         <Board
           id="puzzle"
-          fen={fen}
+          fen={lineFen ?? fen}
           orientation={toMove}
-          onMove={state === 'solving' || state === 'wrong' ? onMove : undefined}
-          lastMove={lastMove}
-          marker={marker}
+          onMove={!lineFen && (state === 'solving' || state === 'wrong') ? onMove : undefined}
+          lastMove={lineFen ? (lineLast ? { from: lineLast.slice(0, 2), to: lineLast.slice(2, 4) } : undefined) : lastMove}
+          marker={lineFen ? undefined : marker}
           highlight={highlight}
         />
       </div>
@@ -500,6 +525,33 @@ function PuzzleView({
             </button>
           )}
         </div>
+
+        {done && lines && (lines.best || lines.refute) && (
+          <div className="panel p-3 text-sm">
+            {shownLine && lineView ? (
+              <LineViewer
+                title={lineView.kind === 'best' ? `The full line after ${solutionSan[0]}` : `What ${puzzle.playedSan} allowed`}
+                line={shownLine.line}
+                index={lineView.index}
+                onIndex={(i) => setLineView({ ...lineView, index: i })}
+                onClose={() => setLineView(null)}
+              />
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {lines.best && (
+                  <button className="btn !py-1.5 !text-sm" onClick={() => setLineView({ kind: 'best', index: 1 })}>
+                    <Icon name="play" size={14} /> See the full line
+                  </button>
+                )}
+                {lines.refute && (
+                  <button className="btn !py-1.5 !text-sm" onClick={() => setLineView({ kind: 'refute', index: 0 })}>
+                    <Icon name="play" size={14} /> What {puzzle.playedSan} allowed
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="panel p-3 text-sm space-y-2">
           <p>

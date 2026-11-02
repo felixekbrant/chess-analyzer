@@ -5,6 +5,8 @@ import { useQueueProgress } from '../../hooks/useStores';
 import { useStableCallback } from '../../hooks/useStableCallback';
 import { analysisQueue } from '../../lib/engine/queue';
 import { playUci } from '../../lib/analysis/board';
+import { explainLine, type ExplainedLine } from '../../lib/analysis/lines';
+import { LineViewer } from '../../components/LineViewer';
 import { formatScore, winPercentFor } from '../../lib/analysis/winprob';
 import { formatDuration, type ParsedGame } from '../../lib/pgn/parse';
 import { CLASS_META } from '../../lib/classificationMeta';
@@ -42,9 +44,12 @@ interface ExploreState {
   /** Position index the exploration starts from. */
   base: number;
   moves: string[];
-  /** A line to step through with ▶ (the engine's best line when using "Best"). */
+  /** An engine line to step through: the best line, or how a mistake gets punished. */
   line?: string[];
-  lineLabel?: string;
+  title?: string;
+  context?: string;
+  /** Whose gains and losses the line's summary describes. */
+  perspective?: Color;
 }
 
 interface RetryStateFull {
@@ -107,6 +112,13 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
     return c.fen();
   }, [explore, positions]);
 
+  const opponentName = me === 'w' ? game.black : game.white;
+  const explained = useMemo(() => {
+    if (!explore?.line) return undefined;
+    const names = me === 'w' ? { w: 'You', b: opponentName } : { w: opponentName, b: 'You' };
+    return explainLine(positions[explore.base], explore.line, explore.perspective ?? me, game.userColor ? names : undefined);
+  }, [explore?.line, explore?.base, explore?.perspective, positions, me, opponentName, game.userColor]);
+
   const retryFen = useMemo(() => {
     if (!retry) return undefined;
     if (!retry.attemptUci || retry.state === 'shown') return retry.move.fenBefore;
@@ -124,6 +136,9 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
     setRetry(null);
     setPly(Math.max(0, Math.min(n, p)));
   }, [n]);
+
+  /** Back to the reviewed move after looking at a line or exploring (`ply` doesn't change meanwhile). */
+  const exitExplore = () => go(ply);
 
   const nextKey = keyPlies.find((p) => p > ply);
   const prevKey = [...keyPlies].reverse().find((p) => p < ply);
@@ -148,7 +163,8 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
   const prev = () => {
     if (retry) return go(retry.move.ply);
     if (explore) {
-      if (explore.moves.length <= 1) return go(explore.base + (explore.line ? 1 : 0));
+      if (explore.line) return explore.moves.length ? setExplore({ ...explore, moves: explore.moves.slice(0, -1) }) : exitExplore();
+      if (explore.moves.length <= 1) return go(explore.base);
       return setExplore({ ...explore, moves: explore.moves.slice(0, -1) });
     }
     if (keyOnly) return prevKey !== undefined ? go(prevKey) : go(0);
@@ -165,7 +181,26 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
   const showBest = () => {
     if (!current?.bestLineUci.length) return;
     setRetry(null);
-    setExplore({ base: ply - 1, moves: [current.bestLineUci[0]], line: current.bestLineUci, lineLabel: current.bestSan });
+    const isError = ERROR_CLASSES.includes(current.classification) || current.classification === 'inaccuracy';
+    const title = isError || current.bestUci !== current.uci ? `Best was ${current.bestSan}` : `The idea behind ${current.san}`;
+    const whose = current.color === me ? 'your' : `${opponentName}'s`;
+    const context = `This keeps ${whose} winning chances at about ${Math.round(current.winBefore)}%.`;
+    setExplore({ base: ply - 1, moves: [current.bestLineUci[0]], line: current.bestLineUci, title, context, perspective: current.color });
+  };
+
+  /** The line that punishes the current move: the engine's best reply from the position after it. */
+  const refutation = current && moves?.[ply]?.bestLineUci.length ? moves[ply].bestLineUci : undefined;
+  const showRefutation = () => {
+    if (!current || !refutation) return;
+    setRetry(null);
+    const mine = current.color === me;
+    const label = CLASS_META[current.classification].label.toLowerCase();
+    const title = mine ? `Why ${current.san} is ${article(label)} ${label}` : `How to punish ${current.san}`;
+    const [b, a] = [Math.round(current.winBefore), Math.round(current.winAfter)];
+    const context = mine
+      ? `After ${current.san} your winning chances drop from ${b}% to ${a}%. This is how your opponent takes advantage:`
+      : `After ${current.san} your winning chances go up from ${100 - b}% to ${100 - a}%, if you find these moves:`;
+    setExplore({ base: ply, moves: [refutation[0]], line: refutation, title, context, perspective: me });
   };
 
   const canRetryCurrent = !!current && current.color === me && ERROR_CLASSES.includes(current.classification) && !!current.bestUci;
@@ -235,7 +270,7 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
     else if (e.key === 'p' && prevKey !== undefined) go(prevKey);
     else if (e.key === 'b' && canBest) showBest();
     else if (e.key === 'r' && canRetryCurrent && current) startRetry(current);
-    else if (e.key === 'Escape') go(retry ? retry.move.ply : explore ? explore.base : ply);
+    else if (e.key === 'Escape') go(retry ? retry.move.ply : ply);
     else return;
     e.preventDefault();
   });
@@ -305,7 +340,11 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
       keyCount={keyPlies.length}
       onExitRetry={() => go(retry?.move.ply ?? ply)}
       onRetryReset={() => retry && setRetry({ ...retry, attemptUci: undefined, state: 'try' })}
-      onExitExplore={() => go(explore ? explore.base + (explore.line ? 1 : 0) : ply)}
+      onExitExplore={exitExplore}
+      line={explained}
+      onLineIndex={(i) => explore?.line && setExplore({ ...explore, moves: explore.line.slice(0, i) })}
+      onShowBest={canBest ? showBest : undefined}
+      onShowRefutation={refutation ? showRefutation : undefined}
     />
   );
 
@@ -329,7 +368,7 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
   ) : explore ? (
     <>
       <ActionButton icon={<Icon name="prev" />} label="Back" onClick={prev} />
-      <ActionButton icon={<Icon name="close" />} label="Back to game" onClick={() => go(explore.base + (explore.line ? 1 : 0))} />
+      <ActionButton icon={<Icon name="close" />} label="Back to game" onClick={exitExplore} />
       <ActionButton
         icon={<Icon name="next" />}
         label={explore.line ? 'Next' : undefined}
@@ -408,7 +447,7 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
         {/* Phones: coach, engine, graph and the move strip under the board. */}
         <div className="lg:hidden space-y-2">
           {coach}
-          {engineWanted && !retry && <EngineLines result={live.settled ? live.result : null} fen={fen} onPlayLine={onBoardMove} />}
+          {engineWanted && !retry && !explore?.line && <EngineLines result={live.settled ? live.result : null} fen={fen} onPlayLine={onBoardMove} />}
           {analysis && <EvalGraph evals={analysis.evals} moves={analysis.moves} current={ply} onSelect={go} height={48} />}
           <MoveStrip parsed={parsed} moves={moves} ply={ply} onSelect={go} />
         </div>
@@ -505,6 +544,10 @@ function Coach({
   onExitRetry,
   onRetryReset,
   onExitExplore,
+  line,
+  onLineIndex,
+  onShowBest,
+  onShowRefutation,
 }: {
   game: StoredGame;
   analysis?: GameAnalysis;
@@ -517,6 +560,10 @@ function Coach({
   onExitRetry: () => void;
   onRetryReset: () => void;
   onExitExplore: () => void;
+  line?: ExplainedLine;
+  onLineIndex: (i: number) => void;
+  onShowBest?: () => void;
+  onShowRefutation?: () => void;
 }) {
   const progress = useQueueProgress(game.id);
   const me = game.userColor ?? 'w';
@@ -563,31 +610,22 @@ function Coach({
   }
 
   if (explore) {
-    const isBest = !!explore.line;
-    // SAN of the best line from the starting position, for display.
-    const lineSan = isBest ? playUci(positionFen(explore, analysis) ?? '', explore.line!.slice(0, 6)).sans : [];
+    if (explore.line && line) {
+      return (
+        <CoachBubble>
+          <LineViewer title={explore.title ?? 'Engine line'} context={explore.context} line={line} index={explore.moves.length} onIndex={onLineIndex} onClose={onExitExplore} />
+        </CoachBubble>
+      );
+    }
     return (
       <CoachBubble>
         <div className="flex items-start justify-between gap-2">
-          <p className="font-semibold">
-            {isBest ? (
-              <>
-                Best was <span className="text-accent">{explore.lineLabel}</span>
-              </>
-            ) : (
-              'Exploring your own ideas'
-            )}
-          </p>
+          <p className="font-semibold">Exploring your own ideas</p>
           <button className="icon-btn !min-w-8 !min-h-8 -m-1" onClick={onExitExplore} aria-label="Back to the game">
             <Icon name="close" size={16} />
           </button>
         </div>
-        {isBest && lineSan.length > 1 && <p className="mt-1">{lineSan.join(' ')}</p>}
-        <p className="muted mt-1">
-          {isBest
-            ? "Press Next to play through the engine's line, or move a piece to try your own idea."
-            : 'Move pieces freely; the engine evaluates each position. "Back to game" returns to where you were.'}
-        </p>
+        <p className="muted mt-1">Move pieces freely; the engine evaluates each position. "Back to game" returns to where you were.</p>
       </CoachBubble>
     );
   }
@@ -641,6 +679,20 @@ function Coach({
           {bestLine.length > 1 && <span className="muted"> ({bestLine.join(' ')})</span>}
         </p>
       )}
+      {(onShowRefutation && isError) || (onShowBest && (showBest || current.classification === 'brilliant' || current.classification === 'great')) ? (
+        <div className="flex flex-wrap gap-2 mt-2">
+          {onShowRefutation && isError && (
+            <button className="btn !py-1.5 !text-sm" onClick={onShowRefutation}>
+              <Icon name="play" size={14} /> {yours ? 'Why it fails' : 'How to punish it'}
+            </button>
+          )}
+          {onShowBest && (showBest || current.classification === 'brilliant' || current.classification === 'great') && (
+            <button className="btn !py-1.5 !text-sm" onClick={onShowBest}>
+              <Icon name="star" size={14} /> {showBest ? 'Best line' : 'See the idea'}
+            </button>
+          )}
+        </div>
+      ) : null}
       <div className="flex flex-wrap items-center gap-1 mt-2">
         {current.motifs
           .filter((m) => m !== 'long_think' || isError)
@@ -656,9 +708,4 @@ function Coach({
       </div>
     </CoachBubble>
   );
-}
-
-/** FEN of the position an exploration starts from (the position before the reviewed move). */
-function positionFen(explore: ExploreState, analysis?: GameAnalysis): string | undefined {
-  return analysis?.moves[explore.base]?.fenBefore;
 }
