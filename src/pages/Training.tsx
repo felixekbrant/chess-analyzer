@@ -107,14 +107,22 @@ export default function Training() {
     return [...m.entries()].sort((a, b) => b[1] - a[1]);
   }, [puzzles]);
 
+  // Per skill area: how many puzzles, and how many of those you got right the last time you tried
+  // them (your own and Lichess drill puzzles), so drills show progress.
   const areaCounts = useMemo(() => {
-    const m = new Map<SkillArea, number>();
-    for (const p of puzzles ?? []) {
-      const a = puzzleArea(p);
-      if (a) m.set(a, (m.get(a) ?? 0) + 1);
-    }
-    return SKILL_AREAS.filter((a) => m.has(a)).map((a) => [a, m.get(a)!] as const);
-  }, [puzzles]);
+    const m = new Map<SkillArea, { n: number; tried: number; solved: number }>();
+    const add = (a: SkillArea | null | undefined, p: Puzzle, own: boolean) => {
+      if (!a) return;
+      const c = m.get(a) ?? { n: 0, tried: 0, solved: 0 };
+      if (own) c.n++;
+      if (p.lastResult) c.tried++;
+      if (p.lastResult === 'solved') c.solved++;
+      m.set(a, c);
+    };
+    for (const p of puzzles ?? []) add(puzzleArea(p), p, true);
+    for (const p of ext ?? []) add(p.lichess?.area, p, false);
+    return SKILL_AREAS.filter((a) => m.get(a)?.n).map((a) => [a, m.get(a)!] as const);
+  }, [puzzles, ext]);
 
   const setFocus = (p: Record<string, string>) => {
     setParams(p);
@@ -148,7 +156,11 @@ export default function Training() {
         </button>
         )}
         <div className="ml-auto flex items-center gap-3 text-sm tabular-nums">
-          {session.streak > 1 && <span title="Solved in a row">🔥 {session.streak}</span>}
+          {session.streak > 1 && (
+            <span title="Solved in a row" className="inline-flex items-center gap-0.5 font-bold" style={{ color: '#e5713f' }}>
+              <Icon name="flame" size={14} /> {session.streak}
+            </span>
+          )}
           <span className="muted" title="Solved / missed this session">
             <span style={{ color: '#81b64c' }}>✓{session.solved}</span> <span style={{ color: '#e02828' }}>✗{session.failed}</span>
           </span>
@@ -157,10 +169,19 @@ export default function Training() {
       <Sheet open={focusOpen} onClose={() => setFocusOpen(false)} title="What to practise">
         <div className="grid gap-1">
           <FocusItem active={!motif && !phase && !opening && !repeated && !area} onClick={() => setFocus({})} label="All puzzles" count={puzzles?.length} />
-          <FocusItem active={repeated} onClick={() => setFocus({ repeated: '1' })} label="Repeated mistakes" count={puzzles?.filter((p) => p.occurrences >= 2).length} />
+          {!!puzzles?.some((p) => p.occurrences >= 2) && (
+            <FocusItem active={repeated} onClick={() => setFocus({ repeated: '1' })} label="Repeated mistakes" count={puzzles.filter((p) => p.occurrences >= 2).length} />
+          )}
           <div className="muted text-xs font-semibold uppercase tracking-wide mt-3 mb-1 px-3">Skill area</div>
-          {areaCounts.map(([a, n]) => (
-            <FocusItem key={a} active={area === a} onClick={() => setFocus({ area: a })} label={SKILL_META[a].label} count={n} />
+          {areaCounts.map(([a, c]) => (
+            <FocusItem
+              key={a}
+              active={area === a}
+              onClick={() => setFocus({ area: a })}
+              label={SKILL_META[a].label}
+              count={c.n}
+              sub={c.tried ? `${c.solved}/${c.tried} solved` : undefined}
+            />
           ))}
           <div className="muted text-xs font-semibold uppercase tracking-wide mt-3 mb-1 px-3">Mistake type</div>
           {motifCounts.map(([m, n]) => (
@@ -184,7 +205,7 @@ export default function Training() {
       ) : inSession && !current ? (
         <Section>
           <div className="text-center py-8 space-y-3">
-            <div className="text-lg font-bold">🎉 {sess.stage === 'done' ? "Today's puzzles are done!" : 'Nothing left in this part.'}</div>
+            <div className="text-lg font-black">{sess.stage === 'done' ? "Today's puzzles are done" : 'Nothing left in this part'}</div>
             <p className="muted text-sm">
               Solved {session.solved}, missed {session.failed}. Missed ones come back soon, so they stick.
             </p>
@@ -196,7 +217,7 @@ export default function Training() {
       ) : !current ? (
         <Section>
           <div className="text-center py-8 space-y-3">
-            <div className="text-lg font-bold">🎉 All done{focusLabel !== 'All puzzles' ? ` for ${focusLabel}` : ''}!</div>
+            <div className="text-lg font-black">All done{focusLabel !== 'All puzzles' ? ` for ${focusLabel}` : ''}</div>
             <p className="muted text-sm">
               {filtered.length} puzzle{filtered.length === 1 ? '' : 's'} in this set. Solved {session.solved}, missed {session.failed} this session
               {session.best > 1 ? `, best streak ${session.best}` : ''}.
@@ -250,13 +271,16 @@ export default function Training() {
   );
 }
 
-function FocusItem({ active, onClick, label, count }: { active: boolean; onClick: () => void; label: string; count?: number }) {
+function FocusItem({ active, onClick, label, count, sub }: { active: boolean; onClick: () => void; label: string; count?: number; sub?: string }) {
   return (
     <button
       className={`flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-left font-semibold ${active ? 'bg-accent text-white' : 'hover:bg-[var(--panel-2)]'}`}
       onClick={onClick}
     >
-      <span>{label}</span>
+      <span>
+        {label}
+        {sub && <span className={`block text-xs font-semibold ${active ? 'opacity-80' : 'muted'}`}>{sub}</span>}
+      </span>
       {count !== undefined && <span className={`text-sm ${active ? '' : 'muted'}`}>{count}</span>}
     </button>
   );
@@ -608,76 +632,73 @@ function PuzzleView({
           )}
         </div>
 
-        {!engine && done && lines && (lines.best || lines.refute) && (
-          <div className="panel p-3 text-sm">
-            {shownLine && lineView ? (
-              <LineViewer
-                title={lineView.kind === 'best' ? `The full line after ${solutionSan[0]}` : `What ${puzzle.playedSan} allowed`}
-                line={shownLine.line}
-                index={lineView.index}
-                onIndex={(i) => setLineView({ ...lineView, index: i })}
-                onClose={() => setLineView(null)}
-              />
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {lines.best && (
-                  <button className="btn !py-1.5 !text-sm" onClick={() => setLineView({ kind: 'best', index: 1 })}>
-                    <Icon name="play" size={14} /> See the full line
-                  </button>
+        {/* One card: what happened in your game, then (once done) the lines and links. */}
+        {puzzle.lichess ? (
+          <LichessInfoPanel info={puzzle.lichess} />
+        ) : (
+          <div className="panel p-3 text-sm space-y-2.5">
+            <p className="flex items-center gap-1.5 flex-wrap">
+              <span className="muted">You played</span>
+              <span className="inline-flex items-center gap-1 font-bold">
+                <ClassificationBadge c={puzzle.classification} size={16} /> {puzzle.playedSan}
+              </span>
+              <span className="muted tabular-nums">−{puzzle.winLoss.toFixed(0)}%</span>
+              {puzzle.occurrences > 1 && (
+                <span className="chip" style={{ color: '#e5713f' }}>
+                  ×{puzzle.occurrences} games
+                </span>
+              )}
+              {puzzle.motifs
+                .filter((m) => m !== 'long_think')
+                .slice(0, 2)
+                .map((m) => (
+                  <span key={m} className="chip">
+                    {MOTIF_LABEL[m]}
+                  </span>
+                ))}
+            </p>
+            {done && puzzle.explanation && <p>{puzzle.explanation}</p>}
+            {!engine && done && lines && (lines.best || lines.refute) && (
+              shownLine && lineView ? (
+                <LineViewer
+                  title={lineView.kind === 'best' ? `The full line after ${solutionSan[0]}` : `What ${puzzle.playedSan} allowed`}
+                  line={shownLine.line}
+                  index={lineView.index}
+                  onIndex={(i) => setLineView({ ...lineView, index: i })}
+                  onClose={() => setLineView(null)}
+                />
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {lines.best && (
+                    <button className="btn !py-1.5 !text-sm" onClick={() => setLineView({ kind: 'best', index: 1 })}>
+                      <Icon name="play" size={14} /> See the full line
+                    </button>
+                  )}
+                  {lines.refute && (
+                    <button className="btn !py-1.5 !text-sm" onClick={() => setLineView({ kind: 'refute', index: 0 })}>
+                      <Icon name="play" size={14} /> What {puzzle.playedSan} allowed
+                    </button>
+                  )}
+                </div>
+              )
+            )}
+            {(game || leadUp.length > 0) && (
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+                {game && (
+                  <Link className="underline muted inline-flex items-center gap-1" to={`/game/${encodeURIComponent(game.id)}?ply=${puzzle.plies[puzzle.plies.length - 1] + 1}`}>
+                    Open game <Icon name="external" size={12} />
+                  </Link>
                 )}
-                {lines.refute && (
-                  <button className="btn !py-1.5 !text-sm" onClick={() => setLineView({ kind: 'refute', index: 0 })}>
-                    <Icon name="play" size={14} /> What {puzzle.playedSan} allowed
-                  </button>
+                {leadUp.length > 0 && (
+                  <details className="w-full">
+                    <summary className="cursor-pointer muted underline">How the game got here</summary>
+                    <p className="font-mono leading-relaxed mt-1.5">{leadUp.join(' ')}</p>
+                  </details>
                 )}
               </div>
             )}
           </div>
         )}
-
-        {puzzle.lichess ? (
-          <LichessInfoPanel info={puzzle.lichess} />
-        ) : (
-        <div className="panel p-3 text-sm space-y-2">
-          <p className="flex items-center gap-1.5 flex-wrap">
-            <span className="muted">You played</span>
-            <span className="inline-flex items-center gap-1 font-bold">
-              <ClassificationBadge c={puzzle.classification} size={16} /> {puzzle.playedSan}
-            </span>
-            <span className="muted tabular-nums">−{puzzle.winLoss.toFixed(0)}%</span>
-            {puzzle.occurrences > 1 && (
-              <span className="chip" style={{ color: '#e5713f' }}>
-                ×{puzzle.occurrences} games
-              </span>
-            )}
-          </p>
-          {done && puzzle.explanation && <p>{puzzle.explanation}</p>}
-          <div className="flex flex-wrap gap-1">
-            {puzzle.motifs
-              .filter((m) => m !== 'long_think')
-              .map((m) => (
-                <span key={m} className="chip">
-                  {MOTIF_LABEL[m]}
-                </span>
-              ))}
-            <span className="chip capitalize">{puzzle.phase}</span>
-          </div>
-        </div>
-        )}
-
-        {game && (
-          <Link className="text-sm underline muted inline-flex items-center gap-1" to={`/game/${encodeURIComponent(game.id)}?ply=${puzzle.plies[puzzle.plies.length - 1] + 1}`}>
-            Open this game <Icon name="external" size={14} />
-          </Link>
-        )}
-        {leadUp.length > 0 && (
-          <details className="panel p-3 text-sm">
-            <summary className="cursor-pointer font-semibold">How the game got here</summary>
-            <p className="font-mono leading-relaxed mt-2">{leadUp.join(' ')}</p>
-          </details>
-        )}
-        <div className="muted text-xs space-y-2">
-        </div>
       </div>
     </div>
   );

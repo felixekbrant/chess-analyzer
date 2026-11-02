@@ -76,7 +76,9 @@ export function SkillsTab({ data }: { data: SkillsData }) {
                       Plays like {levelLabel(r.level.level)}: likely between {r.level.low} and {r.level.high}, based on {profile.games} games.
                     </p>
                   )}
-                  <p>💡 {SKILL_META[area].tip}</p>
+                  <p className="flex gap-1.5">
+                    <Icon name="bulb" size={16} className="text-accent shrink-0 mt-0.5" /> {SKILL_META[area].tip}
+                  </p>
                   <div className="flex flex-wrap gap-2 items-center">
                     {area !== 'time' && (
                       <Link className="btn btn-primary !py-1 !text-xs" to={`/training?area=${area}`}>

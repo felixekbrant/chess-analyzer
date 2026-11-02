@@ -1,3 +1,4 @@
+import { Icon } from './Icon';
 import { Link } from 'react-router-dom';
 import type { CoachItem } from '../lib/insights/coach';
 
@@ -20,7 +21,9 @@ export function CoachReport({ items: all, strengths, analysed, limit }: { items:
                 {it.trend === 'worsening' && <span className="chip" style={{ color: '#e02828' }}>↑ getting worse</span>}
               </div>
               <p className="text-sm muted mt-1">{it.evidence}</p>
-              <p className="text-sm mt-2">💡 {it.tip}</p>
+              <p className="text-sm mt-2 flex gap-1.5">
+            <Icon name="bulb" size={16} className="text-accent shrink-0 mt-0.5" /> {it.tip}
+          </p>
               <div className="flex flex-wrap gap-2 mt-2 items-center">
                 {it.drill && (
                   <Link className="btn btn-primary !py-1 !text-xs" to={it.drill.to}>
@@ -52,7 +55,9 @@ export function CoachReport({ items: all, strengths, analysed, limit }: { items:
           <div className="font-semibold text-sm mb-1">Strengths</div>
           <ul className="text-sm space-y-1">
             {strengths.map((s) => (
-              <li key={s}>✅ {s}</li>
+              <li key={s} className="flex gap-1.5">
+              <Icon name="check" size={16} className="text-accent shrink-0 mt-0.5" /> {s}
+            </li>
             ))}
           </ul>
         </div>

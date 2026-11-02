@@ -1,3 +1,4 @@
+import { Icon } from '../components/Icon';
 import { opponentName } from '../lib/games/build';
 import { relativeDay } from '../lib/format';
 import { useMemo, useState } from 'react';
@@ -97,7 +98,9 @@ export default function Insights() {
             <Section title="Your strengths">
               <ul className="text-sm space-y-1">
                 {data.report.strengths.map((s) => (
-                  <li key={s}>✅ {s}</li>
+                  <li key={s} className="flex gap-1.5">
+                  <Icon name="check" size={16} className="text-accent shrink-0 mt-0.5" /> {s}
+                </li>
                 ))}
               </ul>
               <button className="text-sm underline muted mt-3" onClick={() => setTab('skills')}>
@@ -187,7 +190,7 @@ export default function Insights() {
 
           <Section title="Repeated mistakes" id="repeated" right={data.repeated.length > 0 && <Link className="text-sm underline" to="/training?repeated=1">Drill them →</Link>}>
             {!data.repeated.length ? (
-              <Empty>No position where you made the same mistake twice. 👍</Empty>
+              <Empty>No position where you made the same mistake twice.</Empty>
             ) : (
               <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">
                 {data.repeated.slice(0, 8).map((r) => (

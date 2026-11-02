@@ -77,7 +77,12 @@ export function TodayCard({ games, focus, minutes }: { games: StoredGame[]; focu
       <div className="flex items-center justify-between gap-2 mb-2">
         <h2 className="font-bold text-lg">Today</h2>
         <span className="muted text-sm tabular-nums">
-          {days > 0 && <span title="Days in a row with the plan done">🔥 {days} · </span>}
+          {days > 0 && (
+            <span title="Days in a row with the plan done" className="inline-flex items-center gap-0.5 font-bold" style={{ color: '#e5713f' }}>
+              <Icon name="flame" size={14} /> {days}
+              <span className="muted font-normal">&nbsp;·&nbsp;</span>
+            </span>
+          )}
           {plan.done ? 'Done' : plan.items.length ? `~${Math.max(1, plan.minutesLeft)} min left` : ''}
         </span>
       </div>
@@ -114,7 +119,9 @@ export function TodayCard({ games, focus, minutes }: { games: StoredGame[]; focu
       )}
 
       {plan.done ? (
-        <p className="text-sm mt-3 font-semibold">🎉 Done for today. Short daily sessions are what make it stick.</p>
+        <p className="text-sm mt-3 font-bold inline-flex items-center gap-1.5">
+          <Icon name="check" size={16} className="text-accent" /> Done for today.
+        </p>
       ) : (
         next && (
           <button className="btn btn-primary w-full justify-center mt-3 !py-3 !text-base" onClick={() => navigate(itemLink(next))}>
