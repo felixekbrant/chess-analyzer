@@ -59,9 +59,8 @@ export function useSkills(games: StoredGame[], ag: AnalyzedGame[], manageFocus =
     const timeClass = mainTimeClass(games);
     // Costs differ a lot between bullet and rapid, so the profile sticks to one time class when
     // there are enough games in it.
-    // Until enough games of that control are analysed, the profile uses whatever is analysed.
-    const inClass = ag.filter((a) => a.game.timeClass === timeClass);
-    const used = inClass.length >= MIN_PROFILE_GAMES ? inClass : ag;
+    // Only games of that control: mixing in others would compare e.g. daily games with bullet players.
+    const used = ag.filter((a) => a.game.timeClass === timeClass);
     const rating = currentRating(games, timeClass);
     const profile = skillProfile(used);
     return { timeClass, rating, ag: used, profile, ranked: rankAreas(profile, timeClass, rating), ready: used.length >= MIN_PROFILE_GAMES };

@@ -4,11 +4,12 @@
 
 A free, private game-review and coaching app for chess.com players. It runs entirely in your browser: no server, no login, no subscription.
 
-- **Auto-import.** Enter your chess.com username. Your games are pulled from chess.com's public API when the app opens and every 10 minutes while it's open.
+- **Auto-import.** Enter your chess.com username. Your games are pulled from chess.com's public API when the app opens and every 10 minutes while it's open. You can switch auto-import off, pause analysis, and choose how many of your latest games to keep analysed (tap the sync icon).
 - **Guided game review (chess.com style).**
   - It opens on a summary: the coach's verdict, accuracy for both players, grades for opening, middlegame and endgame, and move counts.
   - Accuracy and move classifications follow chess.com's Game Review: the formulas are fitted to chess.com's own accuracy on 129 reviewed games (about 2.5 points apart on average; see `scripts/calibration`). When a game has been reviewed on chess.com, its accuracy is shown alongside.
   - Then it walks you through the moves with a coach bubble for each one, plus **Best** (plays the engine's line) and **Retry** (try your mistakes again).
+  - **Full sequences.** "Why it fails" plays out how a mistake gets punished, "How to punish it" shows the line against your opponent's mistakes, and "Best line" plays the engine's idea, move by move with a note per move ("takes the knight on e5, with check") and what it adds up to ("You come out 3 points ahead (a knight)"). Solved puzzles have the same.
   - There's an eval bar and graph, live engine lines, explore mode, and time spent per move.
   - Stockfish 19 does the analysis, running in the browser (WebAssembly).
 - **Explanations.** Each error gets a short explanation, such as "Nf5 puts your knight on a square where exf5 simply takes it", "This allows a back-rank mate" or "You spent 1m 40s here and still went wrong".
@@ -22,7 +23,7 @@ A free, private game-review and coaching app for chess.com players. It runs enti
   - results by opponent rating
   - tilt and session analysis
 - **Today plan.** A short daily session on the Home screen (10, 15 or 25 minutes): review your new games, the puzzles that are due, and a drill on this week's focus. Finishing it builds a streak.
-- **Skill profile.** Every error is counted in one of 9 areas (blunder check, opponent's tactics, spotting your chances, opening, converting, defending, endgame, middlegame, time management). Each area shows what you lose per game next to what players at your rating typically lose, and an estimated "plays like" rating. The reference numbers come from about 1,500 rated chess.com games analysed with the app's own engine (see `scripts/baselines`).
+- **Skill profile.** Every error is counted in one of 9 areas (blunder check, opponent's tactics, spotting your chances, opening, converting, defending, endgame, middlegame, time management). Each area shows what you lose per game next to what players at your rating typically lose, and an estimated "plays like" rating with a range. The estimate starts at your actual rating and only moves away from it when your games clearly show it, and it's hidden when there's too little data. The reference numbers come from about 1,500 rated chess.com games analysed with the app's own engine (see `scripts/baselines`).
 - **Weekly focus.** The app picks the area that holds you back most compared with players at your rating and keeps it for a week. Then it checks your games: clearly better, and it moves on; not yet, and you get one more week. You can change it any time.
 - **Coach report.** Your top weaknesses, ranked by how many points they cost you, each with evidence, a tip and a drill.
 - **Training.** Puzzles made from your own mistakes, scheduled with spaced repetition (SM-2). Mistakes you repeat come first. An opening drill shows the line that led to each opening error.

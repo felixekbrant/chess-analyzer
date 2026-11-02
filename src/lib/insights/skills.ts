@@ -189,12 +189,12 @@ export interface SkillProfile {
 const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
 
 /** Skill profile over the last `window` analysed games (`ag` sorted oldest first). */
-export function skillProfile(ag: AnalyzedGame[], window = 30): SkillProfile {
+export function skillProfile(ag: AnalyzedGame[], window = 50): SkillProfile {
   const games = ag.slice(-window);
   const costs = games.map((a) => gameAreaCosts(forSkills(a)));
   const total = mean(costs.map((c) => SKILL_AREAS.reduce((s, a) => s + c[a], 0)));
   // A longer history for the trend and sparkline.
-  const hist = ag.slice(-40).map((a) => gameAreaCosts(forSkills(a)));
+  const hist = ag.slice(-50).map((a) => gameAreaCosts(forSkills(a)));
 
   const stats = SKILL_AREAS.map((area): SkillStat => {
     const per = costs.map((c) => c[area]);

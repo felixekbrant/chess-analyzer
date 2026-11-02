@@ -111,7 +111,14 @@ export function phaseStats(ag: AnalyzedGame[]): PhaseStat[] {
         ms.reduce((s, m) => s + m.winLoss, 0),
         totalLoss,
       ),
-      avgTime: avg(ms.map((m) => m.timeSpent).filter((x): x is number => x !== undefined)),
+      // Daily games' "time per move" is hours or days of real life, not thinking time.
+      avgTime: avg(
+        ag
+          .filter((a) => a.game.timeClass !== 'daily')
+          .flatMap((a) => a.moves.filter((m) => m.phase === phase && !m.isBook))
+          .map((m) => m.timeSpent)
+          .filter((x): x is number => x !== undefined),
+      ),
     };
   });
 }
@@ -153,7 +160,8 @@ const ref = (a: AnalyzedGame, m: SummaryMove, label = ''): MoveRef => ({
 });
 
 export function timeStats(ag: AnalyzedGame[]): TimeStats {
-  const timed = ag.filter((a) => a.moves.some((m) => m.timeSpent !== undefined));
+  // Clock analysis only makes sense for live games, not daily ones.
+  const timed = ag.filter((a) => a.game.timeClass !== 'daily' && a.moves.some((m) => m.timeSpent !== undefined));
   const moves = timed.flatMap((a) => a.moves.filter((m) => !m.isBook));
   const long = moves.filter((m) => m.motifs.includes('long_think'));
   const normal = moves.filter((m) => !m.motifs.includes('long_think') && m.timeSpent !== undefined);

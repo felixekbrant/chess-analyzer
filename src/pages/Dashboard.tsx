@@ -52,7 +52,7 @@ export default function Dashboard() {
         {skills.ready && skills.focus.current ? (
           <FocusCard store={skills.focus} ranked={skills.ranked} ag={skills.ag} rating={skills.rating} timeClass={skills.timeClass} />
         ) : (
-          <ProfilePending analysed={skills.ag.length} />
+          <ProfilePending analysed={skills.ag.length} timeClass={skills.timeClass} />
         )}
       </div>
 
@@ -98,7 +98,7 @@ export default function Dashboard() {
 }
 
 /** Before there are enough analysed games for a skill profile. */
-function ProfilePending({ analysed }: { analysed: number }) {
+function ProfilePending({ analysed, timeClass }: { analysed: number; timeClass: string }) {
   return (
     <section className="panel p-4">
       <div className="flex items-start gap-3">
@@ -108,7 +108,7 @@ function ProfilePending({ analysed }: { analysed: number }) {
         <div className="min-w-0">
           <div className="font-bold">Your skill profile is on its way</div>
           <p className="muted text-sm mt-1">
-            Once {MIN_PROFILE_GAMES} games are analysed ({Math.min(analysed, MIN_PROFILE_GAMES)}/{MIN_PROFILE_GAMES} so far), you'll see where you lose the most
+            Once {MIN_PROFILE_GAMES} of your {timeClass} games are analysed ({Math.min(analysed, MIN_PROFILE_GAMES)}/{MIN_PROFILE_GAMES} so far), you'll see where you lose the most
             points compared with players at your rating, and get a weekly focus to train.
           </p>
           <div className="h-1.5 rounded-full bg-[var(--panel-2)] mt-3 overflow-hidden">
