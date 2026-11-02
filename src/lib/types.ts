@@ -223,7 +223,7 @@ export const DEFAULT_SETTINGS: Settings = {
   historyMonths: 6,
   theme: 'dark',
   analysisSpeed: 'balanced',
-  autoNextPuzzle: true,
+  autoNextPuzzle: false,
   sounds: true,
   boardTheme: 'green',
   showCoordinates: true,

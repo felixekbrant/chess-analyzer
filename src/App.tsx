@@ -96,10 +96,16 @@ export default function App() {
 
 /** The app's look became dark by default; switch existing installs over once (Settings can change it back). */
 async function adoptDarkLook() {
-  if (await db.kv.get('look-v2')) return;
-  const s = await getSettings();
-  if (s.theme === 'system') await saveSettings({ theme: 'dark' });
-  await db.kv.put({ key: 'look-v2', value: true });
+  if (!(await db.kv.get('look-v2'))) {
+    const s = await getSettings();
+    if (s.theme === 'system') await saveSettings({ theme: 'dark' });
+    await db.kv.put({ key: 'look-v2', value: true });
+  }
+  // Solved puzzles now stay on screen until you press Next (it can be switched back on in Settings).
+  if (!(await db.kv.get('auto-next-off'))) {
+    await saveSettings({ autoNextPuzzle: false });
+    await db.kv.put({ key: 'auto-next-off', value: true });
+  }
 }
 
 function Logo() {
