@@ -6,7 +6,9 @@ import { toast } from '../lib/toast';
  */
 export async function registerServiceWorker() {
   if (!('serviceWorker' in navigator) || !import.meta.env.PROD) return;
-  const reg = await navigator.serviceWorker.register('./sw.js');
+  // Registration can fail or be blocked (some private modes, test browsers); the app works without it.
+  const reg = await navigator.serviceWorker.register('./sw.js').catch(() => undefined);
+  if (!reg) return;
 
   // Only reload when the user asked for the update. (The very first install also takes control of
   // the page, and that must not trigger a reload.)
