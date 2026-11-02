@@ -46,7 +46,6 @@ export default function Dashboard() {
       <PageHeader title={settings.username ? `Hi, ${settings.username}` : 'Home'} subtitle={`${ov.games} games · ${ov.analyzed} analysed`} />
       <ProgressCard analysed={doneCount} />
 
-      <InstallHint />
 
       <div className="grid lg:grid-cols-2 gap-3 items-start">
         <TodayCard games={games} focus={skills.ready ? skills.focus.current?.area : undefined} minutes={settings.sessionMinutes} />
@@ -93,6 +92,7 @@ export default function Dashboard() {
           </Section>
         </div>
       </div>
+      <InstallHint />
     </div>
   );
 }

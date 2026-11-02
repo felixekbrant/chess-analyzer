@@ -33,7 +33,7 @@ import { formatDuration } from '../pgn/parse';
 export const THRESHOLDS = { excellent: 2, good: 5, inaccuracy: 10, mistake: 20 } as const;
 
 /** Bumped whenever classification or accuracy changes, so stored analyses get rebuilt. */
-export const ANALYSIS_MODEL = 2;
+export const ANALYSIS_MODEL = 4;
 
 export function phaseOf(fen: string, ply: number): Phase {
   if (nonPawnMaterial(fen) <= 26) return 'endgame';
@@ -311,11 +311,16 @@ export function detectMotifs(x: MotifInput): { motifs: Motif[]; explanation: str
 
   // Missed chances
   if (!motifs.includes('missed_mate') && x.bestUci.length) {
-    const best = playUci(p.fenBefore, x.bestUci.slice(0, 5));
-    const n = best.fens.length >= 5 ? 5 : best.fens.length >= 3 ? 3 : best.fens.length;
+    const best = playUci(p.fenBefore, x.bestUci.slice(0, 7));
+    // Judge the gain where the line is quiet: an engine line often stops right after a capture
+    // that would simply be taken back.
+    let n = Math.min(5, best.fens.length);
+    while (n > 0 && best.moves[n]?.captured) n--;
     if (n) {
-      const gained = materialBalance(best.fens[n - 1], me) - materialBalance(p.fenBefore, me);
-      if (gained >= 2 && lost < 2) {
+      const gained = materialBalance(best.fens[n - 1], me) - balBefore;
+      // Compared with what your own move already took (a recapture with another piece isn't a miss).
+      const tookAnyway = Math.max(0, materialBalance(p.fenAfter, me) - balBefore);
+      if (gained - tookAnyway >= 2 && lost < 2) {
         motifs.push('missed_win');
         notes.push(`${best.sans[0]} would have won material (${best.sans.slice(0, n).join(' ')}).`);
       }

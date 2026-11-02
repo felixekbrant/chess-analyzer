@@ -33,6 +33,14 @@ describe('motif detection', () => {
     expect(r.explanation).toMatch(/bishop/);
   });
 
+  it('does not call a recapture with another piece a missed win', () => {
+    // Black's bishop has just taken on f3; White takes back with the g-pawn where exf3 was better.
+    const fen = 'rn1qkbnr/ppp1pppp/8/3p4/8/5b2/PPPPPPPP/RNBQKB1R w KQkq - 0 3';
+    const p = plyFrom(fen, 'g2f3');
+    const r = detectMotifs({ p, evalBefore: cp(40), evalAfter: cp(-60), winBefore: 55, winAfter: 42, bestUci: ['e2f3', 'g8f6', 'd2d4', 'e7e6', 'f1d3'], replyUci: ['g8f6', 'd2d4', 'e7e6'] });
+    expect(r.motifs).not.toContain('missed_win');
+  });
+
   it('flags an allowed mate (Scholar\'s mate)', () => {
     // 1.e4 e5 2.Qh5 Nc6 3.Bc4 and Black plays 3...Nf6??
     const fen = 'r1bqkbnr/pppp1ppp/2n5/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 3 3';

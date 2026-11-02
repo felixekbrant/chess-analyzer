@@ -62,6 +62,11 @@ export function ReviewSummary({
                 {summary.lines.map((l) => (
                   <p key={l}>{l}</p>
                 ))}
+                {summary.turningPoint && summary.turningPoint.winLoss >= 15 && (
+                  <button className="btn !py-1.5 !text-sm mt-1" onClick={() => onStart({ ply: summary.turningPoint!.ply + 1 })}>
+                    <Icon name="play" size={14} /> See the turning point
+                  </button>
+                )}
               </div>
             </CoachBubble>
 

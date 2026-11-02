@@ -13,8 +13,13 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
+    // Going to another page (a link inside, or Back) closes the sheet.
+    window.addEventListener('hashchange', onClose);
     panel.current?.focus();
-    return () => window.removeEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('hashchange', onClose);
+    };
   }, [open, onClose]);
   if (!open) return null;
   return createPortal(

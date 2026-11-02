@@ -20,7 +20,6 @@ import {
 } from '../lib/insights/compute';
 import { coachReport } from '../lib/insights/coach';
 import { formatDuration } from '../lib/pgn/parse';
-import { CoachReport } from '../components/CoachReport';
 import { SkillsTab } from '../components/SkillsTab';
 import { useSkills } from '../hooks/useSkills';
 import { Filters, loadFilters, storeFilters } from '../components/Filters';
@@ -92,9 +91,18 @@ export default function Insights() {
             <Stat label="Inaccuracies / game" value={data.ov.inaccuraciesPerGame.toFixed(2)} />
           </div>
 
-          <Section title="Your coach report">
-            <CoachReport items={data.report.items} strengths={data.report.strengths} analysed={ag.length} />
-          </Section>
+          {data.report.strengths.length > 0 && (
+            <Section title="Your strengths">
+              <ul className="text-sm space-y-1">
+                {data.report.strengths.map((s) => (
+                  <li key={s}>✅ {s}</li>
+                ))}
+              </ul>
+              <button className="text-sm underline muted mt-3" onClick={() => setTab('skills')}>
+                Where you lose the most points: see Skills
+              </button>
+            </Section>
+          )}
 
           <div id="trends" className="grid lg:grid-cols-2 gap-4 scroll-mt-16">
             <Section title="Rating">

@@ -659,7 +659,6 @@ function Coach({
   const verdict = isError
     ? `${who}${moveLabel(current)} is ${article(meta.label)} ${meta.label.toLowerCase()}`
     : `${who}${moveLabel(current)} is ${article(meta.label)} ${meta.label.toLowerCase()} move`;
-  const bestLine = current.bestLineSan.length > 1 ? current.bestLineSan.slice(0, 6) : playUci(current.fenBefore, current.bestLineUci.slice(0, 6)).sans;
   const showBest = current.bestSan && current.bestUci !== current.uci && !['book', 'forced', 'best'].includes(current.classification);
   const explanation = !yours && isError ? `This is your chance${current.replyLineSan[0] ? `: ${current.replyLineSan[0]} punishes it` : ''}.` : current.explanation;
 
@@ -674,9 +673,8 @@ function Coach({
       {explanation && <p className="mt-1.5">{explanation}</p>}
       {showBest && (
         <p className="mt-1.5">
-          <span className="muted">Best: </span>
-          <b>{current.bestSan}</b>
-          {bestLine.length > 1 && <span className="muted"> ({bestLine.join(' ')})</span>}
+          <span className="muted">Best was </span>
+          <b>{current.bestSan}</b>.
         </p>
       )}
       {(onShowRefutation && isError) || (onShowBest && (showBest || current.classification === 'brilliant' || current.classification === 'great')) ? (
@@ -695,15 +693,16 @@ function Coach({
       ) : null}
       <div className="flex flex-wrap items-center gap-1 mt-2">
         {current.motifs
-          .filter((m) => m !== 'long_think' || isError)
+          // "Positional" next to "threw away a winning position" says nothing new.
+          .filter((m) => (m !== 'long_think' || isError) && !(m === 'positional' && current.motifs.includes('threw_advantage')))
           .map((m) => (
             <span key={m} className="chip">
               {MOTIF_LABEL[m]}
             </span>
           ))}
         {current.timeSpent !== undefined && <span className="chip">⏱ {formatDuration(current.timeSpent)}</span>}
-        <span className="chip muted">
-          {formatScore(analysis.evals[ply])} · {current.color === 'w' ? 'White' : 'Black'} {current.winBefore.toFixed(0)}% → {current.winAfter.toFixed(0)}%
+        <span className="chip muted" title={`Engine evaluation ${formatScore(analysis.evals[ply])}`}>
+          {yours ? 'Your' : `${opponent}'s`} winning chances {current.winBefore.toFixed(0)}% → {current.winAfter.toFixed(0)}%
         </span>
       </div>
     </CoachBubble>
