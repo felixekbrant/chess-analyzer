@@ -12,3 +12,4 @@ scripts/baselines/*.log
 /test-results/
 /playwright-report/
 scripts/calibration/*.log
+__pycache__/
