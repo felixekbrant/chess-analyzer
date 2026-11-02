@@ -11,7 +11,9 @@
     "test:watch": "vitest",
     "typecheck": "tsc -b --noEmit",
     "postinstall": "node scripts/copy-stockfish.mjs",
-    "openings": "node scripts/build-openings.mjs"
+    "openings": "node scripts/build-openings.mjs",
+    "e2e": "playwright test --project=smoke",
+    "e2e:seed": "playwright test --project=seed"
   },
   "dependencies": {
     "chess.js": "^1.4.0",
@@ -25,6 +27,7 @@
     "stockfish": "^19.0.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@resvg/resvg-js": "^2.6.2",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^26.6.3",

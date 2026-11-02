@@ -28,6 +28,19 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
+      # Browser smoke tests at phone size against the build; a failure stops the deploy.
+      - run: npx playwright install --with-deps chromium
+      - run: npm run e2e
+        env:
+          CI: true
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            playwright-report
+            test-results
+          retention-days: 7
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

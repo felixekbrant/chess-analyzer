@@ -138,7 +138,7 @@ export function GameCardList({ games, onOpen, grouped = true }: { games: StoredG
           <ul className="panel divide-y divide-[var(--border)] overflow-hidden">
             {grp.games.map((g) => (
               <li key={g.id}>
-                <button className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-[var(--panel-2)]" onClick={() => onOpen(g)}>
+                <button className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-[var(--panel-2)]" onClick={() => onOpen(g)} data-game-id={g.id}>
                   <ResultPill g={g} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">

@@ -7,3 +7,8 @@ public/stockfish
 scripts/calibration/*.json
 scripts/baselines/*.json
 scripts/baselines/*.log
+
+# Playwright
+/test-results/
+/playwright-report/
+scripts/calibration/*.log
