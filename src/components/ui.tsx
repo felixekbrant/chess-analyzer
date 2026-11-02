@@ -21,7 +21,7 @@ export function PageHeader({
         <h1 className="hidden md:block text-2xl font-extrabold tracking-tight">{title}</h1>
         {subtitle && <p className="muted text-sm md:mt-1">{subtitle}</p>}
       </div>
-      {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+      {actions && <div className="flex flex-wrap gap-2 min-w-0 max-w-full">{actions}</div>}
     </div>
   );
 }
@@ -68,11 +68,17 @@ export function ResultPill({ g }: { g: StoredGame }) {
     r === 'win'
       ? { background: '#81b64c', color: 'white' }
       : r === 'loss'
-        ? { background: '#e02828', color: 'white' }
-        : { background: 'var(--panel-2)', color: 'var(--text)' };
+        ? { background: '#d6492a', color: 'white' }
+        : { background: '#8b8987', color: 'white' };
+  // chess.com style: a small square with +, − or =.
   return (
-    <span className="inline-flex w-6 h-6 rounded-md items-center justify-center text-xs font-bold" style={style} title={g.termination}>
-      {r === 'win' ? 'W' : r === 'loss' ? 'L' : r === 'draw' ? '½' : '?'}
+    <span
+      className="inline-flex w-[22px] h-[22px] rounded items-center justify-center text-base leading-none font-black shrink-0"
+      style={style}
+      title={g.termination}
+      aria-label={r === 'win' ? 'Won' : r === 'loss' ? 'Lost' : r === 'draw' ? 'Draw' : 'Unknown result'}
+    >
+      {r === 'win' ? '+' : r === 'loss' ? '−' : r === 'draw' ? '=' : '?'}
     </span>
   );
 }

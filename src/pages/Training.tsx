@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Chess } from 'chess.js';
-import { db, saveSettings } from '../db/schema';
+import { db } from '../db/schema';
 import { evaluateOnce, useLiveEngine } from '../hooks/useLiveEngine';
 import { EngineControls } from '../components/EngineControls';
 import { EngineLines } from '../components/EngineLines';
@@ -673,10 +673,6 @@ function PuzzleView({
           </details>
         )}
         <div className="muted text-xs space-y-2">
-          <label className="flex items-center gap-2">
-            <input type="checkbox" checked={autoNext} onChange={(e) => void saveSettings({ autoNextPuzzle: e.target.checked })} />
-            Next puzzle automatically after a clean solve
-          </label>
         </div>
       </div>
     </div>

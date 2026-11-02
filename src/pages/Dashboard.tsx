@@ -11,6 +11,7 @@ import { MIN_PROFILE_GAMES, useSkills } from '../hooks/useSkills';
 const LineTrend = lazy(() => import('../components/charts').then((m) => ({ default: m.LineTrend })));
 import { GameCardList } from '../components/GameTable';
 import { Icon } from '../components/Icon';
+import { Picker } from '../components/Picker';
 import { isIos, isStandalone, useInstallPrompt } from '../pwa/install';
 import { isMobile } from '../lib/device';
 import { PageHeader, Section, Stat, fmtPct } from '../components/ui';
@@ -200,48 +201,64 @@ function Welcome() {
   }
 
   return (
-    <div className="max-w-2xl">
-      <PageHeader title="Welcome 👋" subtitle="Your free, private chess coach. Everything runs in your browser." />
-      <Section>
-        <ol className="list-decimal pl-5 space-y-2 text-sm mb-5">
-          <li>Enter your chess.com username. Your games are imported automatically, no login needed.</li>
-          <li>Stockfish analyses every game in the background, right here in your browser.</li>
-          <li>The coach finds your recurring mistakes, time-management issues and opening leaks, and turns them into training puzzles.</li>
-        </ol>
-        <form
-          className="flex flex-wrap gap-2 items-center"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (username.trim()) void connect();
-          }}
-        >
-          <input
-            className="input flex-1 min-w-48 !text-base"
-            placeholder="Your chess.com username"
-            aria-label="chess.com username"
-            autoFocus
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
+    <div className="max-w-md mx-auto pt-6 md:pt-12">
+      <div className="text-center">
+        <span className="pop inline-flex w-20 h-20 rounded-2xl bg-accent text-white items-center justify-center text-5xl shadow-[0_5px_0_#45753c]" aria-hidden="true">
+          ♞
+        </span>
+        <h1 className="text-3xl font-black mt-5 tracking-tight">Your own chess coach</h1>
+        <p className="muted mt-1.5 font-semibold">Free and private. Runs in your browser.</p>
+      </div>
+
+      <ul className="mt-7 space-y-3">
+        {(
+          [
+            ['sync', 'Imports your chess.com games'],
+            ['engine', 'Stockfish reviews every move'],
+            ['target', 'Trains the mistakes you repeat'],
+          ] as const
+        ).map(([icon, text]) => (
+          <li key={icon} className="flex items-center gap-3 font-bold">
+            <span className="w-10 h-10 rounded-xl bg-[var(--panel)] text-accent flex items-center justify-center shrink-0">
+              <Icon name={icon} size={20} />
+            </span>
+            {text}
+          </li>
+        ))}
+      </ul>
+
+      <form
+        className="mt-8 space-y-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (username.trim()) void connect();
+        }}
+      >
+        <input
+          className="input w-full !text-lg !py-3 !px-4 !rounded-xl"
+          placeholder="chess.com username"
+          aria-label="chess.com username"
+          autoFocus
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+        />
+        <div className="flex items-center justify-between gap-2">
+          <span className="muted text-sm font-semibold">Import</span>
+          <Picker
+            label="History to import"
+            value={months}
+            onChange={setMonths}
+            options={[...[1, 3, 6, 12].map((m) => ({ value: m, label: `Last ${m} month${m > 1 ? 's' : ''}` })), { value: 0, label: 'All games' }]}
           />
-          <select className="input" value={months} onChange={(e) => setMonths(Number(e.target.value))} aria-label="History to import">
-            {[1, 3, 6, 12].map((m) => (
-              <option key={m} value={m}>
-                last {m} month{m > 1 ? 's' : ''}
-              </option>
-            ))}
-            <option value={0}>all games</option>
-          </select>
-          <button className="btn btn-primary" type="submit" disabled={busy || !username.trim()}>
-            {busy ? 'Connecting…' : 'Start'}
-          </button>
-        </form>
-        {error && (
-          <p className="text-sm mt-3" style={{ color: '#e02828' }}>
-            {error}
-          </p>
-        )}
-        <p className="muted text-xs mt-3">You can also paste single games (PGN or link) on the Games page.</p>
-      </Section>
+        </div>
+        <button className="btn btn-primary w-full justify-center !py-3.5 !text-lg" type="submit" disabled={busy || !username.trim()}>
+          {busy ? 'Connecting…' : 'Start'}
+        </button>
+        {error && <p className="text-sm font-semibold text-center" style={{ color: '#e5713f' }}>{error}</p>}
+      </form>
     </div>
   );
 }

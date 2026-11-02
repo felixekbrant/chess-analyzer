@@ -1,5 +1,5 @@
 import { test as base, expect, type Page } from '@playwright/test';
-import { USERNAME, mockChessCom, openTab, seed } from './helpers';
+import { USERNAME, mockChessCom, openTab, pick, seed } from './helpers';
 
 // Click-through tests of the main flows at phone size. Every test starts with an empty browser;
 // most load e2e/fixtures/seed.json (29 analysed games) first. chess.com is answered from fixtures.
@@ -13,6 +13,9 @@ const test = base.extend<{ errors: string[] }>({
       page.on('pageerror', (e) => errors.push(e.message));
       await use(errors);
       await expect(page.getByText('Something went wrong on this page')).toHaveCount(0);
+      // Nothing may make the page wider than the phone screen (no sideways scrolling).
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+      expect(overflow, 'page wider than the screen').toBeLessThanOrEqual(0);
       expect(errors, 'uncaught errors in the page').toEqual([]);
     },
     { auto: true },
@@ -67,7 +70,7 @@ async function clickSquare(page: Page, square: string) {
 
 test('first visit: connect form imports games from chess.com', async ({ page }) => {
   await page.goto('./');
-  await expect(page.getByText('Your free, private chess coach', { exact: false })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Your own chess coach' })).toBeVisible();
 
   // Unknown player: a clear message, and the form stays.
   await page.getByLabel('chess.com username').fill('no-such-player-xyz');
@@ -76,7 +79,7 @@ test('first visit: connect form imports games from chess.com', async ({ page }) 
 
   // Pause analysis straight away so this test doesn't spend its time running Stockfish.
   await page.getByLabel('chess.com username').fill(USERNAME);
-  await page.getByLabel('History to import').selectOption('0');
+  await pick(page, 'History to import', 'All games');
   await page.getByRole('button', { name: 'Start' }).click();
   await expect(page.getByText(/29 new games imported from chess\.com/)).toBeVisible();
 
@@ -186,9 +189,8 @@ test('insights: skills tab and game filters', async ({ page }) => {
   await page.locator('button[aria-expanded="false"]').first().click();
   await expect(page.locator('button[aria-expanded="true"]')).toHaveCount(1);
 
-  const which = page.getByLabel('Which games');
-  for (const option of ['g50', 'g100', 'g200', 'd0']) {
-    await which.selectOption(option);
+  for (const option of ['Last 50 games', 'Last 100 games', 'Last 200 games', 'All games']) {
+    await pick(page, 'Which games', option);
     await expect(page.getByText(/last \d+ rapid games/)).toBeVisible();
   }
   for (const name of ['Overview', 'Mistakes', 'Time', 'Results', 'Sessions', 'Skills']) {

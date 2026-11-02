@@ -5,8 +5,7 @@ import { useGames, useSettings } from '../hooks/useStores';
 import { buildGameFromPgn, opponentName } from '../lib/games/build';
 import { ensureOpenings } from '../lib/openings/eco';
 import { GameCardList, GameTable, type SortKey } from '../components/GameTable';
-import { Icon } from '../components/Icon';
-import { Sheet } from '../components/Sheet';
+import { Picker } from '../components/Picker';
 import { importGameByUrl } from '../lib/chesscom/sync';
 import { analysisQueue } from '../lib/engine/queue';
 import type { Color } from '../lib/types';
@@ -23,7 +22,6 @@ export default function Games() {
   const [limit, setLimit] = useState(50);
   const [sort, setSort] = useState<SortKey>('date');
   const [showImport, setShowImport] = useState(false);
-  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const filtered = useMemo(() => {
     if (!games) return [];
@@ -41,30 +39,37 @@ export default function Games() {
     [filtered, sort],
   );
 
-  const activeFilters = [timeClass !== 'all', result !== 'all', color !== 'all'].filter(Boolean).length;
   const open = (g: { id: string }) => navigate(`/game/${encodeURIComponent(g.id)}`);
 
   const filterControls = (
     <>
-      <select className="input" value={timeClass} onChange={(e) => setTimeClass(e.target.value)} aria-label="Time control">
-        <option value="all">All time controls</option>
-        {['bullet', 'blitz', 'rapid', 'daily', 'classical'].map((t) => (
-          <option key={t} value={t}>
-            {t[0].toUpperCase() + t.slice(1)}
-          </option>
-        ))}
-      </select>
-      <select className="input" value={result} onChange={(e) => setResult(e.target.value)} aria-label="Result">
-        <option value="all">All results</option>
-        <option value="win">Wins</option>
-        <option value="loss">Losses</option>
-        <option value="draw">Draws</option>
-      </select>
-      <select className="input" value={color} onChange={(e) => setColor(e.target.value)} aria-label="Colour">
-        <option value="all">Both colours</option>
-        <option value="w">As White</option>
-        <option value="b">As Black</option>
-      </select>
+      <Picker
+        label="Time control"
+        value={timeClass}
+        onChange={setTimeClass}
+        options={[{ value: 'all', label: 'All time controls' }, ...['bullet', 'blitz', 'rapid', 'daily', 'classical'].map((t) => ({ value: t, label: t[0].toUpperCase() + t.slice(1) }))]}
+      />
+      <Picker
+        label="Result"
+        value={result}
+        onChange={setResult}
+        options={[
+          { value: 'all', label: 'All results' },
+          { value: 'win', label: 'Wins' },
+          { value: 'loss', label: 'Losses' },
+          { value: 'draw', label: 'Draws' },
+        ]}
+      />
+      <Picker
+        label="Colour"
+        value={color}
+        onChange={setColor}
+        options={[
+          { value: 'all', label: 'Both colours' },
+          { value: 'w', label: 'As White' },
+          { value: 'b', label: 'As Black' },
+        ]}
+      />
     </>
   );
 
@@ -72,48 +77,33 @@ export default function Games() {
     <div className="max-w-5xl">
       <PageHeader
         title="Games"
-        subtitle={games ? `${games.length} games · ${games.filter((g) => g.analysisStatus === 'done').length} analysed` : 'Loading…'}
+        desktopOnly
         actions={
           <button className="btn btn-primary" onClick={() => setShowImport((s) => !s)}>
-            + Import game
+            + Import
           </button>
         }
       />
       {showImport && <ImportBox username={settings.username} onDone={(id) => navigate(`/game/${encodeURIComponent(id)}`)} />}
 
-      {/* Phones: search + a Filters sheet. Larger screens: filters inline. */}
-      <div className="flex gap-2 mb-3">
+      <div className="flex gap-2 mb-2">
         <input className="input flex-1 min-w-0" placeholder="Search opponent or opening" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search" />
-        <button className="btn md:hidden shrink-0" onClick={() => setFiltersOpen(true)}>
-          <Icon name="filter" size={16} /> Filters{activeFilters ? ` (${activeFilters})` : ''}
+        <button className="btn btn-primary md:hidden shrink-0" onClick={() => setShowImport((s) => !s)} aria-label="Import game">
+          + Import
         </button>
-        <div className="hidden md:flex gap-2">{filterControls}</div>
       </div>
-      <Sheet open={filtersOpen} onClose={() => setFiltersOpen(false)} title="Filters">
-        <div className="grid gap-2">
-          {filterControls}
-          <select className="input" value={sort} onChange={(e) => setSort(e.target.value as SortKey)} aria-label="Sort">
-            <option value="date">Newest first</option>
-            <option value="accuracy">Highest accuracy first</option>
-          </select>
-          <div className="flex gap-2 mt-2">
-            <button
-              className="btn flex-1 justify-center"
-              onClick={() => {
-                setTimeClass('all');
-                setResult('all');
-                setColor('all');
-                setSort('date');
-              }}
-            >
-              Reset
-            </button>
-            <button className="btn btn-primary flex-1 justify-center" onClick={() => setFiltersOpen(false)}>
-              Show {filtered.length} games
-            </button>
-          </div>
-        </div>
-      </Sheet>
+      <div className="flex gap-2 mb-3 overflow-x-auto no-scrollbar -mx-1 px-1 [&>*]:shrink-0">
+        {filterControls}
+        <Picker
+          label="Sort"
+          value={sort}
+          onChange={setSort}
+          options={[
+            { value: 'date' as SortKey, label: 'Newest first' },
+            { value: 'accuracy' as SortKey, label: 'Best accuracy' },
+          ]}
+        />
+      </div>
 
       {!games ? (
         <div className="space-y-2">

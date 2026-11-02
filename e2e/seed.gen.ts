@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync, writeFileSync } from 'node:fs';
-import { SEED_FILE, USERNAME, fixture, mockChessCom } from './helpers';
+import { SEED_FILE, USERNAME, fixture, mockChessCom, pick } from './helpers';
 
 // Regenerates e2e/fixtures/seed.json: imports the fixture games through the real connect flow,
 // lets the app's own Stockfish analyse all of them, and saves the backup the smoke tests load.
@@ -9,12 +9,12 @@ test('generate seed backup', async ({ page, context }) => {
   await mockChessCom(context);
   await page.goto('./');
   await page.getByLabel('chess.com username').fill(USERNAME);
-  await page.getByLabel('History to import').selectOption('0');
+  await pick(page, 'History to import', 'All games');
   await page.getByRole('button', { name: 'Start' }).click();
 
   const total = Object.values(fixture.months).reduce((n, g) => n + g.length, 0);
   await page.goto('./#/settings');
-  await page.getByRole('button', { name: /^Max/ }).click();
+  await page.getByRole('radio', { name: 'Max' }).click();
   // Analysis runs in the background; poll the database until every game is done.
   await expect
     .poll(

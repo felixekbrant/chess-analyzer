@@ -39,6 +39,12 @@ export async function seed(page: Page) {
   await expect(page.getByText(/Restored \d+ games from backup/)).toBeVisible();
 }
 
+/** Chooses an option in one of the app's pickers (a pill button that opens a sheet of options). */
+export async function pick(page: Page, label: string, option: string) {
+  await page.getByRole('button', { name: new RegExp(`^${label}:`) }).first().click();
+  await page.getByRole('dialog', { name: label }).getByRole('radio', { name: option }).click();
+}
+
 /** Opens a tab from the phone tab bar (or the "More" sheet for the rest). */
 export async function openTab(page: Page, name: 'Home' | 'Games' | 'Train' | 'Insights' | 'Openings' | 'Settings') {
   const nav = page.getByRole('navigation', { name: 'Main' }).last();

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, getSettings, saveSettings } from '../db/schema';
 import { useSettings } from '../hooks/useStores';
@@ -10,7 +10,8 @@ import { monthIndex, syncMonths } from '../lib/chesscom/sync';
 import { syncManager } from '../lib/syncManager';
 import { analysisQueue } from '../lib/engine/queue';
 import { exportBackup, importBackup } from '../lib/backup';
-import { PageHeader, Section } from '../components/ui';
+import { PageHeader } from '../components/ui';
+import { Picker } from '../components/Picker';
 import { timeAgo } from '../lib/format';
 import { BOARD_THEMES } from '../lib/boardThemes';
 import { playSound, setSoundEnabled } from '../lib/sound';
@@ -36,7 +37,7 @@ export default function SettingsPage() {
     setMsg('Checking chess.com…');
     try {
       const name = await connectAccount(u);
-      setMsg(`Connected to ${name}. New games are importing — analysis runs in the background.`);
+      setMsg(`Connected to ${name}.`);
     } catch (e) {
       setMsg((e as Error).message);
     } finally {
@@ -66,233 +67,192 @@ export default function SettingsPage() {
     }
   }
 
-  return (
-    <div className="max-w-3xl space-y-4">
-      <PageHeader title="Settings" subtitle="Everything is stored locally in this browser. Nothing is sent anywhere except requests to chess.com's public API." />
+  const switchRow = (label: string, checked: boolean, onChange: (v: boolean) => void) => (
+    <Row label={label}>
+      <input type="checkbox" role="switch" aria-label={label} className="switch" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+    </Row>
+  );
 
-      <Section title="chess.com account">
-        <div className="flex flex-wrap gap-2">
+  return (
+    <div className="max-w-2xl space-y-5">
+      <PageHeader title="Settings" desktopOnly />
+
+      <Group title="chess.com">
+        <div className="flex gap-2 px-4 py-3">
           <input
-            className="input flex-1 min-w-48"
+            className="input flex-1 min-w-0"
             placeholder="chess.com username"
+            aria-label="chess.com username"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && saveUsername()}
           />
-          <button className="btn btn-primary" onClick={saveUsername} disabled={busy || !username.trim()}>
-            {settings.username ? 'Update' : 'Connect'}
+          <button className="btn btn-primary" onClick={saveUsername} disabled={busy || !username.trim() || username.trim() === settings.username}>
+            {settings.username ? 'Change' : 'Connect'}
           </button>
         </div>
-        <label className="flex items-center gap-2 mt-3 text-sm">
-          History to import on the first sync:
-          <select className="input" value={settings.historyMonths} onChange={(e) => saveSettings({ historyMonths: Number(e.target.value) })}>
-            {[1, 3, 6, 12, 24].map((m) => (
-              <option key={m} value={m}>
-                {m} month{m > 1 ? 's' : ''}
-              </option>
-            ))}
-            <option value={0}>Everything</option>
-          </select>
-        </label>
         {settings.username && (
-          <div className="mt-3 text-sm muted space-y-2">
-            <div>Last sync: {syncState?.lastSync ? timeAgo(syncState.lastSync) : 'never'}.</div>
-            <label className="flex items-center justify-between gap-3 text-[var(--text)] cursor-pointer">
-              <span>
-                <span className="block font-semibold">Import new games automatically</span>
-                <span className="block muted text-xs">
-                  {settings.autoSync ? 'When the app opens and every 10 minutes while it is open.' : 'Off: only when you press Sync now.'}
-                </span>
-              </span>
-              <input
-                type="checkbox"
-                role="switch"
-                className="switch shrink-0"
-                checked={settings.autoSync}
-                onChange={(e) => void saveSettings({ autoSync: e.target.checked })}
-              />
-            </label>
-            <div className="flex flex-wrap gap-2">
-              <button className="btn" onClick={() => void syncManager.syncNow()} disabled={busy}>
-                Sync now
+          <>
+            <Row label="Sync now" hint={syncState?.lastSync ? `Synced ${timeAgo(syncState.lastSync)}` : 'Never synced'}>
+              <button className="btn !py-1.5" onClick={() => void syncManager.syncNow()} disabled={busy}>
+                Sync
               </button>
-              <button className="btn" onClick={() => loadOlder(3)} disabled={busy}>
-                Import 3 older months
-              </button>
-              <button className="btn" onClick={() => loadOlder(12)} disabled={busy}>
-                Import 12 older months
-              </button>
-            </div>
-          </div>
+            </Row>
+            {switchRow('Import new games automatically', settings.autoSync, (v) => void saveSettings({ autoSync: v }))}
+            <Row label="Import older games">
+              <div className="flex gap-1.5">
+                <button className="btn !py-1.5 !px-3" onClick={() => loadOlder(3)} disabled={busy}>
+                  +3 mo
+                </button>
+                <button className="btn !py-1.5 !px-3" onClick={() => loadOlder(12)} disabled={busy}>
+                  +12 mo
+                </button>
+              </div>
+            </Row>
+          </>
         )}
-        {msg && <p className="mt-3 text-sm">{msg}</p>}
-      </Section>
+        <Row label="First import">
+          <Picker
+            label="First import"
+            value={settings.historyMonths}
+            onChange={(v) => void saveSettings({ historyMonths: v })}
+            options={[...[1, 3, 6, 12, 24].map((m) => ({ value: m, label: `${m} month${m > 1 ? 's' : ''}` })), { value: 0, label: 'Everything' }]}
+          />
+        </Row>
+        {msg && <p className="px-4 py-2.5 text-sm">{msg}</p>}
+      </Group>
 
-      <Section title="Analysis">
-        <div className="grid sm:grid-cols-2 gap-4 text-sm">
-          <label className="space-y-1">
-            <div className="font-semibold">Engine depth: {settings.depth}</div>
-            <input
-              type="range"
-              min={10}
-              max={20}
-              value={settings.depth}
-              onChange={(e) => saveSettings({ depth: Number(e.target.value) })}
-              className="w-full accent-[#81b64c]"
-            />
-            <div className="muted text-xs">Higher is more accurate but slower. 14 ≈ 10–40 s per game; 18 ≈ 1–2 min.</div>
-          </label>
-          <label className="space-y-1">
-            <div className="font-semibold">Auto-analyse the most recent</div>
-            <select className="input w-full" value={settings.autoAnalyzeLimit} onChange={(e) => saveSettings({ autoAnalyzeLimit: Number(e.target.value) })}>
-              {[25, 50, 100, 150, 300, 1000, 100000].map((n) => (
-                <option key={n} value={n}>
-                  {n >= 100000 ? 'All games' : `${n} games`}
-                </option>
-              ))}
-            </select>
-            <div className="muted text-xs">Older games can still be analysed by opening them.</div>
-          </label>
-          <div className="space-y-1 sm:col-span-2">
-            <div className="font-semibold">Analysis speed</div>
-            <div className="flex flex-wrap gap-2">
-              {(
-                [
-                  ['light', 'Light', 'uses 1 CPU core, quiet fans'],
-                  ['balanced', 'Balanced', `${workerCount('balanced')} games at a time`],
-                  ['max', 'Max', `${workerCount('max')} games at a time`],
-                ] as const
-              ).map(([k, label, hint]) => (
-                <button
-                  key={k}
-                  className={`btn ${settings.analysisSpeed === k ? 'btn-primary' : ''}`}
-                  onClick={async () => {
-                    await saveSettings({ analysisSpeed: k });
-                    void analysisQueue.kick();
-                  }}
-                  title={hint}
-                >
-                  {label} <span className="font-normal text-xs opacity-80">· {hint}</span>
-                </button>
-              ))}
-            </div>
+      <Group title="Analysis">
+        {switchRow('Analyse new games automatically', settings.autoAnalyze, async (v) => {
+          await saveSettings({ autoAnalyze: v });
+          if (v) void analysisQueue.kick();
+        })}
+        <Row label="Keep analysed">
+          <Picker
+            label="Keep analysed"
+            value={settings.autoAnalyzeLimit}
+            onChange={(v) => void saveSettings({ autoAnalyzeLimit: v })}
+            options={[25, 50, 100, 150, 300, 1000, 100000].map((n) => ({ value: n, label: n >= 100000 ? 'All games' : `Latest ${n}` }))}
+          />
+        </Row>
+        <Row label="Speed" hint={`${workerCount(settings.analysisSpeed)} engine${workerCount(settings.analysisSpeed) > 1 ? 's' : ''}`}>
+          <Segmented
+            value={settings.analysisSpeed}
+            options={[
+              ['light', 'Light'],
+              ['balanced', 'Balanced'],
+              ['max', 'Max'],
+            ]}
+            onChange={async (k) => {
+              await saveSettings({ analysisSpeed: k });
+              void analysisQueue.kick();
+            }}
+          />
+        </Row>
+        <div className="px-4 py-3">
+          <div className="flex justify-between font-semibold text-sm">
+            <span>Depth</span>
+            <span className="tabular-nums">{settings.depth}</span>
           </div>
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={settings.autoAnalyze}
-              onChange={async (e) => {
-                await saveSettings({ autoAnalyze: e.target.checked });
-                if (e.target.checked) void analysisQueue.kick();
-              }}
-            />
-            Analyse new games automatically in the background
-          </label>
+          <input
+            type="range"
+            min={10}
+            max={20}
+            value={settings.depth}
+            aria-label="Engine depth"
+            onChange={(e) => saveSettings({ depth: Number(e.target.value) })}
+            className="w-full accent-[#81b64c] mt-1"
+          />
         </div>
-      </Section>
+      </Group>
 
-      <Section title="Daily training">
-        <div className="text-sm">
-          <div className="font-semibold mb-1">Length of the Today plan</div>
-          <div className="flex gap-2">
-            {([10, 15, 25] as const).map((m) => (
-              <button key={m} className={`btn ${settings.sessionMinutes === m ? 'btn-primary' : ''}`} onClick={() => saveSettings({ sessionMinutes: m })}>
-                {m} min
+      <Group title="Training">
+        <Row label="Daily plan">
+          <Segmented value={settings.sessionMinutes} options={[[10, '10 min'], [15, '15 min'], [25, '25 min']]} onChange={(m) => saveSettings({ sessionMinutes: m })} />
+        </Row>
+        {switchRow('Next puzzle after a clean solve', settings.autoNextPuzzle, (v) => void saveSettings({ autoNextPuzzle: v }))}
+      </Group>
+
+      <Group title="Board">
+        <div className="grid grid-cols-4 gap-2 px-4 py-3">
+          {(Object.keys(BOARD_THEMES) as BoardTheme[]).map((k) => {
+            const t = BOARD_THEMES[k];
+            return (
+              <button
+                key={k}
+                onClick={() => saveSettings({ boardTheme: k })}
+                className={`rounded-lg p-1.5 border-2 ${settings.boardTheme === k ? 'border-accent' : 'border-transparent'}`}
+                aria-pressed={settings.boardTheme === k}
+              >
+                <span className="grid grid-cols-2 aspect-square rounded overflow-hidden">
+                  <span style={{ background: t.light }} />
+                  <span style={{ background: t.dark }} />
+                  <span style={{ background: t.dark }} />
+                  <span style={{ background: t.light }} />
+                </span>
+                <span className="block text-xs font-semibold mt-1">{t.label}</span>
               </button>
-            ))}
-          </div>
-          <p className="muted text-xs mt-1">How many game reviews and puzzles Home suggests each day.</p>
+            );
+          })}
         </div>
-      </Section>
-
-      <Section title="Appearance & sound">
-        <div className="space-y-4 text-sm">
-          <div>
-            <div className="font-semibold mb-1">Theme</div>
-            <div className="flex gap-2">
-              {(['system', 'light', 'dark'] as const).map((t) => (
-                <button key={t} className={`btn ${settings.theme === t ? 'btn-primary' : ''}`} onClick={() => saveSettings({ theme: t })}>
-                  {t[0].toUpperCase() + t.slice(1)}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <div className="font-semibold mb-1">Board</div>
-            <div className="grid grid-cols-4 gap-2 max-w-md">
-              {(Object.keys(BOARD_THEMES) as BoardTheme[]).map((k) => {
-                const t = BOARD_THEMES[k];
-                return (
-                  <button
-                    key={k}
-                    onClick={() => saveSettings({ boardTheme: k })}
-                    className={`rounded-lg p-1.5 border-2 ${settings.boardTheme === k ? 'border-accent' : 'border-transparent'}`}
-                    aria-pressed={settings.boardTheme === k}
-                  >
-                    <span className="grid grid-cols-2 aspect-square rounded overflow-hidden">
-                      <span style={{ background: t.light }} />
-                      <span style={{ background: t.dark }} />
-                      <span style={{ background: t.dark }} />
-                      <span style={{ background: t.light }} />
-                    </span>
-                    <span className="block text-xs mt-1">{t.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-          <label className="flex items-center gap-2">
-            <input type="checkbox" checked={settings.showCoordinates} onChange={(e) => saveSettings({ showCoordinates: e.target.checked })} />
-            Show coordinates on the board
-          </label>
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={settings.sounds}
-              onChange={async (e) => {
-                await saveSettings({ sounds: e.target.checked });
-                if (e.target.checked) {
-                  setSoundEnabled(true);
-                  playSound('move');
-                }
-              }}
-            />
-            Move sounds
-          </label>
-        </div>
-      </Section>
+        {switchRow('Coordinates', settings.showCoordinates, (v) => void saveSettings({ showCoordinates: v }))}
+        {switchRow('Eval bar', settings.showEvalBar, (v) => void saveSettings({ showEvalBar: v }))}
+        {switchRow('Suggested moves', settings.showSuggestions, (v) => void saveSettings({ showSuggestions: v }))}
+        {switchRow('Sounds', settings.sounds, async (v) => {
+          await saveSettings({ sounds: v });
+          if (v) {
+            setSoundEnabled(true);
+            playSound('move');
+          }
+        })}
+        <Row label="Theme">
+          <Segmented
+            value={settings.theme}
+            options={[
+              ['dark', 'Dark'],
+              ['light', 'Light'],
+              ['system', 'Auto'],
+            ]}
+            onChange={(t) => saveSettings({ theme: t })}
+          />
+        </Row>
+      </Group>
 
       <InstallSection />
 
-      <Section title="Data">
-        <p className="text-sm muted mb-3">
-          {counts?.games ?? 0} games · {counts?.analysed ?? 0} analysed · {counts?.puzzles ?? 0} training puzzles. Data lives in this browser only — export a
-          backup to move it to another browser or computer.
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <button className="btn" onClick={() => void exportBackup().then(() => toast('Backup downloaded', 'success'))}>
-            Export backup
-          </button>
-          <label className="btn">
-            Import backup
-            <input
-              type="file"
-              accept="application/json"
-              className="hidden"
-              onChange={async (e) => {
-                const f = e.target.files?.[0];
-                if (!f) return;
-                try {
-                  const n = await importBackup(f);
-                  toast(`Restored ${n} games from backup`, 'success');
-                } catch (err) {
-                  setMsg(`Import failed: ${(err as Error).message}`);
-                }
-              }}
-            />
-          </label>
+      <Group title="Data">
+        <Row label="Stored in this browser" hint={`${counts?.games ?? 0} games · ${counts?.analysed ?? 0} analysed · ${counts?.puzzles ?? 0} puzzles`} />
+        <Row label="Backup">
+          <div className="flex gap-1.5">
+            <button className="btn !py-1.5 !px-3" onClick={() => void exportBackup().then(() => toast('Backup downloaded', 'success'))}>
+              Export
+            </button>
+            <label className="btn !py-1.5 !px-3">
+              Import
+              <input
+                type="file"
+                accept="application/json"
+                className="hidden"
+                onChange={async (e) => {
+                  const f = e.target.files?.[0];
+                  if (!f) return;
+                  try {
+                    const n = await importBackup(f);
+                    toast(`Restored ${n} games from backup`, 'success');
+                  } catch (err) {
+                    setMsg(`Import failed: ${(err as Error).message}`);
+                  }
+                }}
+              />
+            </label>
+          </div>
+        </Row>
+        <Row label="Analysis">
           <button
-            className="btn"
+            className="btn !py-1.5 !px-3"
             onClick={async () => {
               if (!confirm('Re-run analysis for all games? Existing results are kept until each game is redone.')) return;
               await db.games.toCollection().modify({ analysisStatus: 'pending' });
@@ -301,9 +261,11 @@ export default function SettingsPage() {
           >
             Re-analyse all
           </button>
+        </Row>
+        <Row label="Delete everything">
           <button
-            className="btn"
-            style={{ color: '#e02828' }}
+            className="btn !py-1.5 !px-3"
+            style={{ color: '#e5713f' }}
             onClick={async () => {
               if (!confirm('Delete ALL games, analyses and puzzles from this browser? This cannot be undone.')) return;
               const s = await getSettings();
@@ -313,30 +275,29 @@ export default function SettingsPage() {
               location.reload();
             }}
           >
-            Delete all data
+            Delete
           </button>
-        </div>
-      </Section>
+        </Row>
+      </Group>
 
-      <div className="muted text-xs space-y-1">
+      <div className="muted text-xs space-y-1 px-1 pb-2">
         <p>
-          Chess Analyzer is an independent, non-commercial project. It is not affiliated with, endorsed by or sponsored by Chess.com; it only reads
-          your public games through their{' '}
+          Not affiliated with, endorsed by or sponsored by Chess.com. Games come from their public{' '}
           <a className="underline" href="https://www.chess.com/news/view/published-data-api" target="_blank" rel="noopener noreferrer">
             Published-Data API
           </a>
-          .
+          ; everything else stays in this browser.
         </p>
         <p>
           Engine:{' '}
           <a className="underline" href="https://github.com/nmrugg/stockfish.js" target="_blank" rel="noopener noreferrer">
             Stockfish 19
           </a>{' '}
-          (lite, WebAssembly), free software under the{' '}
+          (
           <a className="underline" href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank" rel="noopener noreferrer">
-            GNU GPL v3
+            GPL v3
           </a>
-          . Opening names: lichess chess-openings (CC0). Extra drill puzzles: the{' '}
+          ). Openings: lichess chess-openings (CC0). Drill puzzles:{' '}
           <a className="underline" href="https://database.lichess.org/#puzzles" target="_blank" rel="noopener noreferrer">
             Lichess puzzle database
           </a>{' '}
@@ -347,28 +308,61 @@ export default function SettingsPage() {
   );
 }
 
+/** A group of settings rows under a small heading (like a phone's settings app). */
+function Group({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section>
+      <h2 className="muted text-xs font-bold uppercase tracking-wide px-1 mb-1.5">{title}</h2>
+      <div className="panel divide-y divide-[var(--border)] overflow-hidden">{children}</div>
+    </section>
+  );
+}
+
+/** One setting: label (and a short hint) on the left, its control on the right. */
+function Row({ label, hint, children }: { label: string; hint?: string; children?: ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-3 px-4 py-3 min-h-14">
+      <div className="min-w-0">
+        <div className="font-semibold text-sm">{label}</div>
+        {hint && <div className="muted text-xs mt-0.5">{hint}</div>}
+      </div>
+      <div className="shrink-0">{children}</div>
+    </div>
+  );
+}
+
+/** A few options side by side; the chosen one is green. */
+function Segmented<T extends string | number>({ value, options, onChange }: { value: T; options: [T, string][]; onChange: (v: T) => void }) {
+  return (
+    <div className="inline-flex rounded-full bg-[var(--panel-2)] p-0.5" role="radiogroup">
+      {options.map(([v, label]) => (
+        <button
+          key={String(v)}
+          role="radio"
+          aria-checked={value === v}
+          className={`rounded-full px-3 py-1 text-xs font-bold transition ${value === v ? 'bg-accent text-white' : 'muted'}`}
+          onClick={() => onChange(v)}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 /** "Install as an app": a one-tap button where the browser supports it, instructions otherwise. */
 function InstallSection() {
   const { canPrompt, prompt } = useInstallPrompt();
   if (isStandalone()) return null;
   return (
-    <Section title="Install as an app">
-      <p className="text-sm muted mb-3">
-        Put Chess Analyzer on your home screen: it opens full screen like a normal app, starts instantly and works offline.
-      </p>
-      {canPrompt ? (
-        <button className="btn btn-primary" onClick={() => void prompt()}>
-          Install app
-        </button>
-      ) : isIos() ? (
-        <p className="text-sm">
-          In Safari, tap the <b>Share</b> button (the square with an arrow), then <b>Add to Home Screen</b>.
-        </p>
-      ) : (
-        <p className="text-sm">
-          In your browser menu, choose <b>Install app</b> or <b>Add to Home screen</b>.
-        </p>
-      )}
-    </Section>
+    <Group title="App">
+      <Row label="Install on this device" hint={canPrompt ? 'Full screen, works offline' : isIos() ? 'Safari: Share → Add to Home Screen' : 'Browser menu → Add to Home screen'}>
+        {canPrompt && (
+          <button className="btn btn-primary !py-1.5" onClick={() => void prompt()}>
+            Install
+          </button>
+        )}
+      </Row>
+    </Group>
   );
 }

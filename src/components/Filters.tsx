@@ -1,40 +1,41 @@
+import { Picker, type PickerOption } from './Picker';
 import type { InsightFilters } from '../hooks/useInsightData';
+
+const TIME: PickerOption<string>[] = [
+  { value: 'all', label: 'All time controls' },
+  ...['bullet', 'blitz', 'rapid', 'daily'].map((t) => ({ value: t, label: t[0].toUpperCase() + t.slice(1) })),
+];
+const WHICH: PickerOption<string>[] = [
+  { value: 'd0', label: 'All games' },
+  { value: 'g50', label: 'Last 50 games' },
+  { value: 'g100', label: 'Last 100 games' },
+  { value: 'g200', label: 'Last 200 games' },
+  { value: 'd7', label: 'Last 7 days' },
+  { value: 'd30', label: 'Last 30 days' },
+  { value: 'd90', label: 'Last 90 days' },
+  { value: 'd365', label: 'Last year' },
+];
+const COLOUR: PickerOption<string>[] = [
+  { value: 'all', label: 'Both colours' },
+  { value: 'w', label: 'As White' },
+  { value: 'b', label: 'As Black' },
+];
 
 export function Filters({ value, onChange }: { value: InsightFilters; onChange: (f: InsightFilters) => void }) {
   return (
-    <div className="flex flex-wrap gap-2">
-      <select className="input" value={value.timeClass} onChange={(e) => onChange({ ...value, timeClass: e.target.value })}>
-        <option value="all">All time controls</option>
-        {['bullet', 'blitz', 'rapid', 'daily'].map((t) => (
-          <option key={t} value={t}>
-            {t[0].toUpperCase() + t.slice(1)}
-          </option>
-        ))}
-      </select>
-      <select
-        className="input"
-        aria-label="Which games"
+    <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-1 px-1">
+      <Picker label="Time control" value={value.timeClass} options={TIME} onChange={(timeClass) => onChange({ ...value, timeClass })} className="shrink-0" />
+      <Picker
+        label="Which games"
         value={value.lastGames ? `g${value.lastGames}` : `d${value.days}`}
-        onChange={(e) => {
-          const v = e.target.value;
+        options={WHICH}
+        onChange={(v) => {
           const n = Number(v.slice(1));
           onChange(v[0] === 'g' ? { ...value, days: 0, lastGames: n } : { ...value, days: n, lastGames: 0 });
         }}
-      >
-        <option value="d0">All games</option>
-        <option value="g50">Last 50 games</option>
-        <option value="g100">Last 100 games</option>
-        <option value="g200">Last 200 games</option>
-        <option value="d7">Last 7 days</option>
-        <option value="d30">Last 30 days</option>
-        <option value="d90">Last 90 days</option>
-        <option value="d365">Last year</option>
-      </select>
-      <select className="input" value={value.color} onChange={(e) => onChange({ ...value, color: e.target.value })}>
-        <option value="all">Both colours</option>
-        <option value="w">As White</option>
-        <option value="b">As Black</option>
-      </select>
+        className="shrink-0"
+      />
+      <Picker label="Colour" value={value.color} options={COLOUR} onChange={(color) => onChange({ ...value, color })} className="shrink-0" />
     </div>
   );
 }

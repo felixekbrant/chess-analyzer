@@ -3,7 +3,6 @@ import { analysisQueue } from '../lib/engine/queue';
 import { useQueueProgress } from '../hooks/useStores';
 import type { StoredGame } from '../lib/types';
 import { ResultPill, TimeClassIcon, formatDate } from './ui';
-import { Icon } from './Icon';
 import { relativeDay } from '../lib/format';
 
 export type SortKey = 'date' | 'accuracy';
@@ -125,7 +124,8 @@ export function AccuracyPill({ value }: { value: number }) {
 export function GameCardList({ games, onOpen, grouped = true }: { games: StoredGame[]; onOpen: (g: StoredGame) => void; grouped?: boolean }) {
   const groups: { day: string; games: StoredGame[] }[] = [];
   for (const g of games) {
-    const day = grouped ? relativeDay(g.endTime) : '';
+    // One continuous list per month (like chess.com's archive); each row carries its own date.
+    const day = grouped ? new Date(g.endTime).toLocaleDateString(undefined, { month: 'long', year: 'numeric' }) : '';
     const last = groups[groups.length - 1];
     if (last && last.day === day) last.games.push(g);
     else groups.push({ day, games: [g] });
@@ -134,7 +134,7 @@ export function GameCardList({ games, onOpen, grouped = true }: { games: StoredG
     <div className="space-y-3">
       {groups.map((grp) => (
         <div key={grp.day + grp.games[0].id}>
-          {grouped && <div className="muted text-xs font-semibold uppercase tracking-wide px-1 mb-1">{grp.day}</div>}
+          {grouped && <div className="muted text-xs font-bold uppercase tracking-wide px-1 mb-1.5">{grp.day}</div>}
           <ul className="panel divide-y divide-[var(--border)] overflow-hidden">
             {grp.games.map((g) => (
               <li key={g.id}>
@@ -142,19 +142,23 @@ export function GameCardList({ games, onOpen, grouped = true }: { games: StoredG
                   <ResultPill g={g} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
-                      <TimeClassIcon tc={g.timeClass} size={14} />
                       <span
-                        className="inline-block w-2.5 h-2.5 rounded-sm border border-[var(--border)] shrink-0"
-                        style={{ background: g.userColor === 'b' ? '#403d39' : '#f4f4f4' }}
-                        title={g.userColor === 'b' ? 'You had Black' : 'You had White'}
+                        className="inline-block w-3 h-3 rounded-[3px] shrink-0 ring-1 ring-black/20"
+                        style={{ background: g.userColor === 'w' ? '#403d39' : '#f4f4f4' }}
+                        title={g.userColor === 'w' ? 'They had Black' : 'They had White'}
                       />
-                      <span className="font-semibold truncate">{g.userColor ? opponentName(g) : `${g.white} – ${g.black}`}</span>
-                      {opponentElo(g) && <span className="muted text-xs shrink-0">{opponentElo(g)}</span>}
+                      <span className="font-bold truncate">{g.userColor ? opponentName(g) : `${g.white} – ${g.black}`}</span>
+                      {opponentElo(g) && <span className="muted text-xs shrink-0 tabular-nums">({opponentElo(g)})</span>}
                     </div>
-                    <div className="muted text-xs truncate">{g.openingName ?? g.eco ?? `${Math.ceil(g.plyCount / 2)} moves`}</div>
+                    <div className="muted text-xs truncate flex items-center gap-1 mt-0.5">
+                      <TimeClassIcon tc={g.timeClass} size={12} />
+                      <span className="truncate">{g.openingName ?? g.eco ?? `${Math.ceil(g.plyCount / 2)} moves`}</span>
+                    </div>
                   </div>
-                  <CardStatus g={g} />
-                  <Icon name="next" size={16} className="muted" />
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <CardStatus g={g} />
+                    <span className="muted text-[11px] font-semibold">{relativeDay(g.endTime)}</span>
+                  </div>
                 </button>
               </li>
             ))}
