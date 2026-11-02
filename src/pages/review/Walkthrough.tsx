@@ -346,7 +346,8 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
       const u = settings.showSuggestions && live.settled ? live.result?.lines[0]?.pv[0] : undefined;
       return u ? [{ from: u.slice(0, 2), to: u.slice(2, 4), color: 'rgba(92,139,176,0.85)' }] : [];
     }
-    if (settings.showSuggestions && current?.bestUci && canBest) return [{ from: current.bestUci.slice(0, 2), to: current.bestUci.slice(2, 4), color: 'rgba(129,182,76,0.85)' }];
+    // The review's own best-move arrow is part of the review; the engine's suggestions are separate.
+    if (current?.bestUci && canBest) return [{ from: current.bestUci.slice(0, 2), to: current.bestUci.slice(2, 4), color: 'rgba(129,182,76,0.85)' }];
     return [];
   }, [retry, explore, live.settled, live.result, current, canBest, settings.showSuggestions]);
 
@@ -491,7 +492,8 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
       {/* Board column */}
       <div className="min-w-0 space-y-2 lg:space-y-3">
         <div className="flex gap-1.5 lg:gap-2 mx-auto lg:mx-0" style={{ maxWidth: 'min(720px, calc(100svh - 140px))' }}>
-          {settings.showEvalBar && <EvalBar score={evalScore} orientation={orientation} thinking={evalThinking} />}
+          {/* Always part of the review; the engine's eval bar can be switched off while exploring. */}
+          {(!engineOpen || settings.showEvalBar) && <EvalBar score={evalScore} orientation={orientation} thinking={evalThinking} />}
           <div className="flex-1 min-w-0">
             <PlayerStrip {...top} />
             <Board

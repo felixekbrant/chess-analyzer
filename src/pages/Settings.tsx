@@ -195,8 +195,8 @@ export default function SettingsPage() {
           })}
         </div>
         {switchRow('Coordinates', settings.showCoordinates, (v) => void saveSettings({ showCoordinates: v }))}
-        {switchRow('Eval bar', settings.showEvalBar, (v) => void saveSettings({ showEvalBar: v }))}
-        {switchRow('Suggested moves', settings.showSuggestions, (v) => void saveSettings({ showSuggestions: v }))}
+        {switchRow('Engine: eval bar', settings.showEvalBar, (v) => void saveSettings({ showEvalBar: v }))}
+        {switchRow('Engine: suggested moves', settings.showSuggestions, (v) => void saveSettings({ showSuggestions: v }))}
         {switchRow('Sounds', settings.sounds, async (v) => {
           await saveSettings({ sounds: v });
           if (v) {

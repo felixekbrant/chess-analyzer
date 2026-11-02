@@ -314,10 +314,12 @@ test('engine controls: open the engine and toggle eval bar and suggestions in re
   const controls = page.getByRole('group', { name: 'Engine' }).first();
   const evalBar = controls.getByRole('button', { name: 'Eval bar' });
   const suggestions = controls.getByRole('button', { name: 'Suggestions' });
-  await expect(evalBar).toHaveAttribute('aria-pressed', 'true');
+  // The display options only appear while the engine is open.
+  await expect(evalBar).toHaveCount(0);
 
   // Open the engine: live lines appear, and moves can be played freely.
   await controls.getByRole('button', { name: 'Engine' }).click();
+  await expect(evalBar).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByText(/Stockfish 19 lite · depth \d+/).filter({ visible: true })).toBeVisible();
   await suggestions.click();
   await expect(suggestions).toHaveAttribute('aria-pressed', 'false');
@@ -326,14 +328,17 @@ test('engine controls: open the engine and toggle eval bar and suggestions in re
   await expect(evalBar).toHaveAttribute('aria-pressed', 'false');
   await controls.getByRole('button', { name: 'Engine' }).click();
   await expect(controls.getByRole('button', { name: 'Engine' })).toHaveAttribute('aria-pressed', 'false');
+  await expect(evalBar).toHaveCount(0);
 
   // The choices carry over to puzzles.
   await page.goto('./#/training');
   await expect(page.getByText(/to move$/)).toBeVisible();
   const pc = page.getByRole('group', { name: 'Engine' });
-  await expect(pc.getByRole('button', { name: 'Suggestions' })).toHaveAttribute('aria-pressed', 'false');
-  await pc.getByRole('button', { name: 'Suggestions' }).click();
+  await expect(pc.getByRole('button', { name: 'Suggestions' })).toHaveCount(0);
   await pc.getByRole('button', { name: 'Engine' }).click();
+  await expect(pc.getByRole('button', { name: 'Suggestions' })).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.getByText(/Stockfish 19 lite · depth/)).toHaveCount(0);
+  await pc.getByRole('button', { name: 'Suggestions' }).click();
   await expect(page.getByText(/Stockfish 19 lite · depth \d+/).filter({ visible: true })).toBeVisible();
   // The engine starts at the puzzle position; your game move can be played there and taken back.
   await page.getByRole('button', { name: /Your move / }).click();
