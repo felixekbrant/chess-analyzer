@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Chess } from 'chess.js';
 import { useLiveEngine, evaluateOnce } from '../../hooks/useLiveEngine';
 import { useQueueProgress, useSettings } from '../../hooks/useStores';
 import { EngineControls } from '../../components/EngineControls';
+import { EngineShortcuts } from '../../components/EngineShortcuts';
 import { useStableCallback } from '../../hooks/useStableCallback';
 import { analysisQueue } from '../../lib/engine/queue';
 import { playUci } from '../../lib/analysis/board';
@@ -85,6 +86,8 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
   const settings = useSettings();
   const [panelTab, setPanelTab] = useState<'moves' | 'report'>('moves');
   const [menuOpen, setMenuOpen] = useState(false);
+  // Plays an engine line ("Why it fails", "Best line") move by move.
+  const [linePlaying, setLinePlaying] = useState(false);
 
   const keyPlies = useMemo(
     () => (moves ?? []).filter((m) => m.color === me && KEY_CLASSES.includes(m.classification)).map((m) => m.ply + 1),
@@ -139,13 +142,30 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
       setRetry(null);
       return setExplore({ base: retry.move.ply, moves: [] });
     }
-    setExplore({ base: ply, moves: [] });
+    // From just before the current move, with that move on the board: so it can be taken back and
+    // compared with the best move or anything else.
+    if (ply > 0) return setExplore({ base: ply - 1, moves: [parsed.plies[ply - 1].uci] });
+    setExplore({ base: 0, moves: [] });
   };
+  const shortcuts = engineOpen && explore && parsed.plies[explore.base] && (
+    <EngineShortcuts
+      played={{
+        uci: parsed.plies[explore.base].uci,
+        san: parsed.plies[explore.base].san,
+        classification: moves?.[explore.base]?.classification,
+        mine: parsed.plies[explore.base].color === me,
+      }}
+      bestUci={moves?.[explore.base]?.bestUci}
+      atStart={!explore.moves.length}
+      onPlay={(m) => setExplore({ base: explore.base, moves: m })}
+    />
+  );
 
   // ----- Navigation -----
   const go = useCallback((p: number) => {
     setExplore(null);
     setRetry(null);
+    setLinePlaying(false);
     setPly(Math.max(0, Math.min(n, p)));
   }, [n]);
 
@@ -183,6 +203,28 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
     go(ply - 1);
   };
 
+  const swipe = useSwipe(next, prev);
+
+  // Stepping onto a special move: a little sound after the move's own click.
+  useEffect(() => {
+    if (!current || explore || retry) return;
+    const kind = current.classification === 'brilliant' || current.classification === 'great' ? 'brilliant' : current.classification === 'blunder' ? 'blunder' : null;
+    if (!kind) return;
+    const t = setTimeout(() => playSound(kind), 180);
+    return () => clearTimeout(t);
+  }, [ply]);
+
+  // Line playback: one move every 0.9 s until the end of the line.
+  useEffect(() => {
+    if (!linePlaying) return;
+    if (!explore?.line || explore.moves.length >= explore.line.length) return setLinePlaying(false);
+    const t = setTimeout(
+      () => setExplore((e) => (e?.line && e.moves.length < e.line.length ? { ...e, moves: [...e.moves, e.line[e.moves.length]] } : e)),
+      explore.moves.length ? 900 : 300,
+    );
+    return () => clearTimeout(t);
+  }, [linePlaying, explore]);
+
   function startRetry(move: MoveAnalysis, sequence = false) {
     setExplore(null);
     setPly(move.ply);
@@ -196,7 +238,7 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
     const isError = ERROR_CLASSES.includes(current.classification) || current.classification === 'inaccuracy';
     const title = isError || current.bestUci !== current.uci ? `Best was ${current.bestSan}` : `The idea behind ${current.san}`;
     const whose = current.color === me ? 'your' : `${opponentName}'s`;
-    const context = `This keeps ${whose} winning chances at about ${Math.round(current.winBefore)}%.`;
+    const context = `Keeps ${whose} winning chances at ~${Math.round(current.winBefore)}%`;
     setExplore({ base: ply - 1, moves: [current.bestLineUci[0]], line: current.bestLineUci, title, context, perspective: current.color });
   };
 
@@ -209,9 +251,7 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
     const label = CLASS_META[current.classification].label.toLowerCase();
     const title = mine ? `Why ${current.san} is ${article(label)} ${label}` : `How to punish ${current.san}`;
     const [b, a] = [Math.round(current.winBefore), Math.round(current.winAfter)];
-    const context = mine
-      ? `After ${current.san} your winning chances drop from ${b}% to ${a}%. This is how your opponent takes advantage:`
-      : `After ${current.san} your winning chances go up from ${100 - b}% to ${100 - a}%, if you find these moves:`;
+    const context = mine ? `Your winning chances ${b}% → ${a}%` : `Your winning chances ${100 - b}% → ${100 - a}% with these moves`;
     setExplore({ base: ply, moves: [refutation[0]], line: refutation, title, context, perspective: me });
   };
 
@@ -377,6 +417,20 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
       />
       <ActionButton icon={<Icon name="next" />} label={retry.sequence ? 'Next mistake' : 'Continue'} onClick={next} primary={retry.state === 'right' || retry.state === 'shown'} />
     </>
+  ) : explore?.line ? (
+    <>
+      <ActionButton icon={<Icon name="prev" />} label="Back" onClick={prev} />
+      <ActionButton
+        icon={<Icon name={linePlaying ? 'pause' : 'play'} />}
+        label={linePlaying ? 'Pause' : explore.moves.length >= explore.line.length ? 'Replay' : 'Play'}
+        onClick={() => {
+          if (!linePlaying && explore.line && explore.moves.length >= explore.line.length) setExplore({ ...explore, moves: [] });
+          setLinePlaying((p) => !p);
+        }}
+        primary={!linePlaying}
+      />
+      <ActionButton icon={<Icon name="next" />} label="Next" onClick={next} disabled={explore.moves.length >= explore.line.length} />
+    </>
   ) : explore ? (
     <>
       <ActionButton icon={<Icon name="prev" />} label="Back" onClick={prev} />
@@ -407,7 +461,7 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
         disabled={keyOnly ? nextKey === undefined : ply >= n}
         primary
       />
-      <button className="icon-btn !min-w-11 lg:hidden" onClick={() => setMenuOpen(true)} aria-label="More options">
+      <button className="icon-btn !min-w-11" onClick={() => setMenuOpen(true)} aria-label="More options">
         <Icon name="more" />
       </button>
     </>
@@ -458,7 +512,9 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
         {/* Phones: coach, engine, graph and the move strip under the board. */}
         <div className="lg:hidden space-y-2">
           <EngineControls open={engineOpen} onToggle={toggleEngine} />
-          {coach}
+          {shortcuts}
+          {/* Swipe the coach left/right to step through the moves (the board itself is for dragging pieces). */}
+          <div onTouchStart={swipe.start} onTouchEnd={swipe.end}>{coach}</div>
           {engineOpen && settings.showSuggestions && <EngineLines result={live.settled ? live.result : null} fen={fen} onPlayLine={onBoardMove} />}
           {analysis && <EvalGraph evals={analysis.evals} moves={analysis.moves} current={ply} onSelect={go} height={48} />}
           <MoveStrip parsed={parsed} moves={moves} ply={ply} onSelect={go} />
@@ -477,6 +533,7 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
       {/* Side panel (larger screens) */}
       <div className="hidden lg:block space-y-3 min-w-0">
         <EngineControls open={engineOpen} onToggle={toggleEngine} />
+        {shortcuts}
         {coach}
         {engineOpen && settings.showSuggestions && (
           <div className="panel p-3">
@@ -484,29 +541,6 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
           </div>
         )}
         <ActionBar>{actions}</ActionBar>
-        <div className="flex flex-wrap gap-2 text-xs">
-          <button className="chip hover:underline" onClick={() => setOrientation((o) => (o === 'white' ? 'black' : 'white'))}>
-            <Icon name="flip" size={12} /> Flip (f)
-          </button>
-          {keyPlies.length > 0 && (
-            <button className="chip hover:underline" onClick={() => setKeyOnly((v) => !v)}>
-              <Icon name="star" size={12} /> {keyOnly ? 'All moves' : 'Key moments only'}
-            </button>
-          )}
-          {mistakes.length > 0 && (
-            <button className="chip hover:underline" onClick={() => startRetry(mistakes[0], true)}>
-              <Icon name="retry" size={12} /> Retry all mistakes
-            </button>
-          )}
-          <button className="chip hover:underline" onClick={onSummary}>
-            <Icon name="chart" size={12} /> Summary
-          </button>
-          {game.url && (
-            <a className="chip hover:underline" href={game.url} target="_blank" rel="noreferrer">
-              <Icon name="external" size={12} /> chess.com
-            </a>
-          )}
-        </div>
         <div className="panel">
           <div className="flex border-b border-[var(--border)] px-2" role="tablist">
             {(['moves', 'report'] as const).map((t) => (
@@ -532,6 +566,28 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
       </Sheet>
     </div>
   );
+}
+
+/** Horizontal swipe detection: left = next, right = previous. */
+function useSwipe(onLeft: () => void, onRight: () => void) {
+  const from = useRef<{ x: number; y: number } | null>(null);
+  return {
+    start: (e: React.TouchEvent) => {
+      const t = e.touches[0];
+      from.current = { x: t.clientX, y: t.clientY };
+    },
+    end: (e: React.TouchEvent) => {
+      const f = from.current;
+      from.current = null;
+      if (!f) return;
+      const t = e.changedTouches[0];
+      const dx = t.clientX - f.x;
+      const dy = t.clientY - f.y;
+      if (Math.abs(dx) < 50 || Math.abs(dx) < 2 * Math.abs(dy)) return;
+      if (dx < 0) onLeft();
+      else onRight();
+    },
+  };
 }
 
 function MenuItem({ icon, label, onClick }: { icon: Parameters<typeof Icon>[0]['name']; label: string; onClick: () => void }) {
@@ -623,7 +679,7 @@ function Coach({
     if (explore.line && line) {
       return (
         <CoachBubble>
-          <LineViewer title={explore.title ?? 'Engine line'} context={explore.context} line={line} index={explore.moves.length} onIndex={onLineIndex} onClose={onExitExplore} />
+          <LineViewer title={explore.title ?? 'Engine line'} context={explore.context} line={line} index={explore.moves.length} onIndex={onLineIndex} onClose={onExitExplore} controls={false} />
         </CoachBubble>
       );
     }
@@ -660,7 +716,8 @@ function Coach({
   const verdict = `${who}${current.san} is ${noun ? `${article(label)} ${label}${current.classification === 'book' ? ' move' : ''}` : label}`;
   const showBest = current.bestSan && current.bestUci !== current.uci && !['book', 'forced', 'best'].includes(current.classification);
   const explanation = !yours && isError ? `Your chance${current.replyLineSan[0] ? `: ${current.replyLineSan[0]} punishes it` : ''}.` : isError || special ? current.explanation : undefined;
-  const motifs = isError
+  // Chips only when there's no sentence saying the same thing.
+  const motifs = isError && !explanation
     ? current.motifs.filter((m) => m !== 'long_think' && !(m === 'positional' && current.motifs.includes('threw_advantage'))).slice(0, 2)
     : [];
 

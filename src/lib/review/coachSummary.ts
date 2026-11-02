@@ -23,6 +23,8 @@ const ERRORS: Classification[] = ['blunder', 'mistake', 'miss'];
 export interface CoachSummary {
   /** Two to four short sentences, like a coach's comment after the game. */
   lines: string[];
+  /** One short line for the top of the summary (the numbers are shown next to it, so none here). */
+  headline: string;
   grades: Partial<Record<Phase, PhaseGrade>>;
   /** The user's costliest move, if any, so the UI can link to it. */
   turningPoint?: MoveAnalysis;
@@ -87,5 +89,19 @@ export function coachSummary(game: StoredGame, analysis: GameAnalysis): CoachSum
   const shining = mine.filter((m) => m.classification === 'brilliant' || m.classification === 'great').length;
   if (shining) lines.push(`You found ${shining} ${shining === 1 ? 'great move' : 'great moves'} along the way.`);
 
-  return { lines: lines.slice(0, 4), grades, turningPoint };
+  // Headline: the result, then the one thing that mattered most.
+  const result =
+    game.userResult === 'win' ? 'Nice win!' : game.userResult === 'loss' ? 'A tough loss.' : game.userResult === 'draw' ? 'A hard-fought draw.' : '';
+  let point = '';
+  if (inTimeTrouble >= 2) point = 'The clock cost you.';
+  else if (!errors.length) point = 'No mistakes at all.';
+  else if (graded.length >= 2) {
+    const byAcc = [...graded].sort((a, b) => analysis.phaseAccuracy[me][b]! - analysis.phaseAccuracy[me][a]!);
+    const gap = analysis.phaseAccuracy[me][byAcc[0]]! - analysis.phaseAccuracy[me][byAcc[byAcc.length - 1]]!;
+    if (gap >= 8) point = game.userResult === 'win' ? `Your ${byAcc[0]} won it.` : `It slipped in the ${byAcc[byAcc.length - 1]}.`;
+  }
+  if (!point && shining) point = `You found ${shining === 1 ? 'a great move' : `${shining} great moves`}.`;
+  const headline = [result, point].filter(Boolean).join(' ') || "Let's look at this game.";
+
+  return { lines: lines.slice(0, 4), headline, grades, turningPoint };
 }

@@ -152,7 +152,8 @@ function TopBar({ path }: { path: string }) {
   const isReview = path.startsWith('/game/');
   return (
     <header className="md:hidden sticky top-0 z-30 safe-top bg-[var(--bg)]/95 backdrop-blur border-b border-[var(--border)]">
-      <div className="h-12 px-2 flex items-center gap-1">
+      {/* Slimmer on a game review, where the board should start as high as possible. */}
+      <div className={`${isReview ? 'h-10' : 'h-12'} px-2 flex items-center gap-1`}>
         {isReview ? (
           <button
             className="icon-btn"
@@ -167,7 +168,7 @@ function TopBar({ path }: { path: string }) {
           </span>
         )}
         <h1 className="flex-1 font-bold text-base truncate">{title}</h1>
-        <StatusIndicator variant="compact" />
+        {!isReview && <StatusIndicator variant="compact" />}
       </div>
     </header>
   );

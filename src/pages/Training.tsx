@@ -6,6 +6,7 @@ import { db } from '../db/schema';
 import { evaluateOnce, useLiveEngine } from '../hooks/useLiveEngine';
 import { EngineControls } from '../components/EngineControls';
 import { EngineLines } from '../components/EngineLines';
+import { EngineShortcuts } from '../components/EngineShortcuts';
 import { EvalBar } from '../components/EvalBar';
 import { usePgn, useSettings } from '../hooks/useStores';
 import { useStableCallback } from '../hooks/useStableCallback';
@@ -567,23 +568,12 @@ function PuzzleView({
           </div>
         )}
         {engine && (
-          <div className="flex flex-wrap gap-2">
-            {puzzle.playedUci && (
-              <button className="btn !py-1.5 !text-sm" onClick={() => setEngine({ ...engine, moves: [puzzle.playedUci] })}>
-                <ClassificationBadge c={puzzle.classification} size={14} /> Your move {puzzle.playedSan}
-              </button>
-            )}
-            {puzzle.solutionUci[0] && (
-              <button className="btn !py-1.5 !text-sm" onClick={() => setEngine({ ...engine, moves: [puzzle.solutionUci[0]] })}>
-                <Icon name="star" size={14} /> Best move
-              </button>
-            )}
-            {engine.moves.length > 0 && (
-              <button className="btn !py-1.5 !text-sm" onClick={() => setEngine({ ...engine, moves: [] })}>
-                <Icon name="first" size={14} /> Start
-              </button>
-            )}
-          </div>
+          <EngineShortcuts
+            played={puzzle.playedUci ? { uci: puzzle.playedUci, san: puzzle.playedSan, classification: puzzle.classification, mine: true } : undefined}
+            bestUci={puzzle.solutionUci[0]}
+            atStart={!engine.moves.length}
+            onPlay={(moves) => setEngine({ ...engine, moves })}
+          />
         )}
         <div className="flex gap-2">
           {engine ? (

@@ -33,7 +33,7 @@ import { formatDuration } from '../pgn/parse';
 export const THRESHOLDS = { excellent: 2, good: 5, inaccuracy: 10, mistake: 20 } as const;
 
 /** Bumped whenever classification or accuracy changes, so stored analyses get rebuilt. */
-export const ANALYSIS_MODEL = 4;
+export const ANALYSIS_MODEL = 5;
 
 export function phaseOf(fen: string, ply: number): Phase {
   if (nonPawnMaterial(fen) <= 26) return 'endgame';
@@ -342,9 +342,8 @@ export function detectMotifs(x: MotifInput): { motifs: Motif[]; explanation: str
       motifs.push('positional');
       const best = playUci(p.fenBefore, x.bestUci.slice(0, 1)).sans[0];
       if (!notes.length)
-        notes.push(
-          `No material is lost right away, but this gives your opponent the better game${reply.sans[0] ? ` (${reply.sans.slice(0, 3).join(' ')})` : ''}.${best ? ` ${best} kept more of your advantage.` : ''}`,
-        );
+        // One short line; "Why it fails" shows the moves.
+        notes.push(`Gives your opponent the better game.${best ? ` ${best} was better.` : ''}`);
     }
   }
 

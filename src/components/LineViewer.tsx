@@ -14,7 +14,10 @@ export function LineViewer({
   index,
   onIndex,
   onClose,
+  controls = true,
 }: {
+  /** False when the page has its own controls for stepping through the line (the review's bottom bar). */
+  controls?: boolean;
   title: string;
   /** One line under the title, e.g. how much the move changes your winning chances. */
   context?: string;
@@ -86,6 +89,7 @@ export function LineViewer({
         )}
       </p>
 
+      {controls && (
       <div className="flex items-center gap-2 mt-2">
         <button className="btn !py-1.5" onClick={() => onIndex(Math.max(0, index - 1))} disabled={index === 0} aria-label="Previous move">
           <Icon name="prev" size={16} />
@@ -105,6 +109,7 @@ export function LineViewer({
           <Icon name="next" size={16} />
         </button>
       </div>
+      )}
     </div>
   );
 }

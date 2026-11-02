@@ -2,7 +2,7 @@
 // The audio context is created lazily on first use, which is always after a tap or key press,
 // as iOS requires.
 
-export type SoundKind = 'move' | 'capture' | 'check' | 'castle' | 'correct' | 'wrong';
+export type SoundKind = 'move' | 'capture' | 'check' | 'castle' | 'correct' | 'wrong' | 'brilliant' | 'blunder';
 
 let ctx: AudioContext | null = null;
 let enabled = true;
@@ -66,6 +66,13 @@ export function playSound(kind: SoundKind) {
   if (!ac) return;
   const t = ac.currentTime + 0.005;
   switch (kind) {
+    // Review: a bright little arpeggio for brilliant/great moves, a soft low note for blunders.
+    case 'brilliant':
+      tone(ac, t, 784, 0.12, 'triangle', 0.12);
+      tone(ac, t + 0.08, 988, 0.12, 'triangle', 0.12);
+      return tone(ac, t + 0.16, 1319, 0.22, 'triangle', 0.12);
+    case 'blunder':
+      return tone(ac, t, 196, 0.28, 'sine', 0.14);
     case 'move':
       return knock(ac, t, 0.45);
     case 'capture':

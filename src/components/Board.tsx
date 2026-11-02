@@ -106,6 +106,9 @@ function BoardImpl({ fen, orientation = 'white', arrows = [], lastMove, badge, m
     clearArrowsOnPositionChange: true,
     animationDurationInMs: 200,
     showNotation: settings.showCoordinates,
+    // Small, bold and tucked into the corners (like chess.com), so they don't collide with pieces or badges.
+    alphaNotationStyle: { fontSize: 'clamp(8px, 2.2vw, 11px)', fontWeight: 700, bottom: 0, right: 2, lineHeight: 1 },
+    numericNotationStyle: { fontSize: 'clamp(8px, 2.2vw, 11px)', fontWeight: 700, top: 1, left: 2, lineHeight: 1 },
     darkSquareStyle: { backgroundColor: theme.dark },
     lightSquareStyle: { backgroundColor: theme.light },
     onSquareClick: ({ square }) => onSquareClick(square),

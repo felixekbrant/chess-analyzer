@@ -126,9 +126,18 @@ test('game review: summary, walkthrough and the line viewer', async ({ page }) =
   }
   await why.click();
   await expect(page.getByRole('button', { name: 'Close the line' })).toBeVisible();
-  await page.getByRole('button', { name: 'Next move' }).click();
-  await page.getByRole('button', { name: 'Back to game' }).click();
+  // The line is stepped and played from the bottom bar.
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await page.getByRole('button', { name: 'Play', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Close the line' }).click();
   await expect(page.getByRole('button', { name: 'Close the line' })).toHaveCount(0);
+
+  // The engine opens just before the current move, with that move one tap away.
+  await page.getByRole('group', { name: 'Engine' }).first().getByRole('button', { name: 'Engine' }).click();
+  await page.getByRole('button', { name: /Your move / }).filter({ visible: true }).click();
+  await page.getByRole('button', { name: 'Start', exact: true }).filter({ visible: true }).first().click();
+  await page.getByRole('group', { name: 'Engine' }).first().getByRole('button', { name: 'Engine' }).click();
 
   const best = page.getByRole('button', { name: 'Best line' });
   if (await best.isVisible()) {
