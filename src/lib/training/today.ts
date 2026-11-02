@@ -1,6 +1,7 @@
 import { db } from '../../db/schema';
 import { areaOf, type SkillArea } from '../insights/skills';
 import type { Puzzle, StoredGame } from '../types';
+import { readyExt } from './lichess';
 
 export type SessionMinutes = 10 | 15 | 25;
 
@@ -76,9 +77,22 @@ export function currentStreak(s: Streak | undefined, now = Date.now()): number {
 export const puzzleArea = (p: Puzzle): SkillArea | null =>
   areaOf({ classification: p.classification, motifs: p.motifs, phase: p.phase, winBefore: p.bestWin, winLoss: p.winLoss }, false);
 
-/** Puzzles for a focus drill, most costly mistakes first. */
-export function drillPuzzles(puzzles: Puzzle[], area: SkillArea): Puzzle[] {
-  return puzzles.filter((p) => puzzleArea(p) === area).sort((a, b) => b.occurrences - a.occurrences || b.winLoss - a.winLoss);
+/**
+ * Puzzles for a focus drill: your own positions first (most costly mistakes first), then Lichess
+ * puzzles on the same theme that are new or due again, so the drill doesn't run out.
+ */
+export function drillPuzzles(puzzles: Puzzle[], area: SkillArea, ext: Puzzle[] = [], now = Date.now()): Puzzle[] {
+  const own = puzzles.filter((p) => puzzleArea(p) === area).sort((a, b) => b.occurrences - a.occurrences || b.winLoss - a.winLoss);
+  return [...own, ...readyExt(ext, area, now)];
+}
+
+/** How many of a drill's puzzles are from your own games. */
+export const ownDrillCount = (puzzles: Puzzle[], area: SkillArea) => puzzles.filter((p) => puzzleArea(p) === area).length;
+
+/** Puzzles today's drill can use: your own, plus Lichess ones that are ready or were done today. */
+export function drillCount(puzzles: Puzzle[], area: SkillArea, ext: Puzzle[] = [], now = Date.now()): number {
+  const today = startOfDay(now);
+  return ownDrillCount(puzzles, area) + ext.filter((p) => p.lichess?.area === area && (p.due <= now || (p.lichess.seenAt ?? 0) >= today)).length;
 }
 
 export interface TodayItem {
@@ -111,6 +125,8 @@ export interface TodayInput {
   focus?: SkillArea;
   /** Puzzles available for the focus drill. */
   drillAvailable: number;
+  /** How many of those are from your own games (the rest are Lichess puzzles on the theme). */
+  drillOwn?: number;
   opponent: (g: StoredGame) => string;
 }
 
@@ -159,7 +175,12 @@ export function buildToday(x: TodayInput): TodayPlan {
       id: 'drill',
       kind: 'drill',
       title: 'Focus drill',
-      detail: 'Your own positions from this week\'s focus',
+      detail:
+        (x.drillOwn ?? drill) >= drill
+          ? 'Your own positions from this week\'s focus'
+          : x.drillOwn
+            ? 'Your own positions, plus Lichess puzzles on the theme'
+            : 'Lichess puzzles on this week\'s focus',
       minutes: drill * PUZZLE_MIN,
       done: x.progress.drill >= drill,
       progress: [Math.min(x.progress.drill, drill), drill],

@@ -12,6 +12,7 @@ export async function exportBackup() {
     analyses: await db.analyses.toArray(),
     summaries: await db.summaries.toArray(),
     puzzles: await db.puzzles.toArray(),
+    extPuzzles: await db.extPuzzles.toArray(),
     sync: await db.sync.toArray(),
     kv: await db.kv.toArray(),
   };
@@ -26,7 +27,7 @@ export async function exportBackup() {
 export async function importBackup(file: File): Promise<number> {
   const data = JSON.parse(await file.text());
   if (data.version !== 1 || !Array.isArray(data.games)) throw new Error('Not a Chess Analyzer backup file');
-  await db.transaction('rw', [db.games, db.pgns, db.analyses, db.summaries, db.puzzles, db.sync, db.kv], async () => {
+  await db.transaction('rw', [db.games, db.pgns, db.analyses, db.summaries, db.puzzles, db.extPuzzles, db.sync, db.kv], async () => {
     const games = data.games as NewGame[];
     await db.games.bulkPut(games.map(withoutPgn));
     await db.pgns.bulkPut(games.filter((g) => g.pgn).map((g) => ({ gameId: g.id, pgn: g.pgn })));
@@ -41,6 +42,7 @@ export async function importBackup(file: File): Promise<number> {
       );
     }
     await db.puzzles.bulkPut(data.puzzles ?? []);
+    await db.extPuzzles.bulkPut(data.extPuzzles ?? []);
     await db.sync.bulkPut(data.sync ?? []);
     await db.kv.bulkPut(data.kv ?? []);
     // The backup may hold analyses from an older model: check them all again.

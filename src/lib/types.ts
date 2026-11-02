@@ -1,3 +1,4 @@
+import type { SkillArea } from './insights/skills';
 export type Color = 'w' | 'b';
 export type TimeClass = 'bullet' | 'blitz' | 'rapid' | 'daily' | 'classical' | 'unknown';
 export type UserResult = 'win' | 'loss' | 'draw';
@@ -166,7 +167,23 @@ export interface Puzzle {
   reps: number;
   lapses: number;
   lastResult?: 'solved' | 'failed';
+  /** Set for puzzles from the Lichess database (focus drills), which come from no game of yours. */
+  lichess?: LichessInfo;
 }
+
+export interface LichessInfo {
+  id: string;
+  rating: number;
+  themes: string[];
+  area: SkillArea;
+  /** The opponent's move that led to the puzzle position. */
+  lastMove: string;
+  /** When it was last played, so puzzles done today still count towards today's drill. */
+  seenAt?: number;
+}
+
+/** A Lichess puzzle as stored, indexed by the skill area it trains. */
+export type ExtPuzzle = Puzzle & { area: SkillArea };
 
 export interface Settings {
   username: string;

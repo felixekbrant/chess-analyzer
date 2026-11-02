@@ -236,3 +236,61 @@ test('sync sheet: import and analysis controls', async ({ page }) => {
   await sheet.getByRole('button', { name: 'Sync', exact: true }).click();
   await expect(sheet.getByText(/Synced .* ago|Synced just now|Synced/)).toBeVisible();
 });
+
+test('focus drill: tops up with Lichess puzzles and plays one', async ({ page }) => {
+  await seed(page);
+  await openTab(page, 'Home');
+  const today = page.locator('section', { has: page.getByRole('heading', { name: 'Today', exact: true }) });
+  await expect(today.getByText('Focus drill')).toBeVisible();
+  // This player has plenty of their own middlegame positions; pick an area with few, so the drill needs Lichess puzzles.
+  await page.getByRole('button', { name: 'Change' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: /^Opening/ }).click();
+  await expect(today.getByText(/Lichess puzzles on/)).toBeVisible();
+  // The pack for the focus area is downloaded and its puzzles stored in the browser.
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          new Promise<number>((resolve) => {
+            const req = indexedDB.open('chess-analyzer');
+            req.onsuccess = () => {
+              const r = req.result.transaction('extPuzzles').objectStore('extPuzzles').count();
+              r.onsuccess = () => resolve(r.result);
+            };
+          }),
+      ),
+    )
+    .toBeGreaterThan(0);
+
+  // Mark today's due puzzles as done, so the session goes straight to the focus drill.
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        const d = new Date();
+        const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const req = indexedDB.open('chess-analyzer');
+        req.onsuccess = () => {
+          const tx = req.result.transaction('kv', 'readwrite');
+          tx.objectStore('kv').put({ key: 'today', value: { date, puzzles: 99, drill: 0 } });
+          tx.oncomplete = () => resolve();
+        };
+      }),
+  );
+  // Skip through the drill until a Lichess puzzle comes up, then reveal it and move on.
+  await page.goto('./#/training?session=today');
+  await page.reload();
+  const lichess = page.getByRole('link', { name: 'Open on lichess.org' });
+  for (let i = 0; !(await lichess.isVisible()); i++) {
+    expect(i, 'a Lichess puzzle in the session').toBeLessThan(30);
+    await page.getByRole('button', { name: /Skip/ }).click();
+  }
+  await expect(page.getByText(/from the Lichess puzzle database \(rated \d+\)/)).toBeVisible();
+  if (process.env.E2E_SHOTS) await page.screenshot({ path: `${process.env.E2E_SHOTS}/lichess-puzzle.png`, fullPage: true });
+  await page.getByRole('button', { name: /Solution/ }).click();
+  await expect(page.getByText(/^Solution:/)).toBeVisible();
+  await page.getByRole('button', { name: /Next puzzle/ }).click();
+  await expect(page.getByTitle('Solved / missed this session')).toHaveText(/✗1/);
+  // The Lichess puzzle counts towards today's drill.
+  await openTab(page, 'Home');
+  await expect(page.getByRole('link', { name: /Focus drill 1\/\d+/ })).toBeVisible();
+});

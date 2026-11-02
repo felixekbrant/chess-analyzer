@@ -11,7 +11,8 @@ import {
   STREAK_KEY,
   buildToday,
   currentStreak,
-  drillPuzzles,
+  drillCount,
+  ownDrillCount,
   nextStreak,
   progressFor,
   type SessionMinutes,
@@ -24,6 +25,7 @@ import type { StoredGame } from '../lib/types';
 import { Icon } from './Icon';
 import { levelLabel } from '../lib/insights/baselines';
 import { Sheet } from './Sheet';
+import { useDrillStock } from '../hooks/useDrillStock';
 
 const fmt = (n: number) => (n >= 10 ? n.toFixed(0) : n.toFixed(1));
 const tcName = (tc: string) => (tc === 'daily' || tc === 'classical' ? 'rapid' : tc);
@@ -41,6 +43,7 @@ export function TodayCard({ games, focus, minutes }: { games: StoredGame[]; focu
   const stored = useLiveQuery(async () => (await db.kv.get(PROGRESS_KEY))?.value as TodayProgress | undefined, []);
   // null = no streak yet; undefined = still loading.
   const streak = useLiveQuery(async () => ((await db.kv.get(STREAK_KEY))?.value as Streak | undefined) ?? null, []);
+  const ext = useDrillStock(focus, puzzles, games, minutes);
 
   const plan = useMemo(() => {
     const now = Date.now();
@@ -50,10 +53,11 @@ export function TodayCard({ games, focus, minutes }: { games: StoredGame[]; focu
       progress: progressFor(stored, now),
       due: puzzles?.filter((p) => p.due <= now).length ?? 0,
       focus,
-      drillAvailable: focus && puzzles ? drillPuzzles(puzzles, focus).length : 0,
+      drillAvailable: focus && puzzles ? drillCount(puzzles, focus, ext ?? [], now) : 0,
+      drillOwn: focus && puzzles ? ownDrillCount(puzzles, focus) : 0,
       opponent: opponentName,
     });
-  }, [minutes, games, stored, puzzles, focus]);
+  }, [minutes, games, stored, puzzles, focus, ext]);
 
   // Finishing the plan extends the streak (once per day).
   useEffect(() => {

@@ -23,6 +23,7 @@ import {
   PROGRESS_KEY,
   SESSION_TARGETS,
   addProgress,
+  drillCount,
   drillPuzzles,
   progressFor,
   puzzleArea,
@@ -55,8 +56,10 @@ export default function Training() {
   const settings = useSettings();
 
   const puzzles = useLiveQuery(() => db.puzzles.toArray(), []);
+  // Lichess puzzles that top up the focus drill (added from Home's Today plan).
+  const ext = useLiveQuery(() => db.extPuzzles.toArray(), []);
   const now = Date.now();
-  const sess = useTodaySession(puzzles, settings.sessionMinutes);
+  const sess = useTodaySession(puzzles, ext, settings.sessionMinutes);
 
   const filtered = useMemo(
     () =>
@@ -79,7 +82,7 @@ export default function Training() {
         if (due.length) return due;
       }
       if (sess.stage !== 'done' && sess.focus && sess.progress.drill < sess.targets.drill) {
-        return drillPuzzles(puzzles ?? [], sess.focus).filter((p) => !skipped.includes(p.id));
+        return drillPuzzles(puzzles ?? [], sess.focus, ext ?? []).filter((p) => !skipped.includes(p.id));
       }
       return [];
     }
@@ -87,11 +90,11 @@ export default function Training() {
     // Repeated mistakes first, then concrete tactics, then by due date and size of the mistake.
     return sortQueue(pool);
     // `due` is derived from `filtered` and the clock; recomputing on puzzle changes is enough.
-  }, [filtered, practiceAll, skipped, puzzles, inSession, sess]);
+  }, [filtered, practiceAll, skipped, puzzles, ext, inSession, sess]);
 
   const current = queue[0];
   // In today's session the counter shows progress through the current part of the plan.
-  const inDuePart = sess.stage === 'due' && !!current && current.due <= now;
+  const inDuePart = sess.stage === 'due' && !!current && !current.lichess && current.due <= now;
   const sessionPart = inDuePart ? { done: sess.progress.puzzles, target: sess.targets.puzzles } : { done: sess.progress.drill, target: sess.targets.drill };
   const focusLabel = area ? SKILL_META[area].label : motif ? MOTIF_LABEL[motif] : phase ? phase[0].toUpperCase() + phase.slice(1) : opening ? opening : repeated ? 'Repeated mistakes' : 'All puzzles';
 
@@ -221,7 +224,9 @@ export default function Training() {
           autoNext={settings.autoNextPuzzle}
           onDone={async (grade) => {
             const next = schedule(current, grade);
-            await db.puzzles.update(current.id, { ...next, lastResult: grade === 'again' ? 'failed' : 'solved' });
+            const lastResult = grade === 'again' ? 'failed' : 'solved';
+            if (current.lichess) await db.extPuzzles.update(current.id, { ...next, lastResult, lichess: { ...current.lichess, seenAt: Date.now() } });
+            else await db.puzzles.update(current.id, { ...next, lastResult });
             if (inSession && sess.stage !== 'done') {
               await addProgress(inDuePart ? 'puzzles' : 'drill');
               setSkipped((s) => [...s, current.id]);
@@ -283,11 +288,13 @@ function PuzzleView({
   const [state, setState] = useState<State>('solving');
   const [mistakes, setMistakes] = useState(0);
   const [hint, setHint] = useState(false);
-  const [lastMove, setLastMove] = useState<{ from: string; to: string } | undefined>();
+  // A Lichess puzzle starts right after the opponent's move: show it.
+  const setupMove = puzzle.lichess ? { from: puzzle.lichess.lastMove.slice(0, 2), to: puzzle.lichess.lastMove.slice(2, 4) } : undefined;
+  const [lastMove, setLastMove] = useState<{ from: string; to: string } | undefined>(setupMove);
   const [marker, setMarker] = useState<{ square: string; kind: 'correct' | 'wrong' } | undefined>();
   const [note, setNote] = useState('');
   const started = useRef(Date.now());
-  const game = useLiveQuery(() => db.games.get(puzzle.gameIds[puzzle.gameIds.length - 1]), [puzzle.id]);
+  const game = useLiveQuery(async () => (puzzle.gameIds.length ? db.games.get(puzzle.gameIds[puzzle.gameIds.length - 1]) : undefined), [puzzle.id]);
   const pgn = usePgn(puzzle.phase === 'opening' ? game?.id : undefined);
   const leadUp = useMemo(() => {
     if (!pgn || puzzle.phase !== 'opening') return [];
@@ -305,6 +312,7 @@ function PuzzleView({
 
   // Full engine lines from the game's analysis: the best line, and how the game move was punished.
   const lines = useLiveQuery(async () => {
+    if (!puzzle.gameIds.length) return null;
     const gameId = puzzle.gameIds[puzzle.gameIds.length - 1];
     const a = await db.analyses.get(gameId);
     const m = a?.moves[puzzle.plies[puzzle.plies.length - 1]];
@@ -360,6 +368,12 @@ function PuzzleView({
       return false;
     }
     setMarker(undefined);
+    // Any mate is as good as the stored one.
+    if (c.isCheckmate()) {
+      apply(uci);
+      solved(uci, mistakes || hint ? 'Solved.' : 'Correct!');
+      return true;
+    }
     const correct = uci === expected || (expected && uci.slice(0, 4) === expected.slice(0, 4) && !expected[4]);
     if (correct) {
       apply(uci);
@@ -427,7 +441,7 @@ function PuzzleView({
   useEffect(() => {
     if (state !== 'revealed') return;
     setFen(puzzle.fen);
-    setLastMove(undefined);
+    setLastMove(setupMove);
     setMarker(undefined);
     let i = 0;
     const t = setInterval(() => {
@@ -553,6 +567,9 @@ function PuzzleView({
           </div>
         )}
 
+        {puzzle.lichess ? (
+          <LichessInfoPanel info={puzzle.lichess} />
+        ) : (
         <div className="panel p-3 text-sm space-y-2">
           <p>
             In the game you played{' '}
@@ -579,6 +596,7 @@ function PuzzleView({
             <span className="chip capitalize">{puzzle.phase}</span>
           </div>
         </div>
+        )}
 
         {game && (
           <Link className="text-sm underline muted inline-flex items-center gap-1" to={`/game/${encodeURIComponent(game.id)}?ply=${puzzle.plies[puzzle.plies.length - 1] + 1}`}>
@@ -606,6 +624,61 @@ function PuzzleView({
   );
 }
 
+/** Lichess themes worth naming on a puzzle (the rest, like "short" or "advantage", say little). */
+const THEME_LABEL: Record<string, string> = {
+  fork: 'Fork',
+  pin: 'Pin',
+  skewer: 'Skewer',
+  discoveredAttack: 'Discovered attack',
+  doubleCheck: 'Double check',
+  backRankMate: 'Back-rank mate',
+  hangingPiece: 'Hanging piece',
+  trappedPiece: 'Trapped piece',
+  sacrifice: 'Sacrifice',
+  deflection: 'Deflection',
+  attraction: 'Attraction',
+  xRayAttack: 'X-ray',
+  defensiveMove: 'Defensive move',
+  equality: 'Save the game',
+  quietMove: 'Quiet move',
+  intermezzo: 'In-between move',
+  zugzwang: 'Zugzwang',
+  advancedPawn: 'Advanced pawn',
+  mateIn1: 'Mate in 1',
+  mateIn2: 'Mate in 2',
+  mateIn3: 'Mate in 3',
+  exposedKing: 'Exposed king',
+  attackingF2F7: 'Attack on f2/f7',
+  rookEndgame: 'Rook endgame',
+  pawnEndgame: 'Pawn endgame',
+  promotion: 'Promotion',
+};
+
+/** Where a drill puzzle from the Lichess database comes from and what it is about. */
+function LichessInfoPanel({ info }: { info: NonNullable<Puzzle['lichess']> }) {
+  const themes = info.themes.filter((t) => THEME_LABEL[t]);
+  return (
+    <div className="panel p-3 text-sm space-y-2">
+      <p>
+        {/^[AEIOU]/.test(SKILL_META[info.area].label) ? 'An' : 'A'} <b>{SKILL_META[info.area].label}</b> puzzle for this week's focus, from the Lichess puzzle database (rated {info.rating}). It comes from
+        another player's game, so the position is new to you.
+      </p>
+      {themes.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {themes.map((t) => (
+            <span key={t} className="chip">
+              {THEME_LABEL[t]}
+            </span>
+          ))}
+        </div>
+      )}
+      <a className="text-sm underline muted inline-flex items-center gap-1" href={`https://lichess.org/training/${info.id}`} target="_blank" rel="noopener noreferrer">
+        Open on lichess.org <Icon name="external" size={14} />
+      </a>
+    </div>
+  );
+}
+
 /** Repeated mistakes first, then concrete tactics, then by due date and size of the mistake. */
 function sortQueue(pool: Puzzle[]): Puzzle[] {
   const quiet = (p: Puzzle) => (p.motifs.every((m) => QUIET.includes(m)) ? 1 : 0);
@@ -613,7 +686,7 @@ function sortQueue(pool: Puzzle[]): Puzzle[] {
 }
 
 /** Where today's plan stands: due puzzles first, then the focus drill. */
-function useTodaySession(puzzles: Puzzle[] | undefined, minutes: SessionMinutes) {
+function useTodaySession(puzzles: Puzzle[] | undefined, ext: Puzzle[] | undefined, minutes: SessionMinutes) {
   const stored = useLiveQuery(async () => (await db.kv.get(PROGRESS_KEY))?.value as TodayProgress | undefined, []);
   const focusStore = useLiveQuery(async () => (await db.kv.get(FOCUS_KEY))?.value as FocusStore | undefined, []);
   return useMemo(() => {
@@ -624,9 +697,9 @@ function useTodaySession(puzzles: Puzzle[] | undefined, minutes: SessionMinutes)
     const due = (puzzles ?? []).filter((p) => p.due <= now).length;
     const targets = {
       puzzles: Math.min(t.puzzles, progress.puzzles + due),
-      drill: focus && focus !== 'time' ? Math.min(t.drill, drillPuzzles(puzzles ?? [], focus).length) : 0,
+      drill: focus && focus !== 'time' ? Math.min(t.drill, drillCount(puzzles ?? [], focus, ext ?? [], now)) : 0,
     };
     const stage: 'due' | 'drill' | 'done' = progress.puzzles < targets.puzzles ? 'due' : progress.drill < targets.drill ? 'drill' : 'done';
     return { progress, targets, focus, stage };
-  }, [stored, focusStore, puzzles, minutes]);
+  }, [stored, focusStore, puzzles, ext, minutes]);
 }

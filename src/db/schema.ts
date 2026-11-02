@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type { GameAnalysis, NewGame, Puzzle, Settings, StoredGame } from '../lib/types';
+import type { ExtPuzzle, GameAnalysis, NewGame, Puzzle, Settings, StoredGame } from '../lib/types';
 import { buildSummary, type GameSummary } from '../lib/insights/summary';
 import { DEFAULT_SETTINGS } from '../lib/types';
 
@@ -29,6 +29,8 @@ export class ChessDB extends Dexie {
   summaries!: Table<GameSummary, string>;
   pgns!: Table<PgnRow, string>;
   puzzles!: Table<Puzzle, string>;
+  /** Lichess puzzles added to focus drills (see lib/training/lichess.ts). */
+  extPuzzles!: Table<ExtPuzzle, string>;
   sync!: Table<SyncState, string>;
   kv!: Table<KV, string>;
 
@@ -81,6 +83,8 @@ export class ChessDB extends Dexie {
           });
         await tx.table('pgns').bulkPut(rows);
       });
+    // v4: Lichess puzzles for focus drills, kept apart from the puzzles made from your own games.
+    this.version(4).stores({ extPuzzles: 'id, area, due' });
   }
 }
 

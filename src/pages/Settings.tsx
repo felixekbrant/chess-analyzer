@@ -318,9 +318,31 @@ export default function SettingsPage() {
         </div>
       </Section>
 
-      <p className="muted text-xs">
-        Engine: Stockfish 19 (lite, WebAssembly, GPLv3). Opening names: lichess chess-openings (CC0). Games: chess.com Published-Data API.
-      </p>
+      <div className="muted text-xs space-y-1">
+        <p>
+          Chess Analyzer is an independent, non-commercial project. It is not affiliated with, endorsed by or sponsored by Chess.com; it only reads
+          your public games through their{' '}
+          <a className="underline" href="https://www.chess.com/news/view/published-data-api" target="_blank" rel="noopener noreferrer">
+            Published-Data API
+          </a>
+          .
+        </p>
+        <p>
+          Engine:{' '}
+          <a className="underline" href="https://github.com/nmrugg/stockfish.js" target="_blank" rel="noopener noreferrer">
+            Stockfish 19
+          </a>{' '}
+          (lite, WebAssembly), free software under the{' '}
+          <a className="underline" href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank" rel="noopener noreferrer">
+            GNU GPL v3
+          </a>
+          . Opening names: lichess chess-openings (CC0). Extra drill puzzles: the{' '}
+          <a className="underline" href="https://database.lichess.org/#puzzles" target="_blank" rel="noopener noreferrer">
+            Lichess puzzle database
+          </a>{' '}
+          (CC0).
+        </p>
+      </div>
     </div>
   );
 }

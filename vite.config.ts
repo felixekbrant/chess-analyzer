@@ -29,7 +29,8 @@ function serviceWorker(): Plugin {
     enforce: 'post',
     generateBundle(_options, bundle) {
       const assets = Object.keys(bundle).filter((f) => !f.endsWith('.map'));
-      const pub = publicFiles();
+      // Puzzle packs are fetched only when a drill needs one (then cached), not on install.
+      const pub = publicFiles().filter((f) => !f.startsWith('puzzles/'));
       const hash = createHash('sha256');
       for (const f of assets.sort()) hash.update(f);
       for (const f of pub.sort()) hash.update(f).update(readFileSync(join('public', f)));

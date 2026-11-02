@@ -23,6 +23,7 @@ A free, private game-review and coaching app for chess.com players. It runs enti
   - results by opponent rating
   - tilt and session analysis
 - **Today plan.** A short daily session on the Home screen (10, 15 or 25 minutes): review your new games, the puzzles that are due, and a drill on this week's focus. Finishing it builds a streak.
+  - When your own games don't give the focus drill enough positions, it is topped up with well-rated Lichess puzzles on the same theme, near your level. Only the pack you need is downloaded (about 20 KB), and the puzzles then work offline.
 - **Skill profile.** Every error is counted in one of 9 areas (blunder check, opponent's tactics, spotting your chances, opening, converting, defending, endgame, middlegame, time management). Each area shows what you lose per game next to what players at your rating typically lose, and an estimated "plays like" rating with a range. The estimate starts at your actual rating and only moves away from it when your games clearly show it, and it's hidden when there's too little data. The reference numbers come from about 1,500 rated chess.com games analysed with the app's own engine (see `scripts/baselines`).
 - **Weekly focus.** The app picks the area that holds you back most compared with players at your rating and keeps it for a week. Then it checks your games: clearly better, and it moves on; not yet, and you get one more week. You can change it any time.
 - **Coach report.** Your top weaknesses, ranked by how many points they cost you, each with evidence, a tip and a drill.
@@ -64,3 +65,5 @@ Open http://localhost:5173, go to **Settings** and enter your chess.com username
   - Engine: [Stockfish.js](https://github.com/nmrugg/stockfish.js) (GPLv3)
   - Opening names: [lichess-org/chess-openings](https://github.com/lichess-org/chess-openings) (CC0)
   - Games: [chess.com Published-Data API](https://www.chess.com/news/view/published-data-api)
+  - Extra focus-drill puzzles: [Lichess puzzle database](https://database.lichess.org/#puzzles) (CC0), packed by `scripts/lichess-puzzles/build.py`
+- **Not affiliated with Chess.com.** This is an independent, non-commercial project. It is not affiliated with, endorsed by or sponsored by Chess.com; it only reads public game data through their published API.
