@@ -207,6 +207,10 @@ export interface Settings {
   analysisPaused: boolean;
   /** Length of the daily Today plan, in minutes. */
   sessionMinutes: 10 | 15 | 25;
+  /** Engine display, shared by every review and puzzle: the eval bar beside the board. */
+  showEvalBar: boolean;
+  /** Engine display: best-move arrows and the engine's top lines. */
+  showSuggestions: boolean;
 }
 
 export type BoardTheme = 'green' | 'brown' | 'blue' | 'gray';
@@ -226,4 +230,6 @@ export const DEFAULT_SETTINGS: Settings = {
   sessionMinutes: 15,
   autoSync: true,
   analysisPaused: false,
+  showEvalBar: true,
+  showSuggestions: true,
 };

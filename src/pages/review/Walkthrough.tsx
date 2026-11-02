@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Chess } from 'chess.js';
 import { useLiveEngine, evaluateOnce } from '../../hooks/useLiveEngine';
-import { useQueueProgress } from '../../hooks/useStores';
+import { useQueueProgress, useSettings } from '../../hooks/useStores';
+import { EngineControls } from '../../components/EngineControls';
 import { useStableCallback } from '../../hooks/useStableCallback';
 import { analysisQueue } from '../../lib/engine/queue';
 import { playUci } from '../../lib/analysis/board';
@@ -12,7 +13,6 @@ import { formatDuration, type ParsedGame } from '../../lib/pgn/parse';
 import { CLASS_META } from '../../lib/classificationMeta';
 import { MOTIF_LABEL } from '../../lib/insights/compute';
 import { playSound } from '../../lib/sound';
-import { isTouch } from '../../lib/device';
 import type { Color, GameAnalysis, MoveAnalysis, StoredGame } from '../../lib/types';
 import { Board, type BoardArrow } from '../../components/Board';
 import { EvalBar } from '../../components/EvalBar';
@@ -82,8 +82,8 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
   const [keyOnly, setKeyOnly] = useState(keyOnlyInit);
   const [explore, setExplore] = useState<ExploreState | null>(null);
   const [retry, setRetry] = useState<RetryStateFull | null>(null);
-  const [showEngine, setShowEngine] = useState(false);
-  const [panelTab, setPanelTab] = useState<'moves' | 'engine' | 'report'>('moves');
+  const settings = useSettings();
+  const [panelTab, setPanelTab] = useState<'moves' | 'report'>('moves');
   const [menuOpen, setMenuOpen] = useState(false);
 
   const keyPlies = useMemo(
@@ -127,8 +127,20 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
 
   const fen = retryFen ?? exploreFen ?? positions[ply];
 
-  const engineWanted = !!explore || (showEngine && !retry) || (panelTab === 'engine' && !retry);
+  // The live engine runs while you explore (your own moves or an engine line); otherwise the stored analysis is shown.
+  const engineWanted = !!explore;
   const live = useLiveEngine(fen, engineWanted, 20, 3);
+  /** The engine is "open": free exploration from the current position with live analysis. */
+  const engineOpen = !!explore && !explore.line;
+  const toggleEngine = () => {
+    if (engineOpen) return exitExplore();
+    if (explore) return setExplore({ base: explore.base, moves: explore.moves });
+    if (retry) {
+      setRetry(null);
+      return setExplore({ base: retry.move.ply, moves: [] });
+    }
+    setExplore({ base: ply, moves: [] });
+  };
 
   // ----- Navigation -----
   const go = useCallback((p: number) => {
@@ -164,7 +176,7 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
     if (retry) return go(retry.move.ply);
     if (explore) {
       if (explore.line) return explore.moves.length ? setExplore({ ...explore, moves: explore.moves.slice(0, -1) }) : exitExplore();
-      if (explore.moves.length <= 1) return go(explore.base);
+      if (!explore.moves.length) return exitExplore();
       return setExplore({ ...explore, moves: explore.moves.slice(0, -1) });
     }
     if (keyOnly) return prevKey !== undefined ? go(prevKey) : go(0);
@@ -291,12 +303,12 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
         const u = explore.line[explore.moves.length];
         return u ? [{ from: u.slice(0, 2), to: u.slice(2, 4), color: 'rgba(129,182,76,0.6)' }] : [];
       }
-      const u = live.settled ? live.result?.lines[0]?.pv[0] : undefined;
+      const u = settings.showSuggestions && live.settled ? live.result?.lines[0]?.pv[0] : undefined;
       return u ? [{ from: u.slice(0, 2), to: u.slice(2, 4), color: 'rgba(92,139,176,0.85)' }] : [];
     }
-    if (current?.bestUci && canBest) return [{ from: current.bestUci.slice(0, 2), to: current.bestUci.slice(2, 4), color: 'rgba(129,182,76,0.85)' }];
+    if (settings.showSuggestions && current?.bestUci && canBest) return [{ from: current.bestUci.slice(0, 2), to: current.bestUci.slice(2, 4), color: 'rgba(129,182,76,0.85)' }];
     return [];
-  }, [retry, explore, live.settled, live.result, current, canBest]);
+  }, [retry, explore, live.settled, live.result, current, canBest, settings.showSuggestions]);
 
   const lastMoveUci = retry ? retry.attemptUci : explore ? explore.moves.at(-1) : parsed.plies[ply - 1]?.uci;
   const lastMove = useMemo(() => (lastMoveUci ? { from: lastMoveUci.slice(0, 2), to: lastMoveUci.slice(2, 4) } : undefined), [lastMoveUci]);
@@ -404,7 +416,6 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
   const menuItems = (
     <div className="grid gap-1">
       <MenuItem icon="flip" label="Flip board" onClick={() => setOrientation((o) => (o === 'white' ? 'black' : 'white'))} />
-      <MenuItem icon="engine" label={showEngine ? 'Hide engine lines' : 'Show engine lines'} onClick={() => setShowEngine((v) => !v)} />
       {keyPlies.length > 0 && (
         <MenuItem icon="star" label={keyOnly ? 'Step through every move' : `Key moments only (${keyPlies.length})`} onClick={() => setKeyOnly((v) => !v)} />
       )}
@@ -426,7 +437,7 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
       {/* Board column */}
       <div className="min-w-0 space-y-2 lg:space-y-3">
         <div className="flex gap-1.5 lg:gap-2 mx-auto lg:mx-0" style={{ maxWidth: 'min(720px, calc(100svh - 140px))' }}>
-          <EvalBar score={evalScore} orientation={orientation} thinking={evalThinking} />
+          {settings.showEvalBar && <EvalBar score={evalScore} orientation={orientation} thinking={evalThinking} />}
           <div className="flex-1 min-w-0">
             <PlayerStrip {...top} />
             <Board
@@ -446,8 +457,9 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
 
         {/* Phones: coach, engine, graph and the move strip under the board. */}
         <div className="lg:hidden space-y-2">
+          <EngineControls open={engineOpen} onToggle={toggleEngine} />
           {coach}
-          {engineWanted && !retry && !explore?.line && <EngineLines result={live.settled ? live.result : null} fen={fen} onPlayLine={onBoardMove} />}
+          {engineOpen && settings.showSuggestions && <EngineLines result={live.settled ? live.result : null} fen={fen} onPlayLine={onBoardMove} />}
           {analysis && <EvalGraph evals={analysis.evals} moves={analysis.moves} current={ply} onSelect={go} height={48} />}
           <MoveStrip parsed={parsed} moves={moves} ply={ply} onSelect={go} />
         </div>
@@ -464,7 +476,13 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
 
       {/* Side panel (larger screens) */}
       <div className="hidden lg:block space-y-3 min-w-0">
+        <EngineControls open={engineOpen} onToggle={toggleEngine} />
         {coach}
+        {engineOpen && settings.showSuggestions && (
+          <div className="panel p-3">
+            <EngineLines result={live.settled ? live.result : null} fen={fen} onPlayLine={onBoardMove} />
+          </div>
+        )}
         <ActionBar>{actions}</ActionBar>
         <div className="flex flex-wrap gap-2 text-xs">
           <button className="chip hover:underline" onClick={() => setOrientation((o) => (o === 'white' ? 'black' : 'white'))}>
@@ -491,7 +509,7 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
         </div>
         <div className="panel">
           <div className="flex border-b border-[var(--border)] px-2" role="tablist">
-            {(['moves', 'engine', 'report'] as const).map((t) => (
+            {(['moves', 'report'] as const).map((t) => (
               <button key={t} role="tab" aria-selected={panelTab === t} className="tab capitalize" onClick={() => setPanelTab(t)}>
                 {t}
               </button>
@@ -499,15 +517,9 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
           </div>
           <div className="p-3">
             {panelTab === 'moves' && <MoveList parsed={parsed} moves={moves} ply={ply} onSelect={go} />}
-            {panelTab === 'engine' && <EngineLines result={live.settled ? live.result : null} fen={fen} onPlayLine={onBoardMove} />}
             {panelTab === 'report' && (analysis ? <ClassificationTable analysis={analysis} game={game} /> : <p className="muted text-sm">Available once analysed.</p>)}
           </div>
         </div>
-        {analysis && (
-          <p className="muted text-xs">
-            Analysed at depth {analysis.depth}. Keys: ← → moves · n/p key moments · b best · r retry · f flip
-          </p>
-        )}
       </div>
 
       {/* Phones: thumb-reachable controls fixed to the bottom. */}
@@ -568,7 +580,6 @@ function Coach({
   const progress = useQueueProgress(game.id);
   const me = game.userColor ?? 'w';
   const opponent = me === 'w' ? game.black : game.white;
-  const tap = isTouch() ? 'Tap' : 'Click';
 
   if (retry) {
     const m = retry.move;
@@ -591,7 +602,6 @@ function Coach({
             <Icon name="close" size={16} />
           </button>
         </div>
-        {retry.state === 'try' && <p className="muted mt-1">{tap} a piece, then where it should go.</p>}
         {retry.state === 'wrong' && (
           <p className="mt-1">
             {retry.attemptUci === m.uci ? "That's the move you played in the game. " : ''}
@@ -617,24 +627,14 @@ function Coach({
         </CoachBubble>
       );
     }
-    return (
-      <CoachBubble>
-        <div className="flex items-start justify-between gap-2">
-          <p className="font-semibold">Exploring your own ideas</p>
-          <button className="icon-btn !min-w-8 !min-h-8 -m-1" onClick={onExitExplore} aria-label="Back to the game">
-            <Icon name="close" size={16} />
-          </button>
-        </div>
-        <p className="muted mt-1">Move pieces freely; the engine evaluates each position. "Back to game" returns to where you were.</p>
-      </CoachBubble>
-    );
+    // The engine is open: its lines and the board say it all.
+    return null;
   }
 
   if (!analysis) {
     return (
       <CoachBubble>
         <p className="font-semibold">Analysis in progress{progress !== undefined ? ` (${Math.round(progress * 100)}%)` : '…'}</p>
-        <p className="muted mt-1">You can step through the moves already. Comments appear when the engine is done.</p>
       </CoachBubble>
     );
   }
@@ -642,11 +642,8 @@ function Coach({
   if (!current) {
     return (
       <CoachBubble>
-        <p className="font-semibold">Let's review your game against {opponent}.</p>
-        <p className="muted mt-1">
-          {keyOnly
-            ? `We'll jump straight to your ${keyCount} key moments. Press Next.`
-            : `Press Next to step through the moves. Use Best to see the engine's choice and Retry to try again on your mistakes.`}
+        <p className="font-semibold">
+          {keyOnly ? `Your ${keyCount} key moments against ${opponent}.` : `Your game against ${opponent}.`}
         </p>
       </CoachBubble>
     );

@@ -3,7 +3,10 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Chess } from 'chess.js';
 import { db, saveSettings } from '../db/schema';
-import { evaluateOnce } from '../hooks/useLiveEngine';
+import { evaluateOnce, useLiveEngine } from '../hooks/useLiveEngine';
+import { EngineControls } from '../components/EngineControls';
+import { EngineLines } from '../components/EngineLines';
+import { EvalBar } from '../components/EvalBar';
 import { usePgn, useSettings } from '../hooks/useStores';
 import { useStableCallback } from '../hooks/useStableCallback';
 import { schedule, type Grade } from '../lib/training/srs';
@@ -14,7 +17,6 @@ import { LineViewer } from '../components/LineViewer';
 import { parsePgn } from '../lib/pgn/parse';
 import { MOTIF_LABEL } from '../lib/insights/compute';
 import { playSound } from '../lib/sound';
-import { isTouch } from '../lib/device';
 import type { Motif, Phase, Puzzle } from '../lib/types';
 import { SKILL_AREAS, SKILL_META, type SkillArea } from '../lib/insights/skills';
 import type { FocusStore } from '../lib/training/focus';
@@ -294,6 +296,13 @@ function PuzzleView({
   const [marker, setMarker] = useState<{ square: string; kind: 'correct' | 'wrong' } | undefined>();
   const [note, setNote] = useState('');
   const started = useRef(Date.now());
+  const settings = useSettings();
+  // The engine: free moves from the position on the board, with live analysis. Opening it before the
+  // puzzle is solved gives the answer away, so the puzzle then counts as missed.
+  const [engine, setEngine] = useState<{ base: string; moves: string[] } | null>(null);
+  const [peeked, setPeeked] = useState(false);
+  const engineFen = useMemo(() => (engine ? (playUci(engine.base, engine.moves).fens.at(-1) ?? engine.base) : undefined), [engine]);
+  const live = useLiveEngine(engineFen, !!engine, 20, 3);
   const game = useLiveQuery(async () => (puzzle.gameIds.length ? db.games.get(puzzle.gameIds[puzzle.gameIds.length - 1]) : undefined), [puzzle.id]);
   const pgn = usePgn(puzzle.phase === 'opening' ? game?.id : undefined);
   const leadUp = useMemo(() => {
@@ -423,12 +432,34 @@ function PuzzleView({
 
   const solutionSan = useMemo(() => playUci(puzzle.fen, puzzle.solutionUci).sans, [puzzle]);
   const gradeFor = (): Grade => {
-    if (state === 'revealed') return 'again';
+    if (state === 'revealed' || peeked) return 'again';
     if (mistakes || hint) return 'hard';
     return Date.now() - started.current < 8000 ? 'easy' : 'good';
   };
   const done = state === 'solved' || state === 'revealed';
-  const clean = state === 'solved' && !mistakes && !hint;
+  const clean = state === 'solved' && !mistakes && !hint && !peeked;
+
+  const toggleEngine = () => {
+    if (engine) return setEngine(null);
+    if (!done) setPeeked(true);
+    setLineView(null);
+    setEngine({ base: fenRef.current, moves: [] });
+  };
+  const onEngineMove = (uci: string): boolean => {
+    if (!engine || !engineFen) return false;
+    try {
+      new Chess(engineFen).move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] });
+    } catch {
+      return false;
+    }
+    setEngine({ ...engine, moves: [...engine.moves, uci] });
+    return true;
+  };
+  const engineArrows = useMemo(() => {
+    const u = engine && settings.showSuggestions && live.settled ? live.result?.lines[0]?.pv[0] : undefined;
+    return u ? [{ from: u.slice(0, 2), to: u.slice(2, 4), color: 'rgba(92,139,176,0.85)' }] : undefined;
+  }, [engine, settings.showSuggestions, live.settled, live.result]);
+  const engineLast = engine?.moves.at(-1);
 
   // A clean solve moves on by itself; otherwise stay so the explanation can be read.
   useEffect(() => {
@@ -453,6 +484,7 @@ function PuzzleView({
 
   const onKey = useStableCallback((e: KeyboardEvent) => {
     if ((e.target as HTMLElement).tagName === 'INPUT') return;
+    if (engine) return;
     const k = e.key.toLowerCase();
     if (!done && k === 'h') setHint(true);
     else if (!done && k === 's') setState('revealed');
@@ -469,7 +501,6 @@ function PuzzleView({
 
   const highlight = useMemo(() => (hint && expected ? { [expected.slice(0, 2)]: 'rgba(129,182,76,0.6)' } : undefined), [hint, expected]);
   const total = doneCount + remaining;
-  const tap = isTouch() ? 'Tap' : 'Click';
 
   const status =
     state === 'checking' ? (
@@ -483,9 +514,7 @@ function PuzzleView({
         Solution: <b>{solutionSan.join(' ')}</b>
       </span>
     ) : (
-      <span className="muted">
-        {puzzle.solutionUci.length > 1 ? 'Find the winning line.' : 'Find the best move.'} {tap} a piece, then its square.
-      </span>
+      <span className="muted">{puzzle.solutionUci.length > 1 ? 'Find the winning line.' : 'Find the best move.'}</span>
     );
 
   return (
@@ -506,22 +535,57 @@ function PuzzleView({
         <div className="h-1 rounded bg-[var(--panel-2)]">
           <div className="h-1 rounded bg-accent transition-all" style={{ width: `${(100 * doneCount) / Math.max(1, total)}%` }} />
         </div>
-        <Board
-          id="puzzle"
-          fen={lineFen ?? fen}
-          orientation={toMove}
-          onMove={!lineFen && (state === 'solving' || state === 'wrong') ? onMove : undefined}
-          lastMove={lineFen ? (lineLast ? { from: lineLast.slice(0, 2), to: lineLast.slice(2, 4) } : undefined) : lastMove}
-          marker={lineFen ? undefined : marker}
-          highlight={highlight}
-        />
+        <div className="flex gap-1.5">
+          {engine && settings.showEvalBar && <EvalBar score={live.result?.lines[0]?.score} orientation={toMove} thinking={!live.settled} />}
+          <div className="flex-1 min-w-0">
+            {engine && engineFen ? (
+              <Board
+                id="puzzle"
+                fen={engineFen}
+                orientation={toMove}
+                onMove={onEngineMove}
+                arrows={engineArrows}
+                lastMove={engineLast ? { from: engineLast.slice(0, 2), to: engineLast.slice(2, 4) } : undefined}
+              />
+            ) : (
+              <Board
+                id="puzzle"
+                fen={lineFen ?? fen}
+                orientation={toMove}
+                onMove={!lineFen && (state === 'solving' || state === 'wrong') ? onMove : undefined}
+                lastMove={lineFen ? (lineLast ? { from: lineLast.slice(0, 2), to: lineLast.slice(2, 4) } : undefined) : lastMove}
+                marker={lineFen ? undefined : marker}
+                highlight={highlight}
+              />
+            )}
+          </div>
+        </div>
       </div>
 
       <div className="space-y-3">
         {/* Right under the board on phones: what to do, and the buttons. */}
-        <div className="min-h-5 text-sm font-semibold">{status}</div>
+        {!engine && <div className="min-h-5 text-sm font-semibold">{status}</div>}
+        <EngineControls open={!!engine} onToggle={toggleEngine} />
+        {engine && settings.showSuggestions && (
+          <div className="panel p-3">
+            <EngineLines result={live.settled ? live.result : null} fen={engineFen!} onPlayLine={onEngineMove} />
+          </div>
+        )}
         <div className="flex gap-2">
-          {!done ? (
+          {engine ? (
+            <>
+              <button
+                className="btn flex-1 justify-center !py-3"
+                onClick={() => setEngine({ ...engine, moves: engine.moves.slice(0, -1) })}
+                disabled={!engine.moves.length}
+              >
+                <Icon name="prev" size={18} /> Back
+              </button>
+              <button className="btn flex-1 justify-center !py-3" onClick={() => setEngine(null)}>
+                <Icon name="close" size={18} /> Back to puzzle
+              </button>
+            </>
+          ) : !done ? (
             <>
               <button className="btn flex-1 justify-center !py-3" onClick={() => setHint(true)} disabled={hint} title="Hint (h)">
                 <Icon name="bulb" size={18} /> Hint
@@ -540,7 +604,7 @@ function PuzzleView({
           )}
         </div>
 
-        {done && lines && (lines.best || lines.refute) && (
+        {!engine && done && lines && (lines.best || lines.refute) && (
           <div className="panel p-3 text-sm">
             {shownLine && lineView ? (
               <LineViewer
@@ -607,13 +671,9 @@ function PuzzleView({
           <details className="panel p-3 text-sm">
             <summary className="cursor-pointer font-semibold">How the game got here</summary>
             <p className="font-mono leading-relaxed mt-2">{leadUp.join(' ')}</p>
-            <p className="muted text-xs mt-2">Memorise this line together with the correct move to fix your opening.</p>
           </details>
         )}
         <div className="muted text-xs space-y-2">
-          <p className="hidden md:block">
-            Keys: <b>h</b> hint · <b>s</b> solution · <b>k</b> skip · <b>Enter</b> next.
-          </p>
           <label className="flex items-center gap-2">
             <input type="checkbox" checked={autoNext} onChange={(e) => void saveSettings({ autoNextPuzzle: e.target.checked })} />
             Next puzzle automatically after a clean solve

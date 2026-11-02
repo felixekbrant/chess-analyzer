@@ -10,7 +10,8 @@ A free, private game-review and coaching app for chess.com players. It runs enti
   - Accuracy and move classifications follow chess.com's Game Review: the formulas are fitted to chess.com's own accuracy on 129 reviewed games (about 2.5 points apart on average; see `scripts/calibration`). When a game has been reviewed on chess.com, its accuracy is shown alongside.
   - Then it walks you through the moves with a coach bubble for each one, plus **Best** (plays the engine's line) and **Retry** (try your mistakes again).
   - **Full sequences.** "Why it fails" plays out how a mistake gets punished, "How to punish it" shows the line against your opponent's mistakes, and "Best line" plays the engine's idea, move by move with a note per move ("takes the knight on e5, with check") and what it adds up to ("You come out 3 points ahead (a knight)"). Solved puzzles have the same.
-  - There's an eval bar and graph, live engine lines, explore mode, and time spent per move.
+  - There's an eval graph and time spent per move.
+- **Engine everywhere.** Every review and puzzle has the same three buttons under the board: **Engine** opens live Stockfish on the current position so you can play any moves, **Eval bar** and **Suggestions** (best-move arrows and the engine's top lines) switch on or off and are remembered across the app. Opening the engine before solving a puzzle counts it as missed, so it comes back.
   - Stockfish 19 does the analysis, running in the browser (WebAssembly).
 - **Explanations.** Each error gets a short explanation, such as "Nf5 puts your knight on a square where exf5 simply takes it", "This allows a back-rank mate" or "You spent 1m 40s here and still went wrong".
 - **Insights tailored to you:**

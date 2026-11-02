@@ -294,3 +294,38 @@ test('focus drill: tops up with Lichess puzzles and plays one', async ({ page })
   await openTab(page, 'Home');
   await expect(page.getByRole('link', { name: /Focus drill 1\/\d+/ })).toBeVisible();
 });
+
+test('engine controls: open the engine and toggle eval bar and suggestions in reviews and puzzles', async ({ page }) => {
+  await seed(page);
+  await openTab(page, 'Games');
+  await page.locator('[data-game-id]').first().click();
+  await page.getByRole('button', { name: 'Start review' }).click();
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+
+  const controls = page.getByRole('group', { name: 'Engine' }).first();
+  const evalBar = controls.getByRole('button', { name: 'Eval bar' });
+  const suggestions = controls.getByRole('button', { name: 'Suggestions' });
+  await expect(evalBar).toHaveAttribute('aria-pressed', 'true');
+
+  // Open the engine: live lines appear, and moves can be played freely.
+  await controls.getByRole('button', { name: 'Engine' }).click();
+  await expect(page.getByText(/Stockfish 19 lite · depth \d+/).filter({ visible: true })).toBeVisible();
+  await suggestions.click();
+  await expect(suggestions).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.getByText(/Stockfish 19 lite · depth/)).toHaveCount(0);
+  await evalBar.click();
+  await expect(evalBar).toHaveAttribute('aria-pressed', 'false');
+  await controls.getByRole('button', { name: 'Engine' }).click();
+  await expect(controls.getByRole('button', { name: 'Engine' })).toHaveAttribute('aria-pressed', 'false');
+
+  // The choices carry over to puzzles.
+  await page.goto('./#/training');
+  await expect(page.getByText(/to move$/)).toBeVisible();
+  const pc = page.getByRole('group', { name: 'Engine' });
+  await expect(pc.getByRole('button', { name: 'Suggestions' })).toHaveAttribute('aria-pressed', 'false');
+  await pc.getByRole('button', { name: 'Suggestions' }).click();
+  await pc.getByRole('button', { name: 'Engine' }).click();
+  await expect(page.getByText(/Stockfish 19 lite · depth \d+/).filter({ visible: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Back to puzzle' }).click();
+  await expect(page.getByRole('button', { name: /Solution/ })).toBeVisible();
+});

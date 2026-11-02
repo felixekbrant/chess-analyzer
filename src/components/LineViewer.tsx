@@ -77,17 +77,11 @@ export function LineViewer({
       </div>
 
       <p className="mt-2 min-h-[2.5em]">
-        {index === 0 ? (
-          <span className="muted">Press Play, or tap the moves, to see the line on the board.</span>
-        ) : (
+        {step?.note}
+        {atEnd && index > 0 && line.summary && (
           <>
-            {step?.note}
-            {atEnd && line.summary && (
-              <>
-                {' '}
-                <b>{line.summary}</b>
-              </>
-            )}
+            {' '}
+            <b>{line.summary}</b>
           </>
         )}
       </p>
