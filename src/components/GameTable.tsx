@@ -142,11 +142,6 @@ export function GameCardList({ games, onOpen, grouped = true }: { games: StoredG
                   <ResultPill g={g} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
-                      <span
-                        className="inline-block w-3 h-3 rounded-[3px] shrink-0 ring-1 ring-black/20"
-                        style={{ background: g.userColor === 'w' ? '#403d39' : '#f4f4f4' }}
-                        title={g.userColor === 'w' ? 'They had Black' : 'They had White'}
-                      />
                       <span className="font-bold truncate">{g.userColor ? opponentName(g) : `${g.white} – ${g.black}`}</span>
                       {opponentElo(g) && <span className="muted text-xs shrink-0 tabular-nums">({opponentElo(g)})</span>}
                     </div>

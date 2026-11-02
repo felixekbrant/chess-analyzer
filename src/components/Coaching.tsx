@@ -33,7 +33,8 @@ const tcName = (tc: string) => (tc === 'daily' || tc === 'classical' ? 'rapid' :
 
 /** Where an item of the plan takes you. */
 function itemLink(i: TodayItem): string {
-  if (i.kind === 'review' && i.game) return `/game/${encodeURIComponent(i.game.id)}`;
+  // A daily review goes straight to the key moments.
+  if (i.kind === 'review' && i.game) return `/game/${encodeURIComponent(i.game.id)}?key=1`;
   return '/training?session=today';
 }
 

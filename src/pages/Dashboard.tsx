@@ -12,8 +12,6 @@ const LineTrend = lazy(() => import('../components/charts').then((m) => ({ defau
 import { GameCardList } from '../components/GameTable';
 import { Icon } from '../components/Icon';
 import { Picker } from '../components/Picker';
-import { isIos, isStandalone, useInstallPrompt } from '../pwa/install';
-import { isMobile } from '../lib/device';
 import { PageHeader, Section, fmtPct } from '../components/ui';
 import { connectAccount } from '../lib/account';
 import { formatEta } from '../lib/format';
@@ -45,7 +43,7 @@ export default function Dashboard() {
   return (
     <div className="space-y-4 max-w-[1300px]">
       <PageHeader title={settings.username ? `Hi, ${settings.username}` : 'Home'} desktopOnly />
-      <ProgressCard analysed={doneCount} />
+      <ProgressCard analysed={doneCount} latest={games[0]} />
 
 
       <div className="grid lg:grid-cols-2 gap-3 items-start">
@@ -66,7 +64,7 @@ export default function Dashboard() {
 
       <div className="grid xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] gap-4">
         {/* Before the skill profile exists, the coach report fills its place; after, the focus card and Insights cover it. */}
-        {!skills.ready && (
+        {!skills.ready && recentAg.length >= 3 && (
           <Section title="Your coach says">
             <CoachReport items={report.items} strengths={report.strengths} analysed={recentAg.length} limit={3} />
           </Section>
@@ -75,7 +73,16 @@ export default function Dashboard() {
           <Section title="Recent games" right={<Link to="/games" className="text-sm underline muted">All games</Link>}>
             <GameCardList games={recentGames} onOpen={open} grouped={false} />
           </Section>
-          <Section title={`Rating (${mainClass ?? '–'})`}>
+          <Section
+            title={`Rating · ${mainClass ?? '–'}`}
+            right={
+              ratingData.length > 1 ? (
+                <span className="text-sm font-bold tabular-nums">
+                  {ratingData[ratingData.length - 1].rating} <span className="muted font-semibold">{ratingDelta(ratingData).replace(' over 30 days', '')}</span>
+                </span>
+              ) : undefined
+            }
+          >
             {ratingData.length > 1 ? (
               <Suspense fallback={<div className="h-40" />}>
                 <LineTrend
@@ -92,7 +99,6 @@ export default function Dashboard() {
           </Section>
         </div>
       </div>
-      <InstallHint />
     </div>
   );
 }
@@ -116,10 +122,9 @@ function ProfilePending({ analysed, timeClass }: { analysed: number; timeClass: 
           <Icon name="target" size={22} />
         </span>
         <div className="min-w-0">
-          <div className="font-bold">Your skill profile is on its way</div>
-          <p className="muted text-sm mt-1">
-            Once {MIN_PROFILE_GAMES} of your {timeClass} games are analysed ({Math.min(analysed, MIN_PROFILE_GAMES)}/{MIN_PROFILE_GAMES} so far), you'll see where you lose the most
-            points compared with players at your rating, and get a weekly focus to train.
+          <div className="font-bold">Skill profile</div>
+          <p className="muted text-sm mt-0.5 tabular-nums" title="Where you lose the most points compared with players at your rating, and a weekly focus to train.">
+            {Math.min(analysed, MIN_PROFILE_GAMES)}/{MIN_PROFILE_GAMES} {timeClass} games analysed
           </p>
           <div className="h-1.5 rounded-full bg-[var(--panel-2)] mt-3 overflow-hidden">
             <div className="h-full bg-accent rounded-full" style={{ width: `${(100 * Math.min(analysed, MIN_PROFILE_GAMES)) / MIN_PROFILE_GAMES}%` }} />
@@ -127,46 +132,6 @@ function ProfilePending({ analysed, timeClass }: { analysed: number; timeClass: 
         </div>
       </div>
     </section>
-  );
-}
-
-/** On phones in a browser tab: suggest installing (once; dismissible). */
-function InstallHint() {
-  const [hidden, setHidden] = useState(() => {
-    try {
-      return localStorage.getItem('install-hint-dismissed') === '1';
-    } catch {
-      return false;
-    }
-  });
-  const { canPrompt, prompt } = useInstallPrompt();
-  if (hidden || isStandalone() || !isMobile()) return null;
-  const dismiss = () => {
-    setHidden(true);
-    try {
-      localStorage.setItem('install-hint-dismissed', '1');
-    } catch {
-      // Private mode: just hide it for now.
-    }
-  };
-  return (
-    <div className="panel p-3 flex items-center gap-3 text-sm">
-      <Icon name="install" size={22} className="text-accent" />
-      <div className="flex-1 min-w-0">
-        <b>Install the app</b>
-        <div className="muted text-xs">
-          {canPrompt ? 'Full screen, instant start, works offline.' : isIos() ? 'Tap Share, then "Add to Home Screen".' : 'Use your browser menu: "Add to Home screen".'}
-        </div>
-      </div>
-      {canPrompt && (
-        <button className="btn btn-primary !px-3" onClick={() => void prompt()}>
-          Install
-        </button>
-      )}
-      <button className="icon-btn !min-w-9 !min-h-9" onClick={dismiss} aria-label="Dismiss">
-        <Icon name="close" size={16} />
-      </button>
-    </div>
   );
 }
 
@@ -273,38 +238,42 @@ function Welcome() {
   );
 }
 
-/** Shown while games are being imported or analysed, so the first minutes don't feel empty. */
-function ProgressCard({ analysed }: { analysed: number }) {
+/** While games are imported or analysed: one clear progress card, with the newest game one tap away. */
+function ProgressCard({ analysed, latest }: { analysed: number; latest?: { id: string } }) {
   const sync = useSyncStatus();
+  const navigate = useNavigate();
   // Narrow subscriptions: this card changes when a game finishes, not on every engine tick.
   const pending = useQueue((s) => s.pending);
   const paused = useQueue((s) => s.paused);
   const etaSeconds = useQueue((s) => s.etaSeconds);
-  const queue = { pending, paused, etaSeconds };
   const importing = sync.syncing && sync.progress?.phase === 'months';
-  if (!importing && !(queue.pending > 0 && !queue.paused)) return null;
-  const total = analysed + queue.pending;
+  if (!importing && !(pending > 0 && !paused)) return null;
+  const total = analysed + pending;
   return (
-    <div className="panel p-4 border-l-4" style={{ borderLeftColor: '#81b64c' }}>
-      {importing ? (
-        <div className="text-sm">
-          <b>Importing your games…</b> month {sync.progress!.monthsDone + 1} of {sync.progress!.monthsTotal}
-          {sync.progress!.newGames ? ` · ${sync.progress!.newGames} games so far` : ''}
+    <section className="panel p-4 border-l-4" style={{ borderLeftColor: '#81b64c' }}>
+      <div className="flex items-center gap-3">
+        <span className="w-10 h-10 rounded-xl bg-[var(--panel-2)] text-accent flex items-center justify-center shrink-0">
+          <Icon name={importing ? 'sync' : 'engine'} size={22} className={importing ? 'spin' : ''} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="font-bold">{importing ? 'Importing your games' : 'Analysing your games'}</div>
+          <div className="muted text-sm tabular-nums">
+            {importing
+              ? `Month ${sync.progress!.monthsDone + 1} of ${sync.progress!.monthsTotal}${sync.progress!.newGames ? ` · ${sync.progress!.newGames} games` : ''}`
+              : `${analysed} of ${total} done${etaSeconds !== undefined ? ` · ${formatEta(etaSeconds)} left` : ''}`}
+          </div>
         </div>
-      ) : (
-        <div className="text-sm">
-          <b>
-            Analysing your games: {analysed} of {total} done
-          </b>
-          {queue.etaSeconds !== undefined && <span className="muted"> · {formatEta(queue.etaSeconds)} left</span>}
-          {analysed < 3 && <span className="muted"> · your coach report unlocks after 3 games</span>}
-        </div>
-      )}
+      </div>
       {!importing && total > 0 && (
-        <div className="h-2 mt-2 rounded bg-[var(--panel-2)]">
-          <div className="h-2 rounded bg-accent transition-all" style={{ width: `${(100 * analysed) / total}%` }} />
+        <div className="h-2 mt-3 rounded-full bg-[var(--panel-2)] overflow-hidden">
+          <div className="h-2 rounded-full bg-accent transition-all" style={{ width: `${(100 * analysed) / total}%` }} />
         </div>
       )}
-    </div>
+      {!importing && analysed === 0 && latest && (
+        <button className="btn btn-primary w-full justify-center mt-3" onClick={() => navigate(`/game/${encodeURIComponent(latest.id)}`)}>
+          Review your latest game
+        </button>
+      )}
+    </section>
   );
 }

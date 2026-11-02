@@ -46,7 +46,12 @@ export function StatusIndicator({ variant }: { variant: 'compact' | 'sidebar' })
         aria-label={`Status: ${label}. Open details`}
       >
         <span className="relative inline-flex">
-          <Icon name={busy ? 'engine' : 'sync'} size={variant === 'compact' ? 20 : 16} className={sync.syncing ? 'spin' : busy ? 'text-accent' : ''} />
+          {/* Quiet when all is done (a cloud with a tick); it only stands out while something happens. */}
+          <Icon
+            name={busy ? 'engine' : sync.syncing || sync.error ? 'sync' : 'cloud'}
+            size={variant === 'compact' ? 20 : 16}
+            className={sync.syncing ? 'spin' : busy ? 'text-accent' : 'muted'}
+          />
           {sync.error && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-[#e02828]" />}
         </span>
         {variant === 'compact' ? (busy || (paused && pending > 0) ? <span className="tabular-nums">{pending}</span> : null) : <span className="truncate">{label}</span>}

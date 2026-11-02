@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 const PATHS: Record<string, ReactNode> = {
   home: <path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10" />,
   chevronDown: <path d="M6 9l6 6 6-6" />,
+  cloud: <path d="M7 18h10a4 4 0 00.6-7.96A6 6 0 006.1 9.1 4.5 4.5 0 007 18zM9.5 13.5l2 2 3.5-3.5" />,
   flame: <path d="M12 3c1 3.5 5 5.5 5 10a5 5 0 01-10 0c0-2.2 1.2-3.6 2.4-4.6.2 1.6 1 2.6 2.1 3.1C11 9 11.2 5.6 12 3z" />,
   games: <path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01" />,
   puzzle: (

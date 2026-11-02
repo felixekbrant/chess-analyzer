@@ -19,19 +19,32 @@ export default function ReviewPage() {
   const gameId = decodeURIComponent(id);
   const [search] = useSearchParams();
   const game = useLiveQuery(() => db.games.get(gameId), [gameId]);
-  const analysis = useLiveQuery(() => db.analyses.get(gameId), [gameId]);
+  // null = no analysis yet; undefined = still loading (so the first view is chosen with both known).
+  const analysis = useLiveQuery(async () => (await db.analyses.get(gameId)) ?? null, [gameId]);
 
-  if (game === undefined) return <Empty>Loading…</Empty>;
+  if (game === undefined || analysis === undefined) return <Empty>Loading…</Empty>;
   if (!game) return <Empty>Game not found.</Empty>;
   const plyParam = search.get('ply');
-  return <ReviewInner key={gameId} game={game} analysis={analysis ?? undefined} initialPly={plyParam === null ? undefined : Number(plyParam)} />;
+  return (
+    <ReviewInner
+      key={gameId}
+      game={game}
+      analysis={analysis ?? undefined}
+      initialPly={plyParam === null ? undefined : Number(plyParam)}
+      keyMoments={search.get('key') === '1'}
+    />
+  );
 }
 
-function ReviewInner({ game, analysis, initialPly }: { game: StoredGame; analysis?: GameAnalysis; initialPly?: number }) {
+function ReviewInner({ game, analysis, initialPly, keyMoments }: { game: StoredGame; analysis?: GameAnalysis; initialPly?: number; keyMoments?: boolean }) {
   const pgn = usePgn(game.id);
   const parsed = useMemo(() => (pgn ? parsePgn(pgn) : undefined), [pgn]);
   const [view, setView] = useState<{ kind: 'summary' } | { kind: 'walk'; opts: StartOptions }>(() =>
-    initialPly !== undefined && Number.isFinite(initialPly) ? { kind: 'walk', opts: { ply: initialPly } } : { kind: 'summary' },
+    initialPly !== undefined && Number.isFinite(initialPly)
+      ? { kind: 'walk', opts: { ply: initialPly } }
+      : keyMoments && analysis
+        ? { kind: 'walk', opts: { keyOnly: true } }
+        : { kind: 'summary' },
   );
 
   // Remember that this game has been looked at (Home shows "new games to review").
