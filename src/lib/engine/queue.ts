@@ -1,4 +1,4 @@
-import { db, getSettings } from '../../db/schema';
+import { db, getSettings, saveSettings } from '../../db/schema';
 import { buildAnalysis } from '../analysis/analyzeGame';
 import { legalMoveCount, terminalScore } from '../analysis/board';
 import { buildSummary } from '../insights/summary';
@@ -122,13 +122,15 @@ class AnalysisQueue {
     return new Promise((resolve) => this.yieldWaiters.push(resolve));
   }
 
+  /** Pauses background analysis until resumed, also across restarts. */
   pause() {
     this.set({ paused: true });
+    void saveSettings({ analysisPaused: true });
   }
 
   resume() {
     this.set({ paused: false });
-    void this.kick();
+    void saveSettings({ analysisPaused: false }).then(() => this.kick());
   }
 
   dispose() {
@@ -146,6 +148,7 @@ class AnalysisQueue {
 
   async refreshCount() {
     const settings = await getSettings();
+    if (settings.analysisPaused !== this.status.paused) this.set({ paused: settings.analysisPaused });
     const pending = await this.pendingGames(settings.autoAnalyze ? settings.autoAnalyzeLimit : 0);
     this.set({ pending: pending.length + this.priority.filter((id) => !pending.some((g) => g.id === id)).length });
   }

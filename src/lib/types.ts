@@ -184,6 +184,10 @@ export interface Settings {
   sounds: boolean;
   boardTheme: BoardTheme;
   showCoordinates: boolean;
+  /** Fetch new games from chess.com automatically (on open and every 10 minutes). */
+  autoSync: boolean;
+  /** The background analysis was paused by the user (kept across restarts). */
+  analysisPaused: boolean;
   /** Length of the daily Today plan, in minutes. */
   sessionMinutes: 10 | 15 | 25;
 }
@@ -203,4 +207,6 @@ export const DEFAULT_SETTINGS: Settings = {
   boardTheme: 'green',
   showCoordinates: true,
   sessionMinutes: 15,
+  autoSync: true,
+  analysisPaused: false,
 };

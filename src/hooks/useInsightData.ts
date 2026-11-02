@@ -7,6 +7,8 @@ import type { GameSummary } from '../lib/insights/summary';
 export interface InsightFilters {
   timeClass: string;
   days: number; // 0 = all
+  /** Only the most recent N games (0 = no limit). Combines with the other filters. */
+  lastGames?: number;
   color: string;
 }
 
@@ -19,13 +21,15 @@ export function useInsightData(f: InsightFilters): { games: StoredGame[]; summar
   return useMemo(() => {
     if (!games || !summaries) return { games: [], summaries: new Map(), ag: [], loading: true };
     const since = f.days ? Date.now() - f.days * 86400000 : 0;
-    const filtered = games.filter(
+    let filtered = games.filter(
       (g) =>
         g.userColor &&
         (f.timeClass === 'all' || g.timeClass === f.timeClass) &&
         (f.color === 'all' || g.userColor === f.color) &&
         g.endTime >= since,
     );
+    // `games` is newest first.
+    if (f.lastGames) filtered = filtered.slice(0, f.lastGames);
     return { games: filtered, summaries, ag: joinAnalyzed(filtered, summaries), loading: false };
-  }, [games, summaries, f.timeClass, f.days, f.color]);
+  }, [games, summaries, f.timeClass, f.days, f.lastGames, f.color]);
 }

@@ -164,6 +164,8 @@ export interface SkillStat {
   area: SkillArea;
   /** Average win % lost per game in this area. */
   cost: number;
+  /** Standard error of `cost`: how much it could be off by chance with this many games. */
+  se: number;
   /** Share of all win % lost (0-100). */
   share: number;
   /** Inaccuracies or worse per game. */
@@ -197,6 +199,8 @@ export function skillProfile(ag: AnalyzedGame[], window = 30): SkillProfile {
   const stats = SKILL_AREAS.map((area): SkillStat => {
     const per = costs.map((c) => c[area]);
     const cost = mean(per);
+    const sd = Math.sqrt(mean(per.map((x) => (x - cost) ** 2)));
+    const se = per.length > 1 ? sd / Math.sqrt(per.length - 1) : cost;
     const h = hist.map((c) => c[area]);
     let recent: number | undefined;
     let earlier: number | undefined;
@@ -229,6 +233,7 @@ export function skillProfile(ag: AnalyzedGame[], window = 30): SkillProfile {
     return {
       area,
       cost,
+      se,
       share: total ? (100 * cost) / total : 0,
       errorsPerGame: mean(games.map((a) => a.moves.filter((m) => areaOf(m, a.game.timeClass !== 'daily') === area).length)),
       recent,

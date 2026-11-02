@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { AnalyzedGame } from '../insights/compute';
 import type { GameSummary, SummaryMove } from '../insights/summary';
 import { SKILL_AREAS, areaOf, gameAreaCosts, skillProfile, type SkillArea } from '../insights/skills';
-import { skillLevel, typicalCost } from '../insights/baselines';
+import { skillEstimate, skillLevel, typicalCost } from '../insights/baselines';
 import { chooseFocus, rankAreas, updateFocus, type AreaRank, type FocusStore } from '../training/focus';
 import { buildToday, currentStreak, dateKey, nextStreak, progressFor } from '../training/today';
 import type { Motif, StoredGame } from '../types';
@@ -92,10 +92,29 @@ describe('reference data', () => {
     expect(skillLevel(area, 'blitz', 0)).toBe(2400);
     expect(skillLevel(area, 'daily', t)).toBeUndefined();
   });
+
+  it('anchors "plays like" to your rating unless the evidence is clear', () => {
+    const area: SkillArea = 'blunder_check';
+    const t = typicalCost(area, 'rapid', 1500);
+    if (t === undefined) return;
+    // A noisy profile (few games, big standard error) stays near your rating or is hidden.
+    const noisy = skillEstimate(area, 'rapid', t / 4, t, 10, 1500);
+    expect(noisy === undefined || Math.abs(noisy.level - 1500) <= 300).toBe(true);
+    // Clear evidence of fewer blunders moves the estimate up, but not to the end of the scale.
+    const clear = skillEstimate(area, 'rapid', t / 3, t / 15, 200, 1500)!;
+    expect(clear.level).toBeGreaterThan(1600);
+    expect(clear.level).toBeLessThan(2400);
+    expect(clear.low).toBeLessThanOrEqual(clear.level);
+    expect(clear.high).toBeGreaterThanOrEqual(clear.level);
+    expect(skillEstimate(area, 'rapid', t, t / 10, 30, undefined)).toBeUndefined();
+    // Zero losses in 30 games is not proof of 2400 strength.
+    const clean = skillEstimate(area, 'rapid', 0, 0, 30, 1500);
+    expect(clean === undefined || clean.level < 2100).toBe(true);
+  });
 });
 
 describe('weekly focus', () => {
-  const rank = (areas: SkillArea[]): AreaRank[] => areas.map((area, i) => ({ area, cost: 10 - i, excess: 5 - i, score: 5 - i }));
+  const rank = (areas: SkillArea[]): AreaRank[] => areas.map((area, i) => ({ area, cost: 10 - i, se: 1, excess: 5 - i, score: 5 - i }));
   const t0 = 1_000 * DAY;
   const history = Array.from({ length: 20 }, (_, i) => game([mv({ phase: 'endgame', winLoss: 20 })], {}, t0 - (20 - i) * DAY));
 
@@ -187,7 +206,10 @@ describe('today', () => {
 describe('main time control', () => {
   const tc = (...xs: string[]) => xs.map((timeClass) => ({ timeClass }) as StoredGame);
   it('prefers your most-played timed control over daily', () => {
-    expect(mainTimeClass(tc('daily', 'daily', 'daily', 'blitz', 'rapid', 'blitz'))).toBe('blitz');
+    const many = (t: string, n: number) => Array.from({ length: n }, () => t);
+    expect(mainTimeClass(tc(...many('daily', 30), ...many('blitz', 12), ...many('rapid', 10)))).toBe('blitz');
+    // One stray bullet game doesn't make you a bullet player.
+    expect(mainTimeClass(tc(...many('daily', 25), 'bullet'))).toBe('daily');
     expect(mainTimeClass(tc('daily', 'daily'))).toBe('daily');
     expect(mainTimeClass([])).toBe('blitz');
   });

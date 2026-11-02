@@ -22,6 +22,10 @@ class SyncManager {
   private running?: Promise<void>;
   private failedInARow = 0;
 
+  get current(): SyncStatus {
+    return this.status;
+  }
+
   subscribe(fn: Listener) {
     this.listeners.add(fn);
     fn(this.status);
@@ -41,23 +45,24 @@ class SyncManager {
       const prev = await db.sync.get(s.username.toLowerCase());
       if (prev?.lastSync && !this.status.lastSync) this.set({ lastSync: prev.lastSync });
     });
-    void this.syncNow();
-    this.timer = setInterval(() => void this.syncNow(), AUTO_SYNC_MS);
+    void this.syncNow(false);
+    this.timer = setInterval(() => void this.syncNow(false), AUTO_SYNC_MS);
     // Also sync when the tab becomes visible again after a while.
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible' && Date.now() - (this.status.lastSync ?? 0) > 2 * 60 * 1000) void this.syncNow();
+      if (document.visibilityState === 'visible' && Date.now() - (this.status.lastSync ?? 0) > 2 * 60 * 1000) void this.syncNow(false);
     });
   }
 
-  syncNow(): Promise<void> {
+  /** `manual` is a sync the user asked for; automatic ones are skipped while auto-import is off. */
+  syncNow(manual = true): Promise<void> {
     if (this.running) return this.running;
-    this.running = this.run().finally(() => (this.running = undefined));
+    this.running = this.run(manual).finally(() => (this.running = undefined));
     return this.running;
   }
 
-  private async run() {
+  private async run(manual: boolean) {
     const settings = await getSettings();
-    if (!settings.username) {
+    if (!settings.username || (!manual && !settings.autoSync)) {
       void analysisQueue.kick();
       return;
     }

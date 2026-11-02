@@ -1,5 +1,5 @@
 import type { AnalyzedGame } from '../insights/compute';
-import { skillLevel, typicalCost } from '../insights/baselines';
+import { SPREAD, skillEstimate, typicalCost, type LevelEstimate } from '../insights/baselines';
 import { SKILL_META, areaCost, type SkillArea, type SkillProfile } from '../insights/skills';
 
 const DAY = 86400000;
@@ -43,9 +43,13 @@ export interface AreaRank {
   area: SkillArea;
   cost: number;
   typical?: number;
-  level?: number;
+  /** Standard error of `cost`. */
+  se: number;
+  level?: LevelEstimate;
   /** Your cost minus the typical cost at your rating (or your cost, without reference data). */
   excess: number;
+  /** Compared with the typical cost, allowing for chance: only "worse"/"better" when it's clear. */
+  verdict?: 'worse' | 'typical' | 'better';
   score: number;
 }
 
@@ -55,15 +59,20 @@ export function rankAreas(profile: SkillProfile, timeClass: string, rating: numb
     .map((s) => {
       const typical = rating ? typicalCost(s.area, timeClass, rating) : undefined;
       const excess = typical === undefined ? s.cost : s.cost - typical;
+      // As in skillEstimate: a few clean games don't prove much.
+      const err = typical === undefined ? s.se : Math.max(s.se, (SPREAD * typical) / Math.sqrt(Math.max(1, profile.games)));
       // Needs a few real examples, or there is nothing to train.
       const enough = s.errorsPerGame * profile.games >= 3;
       return {
         area: s.area,
         cost: s.cost,
         typical,
-        level: skillLevel(s.area, timeClass, s.cost),
+        se: s.se,
+        level: skillEstimate(s.area, timeClass, s.cost, s.se, profile.games, rating),
         excess,
-        score: enough ? excess * SKILL_META[s.area].trainable : -Infinity,
+        verdict: typical === undefined ? undefined : excess > err ? ('worse' as const) : excess < -err ? ('better' as const) : ('typical' as const),
+        // Conservative: how far behind you are at least, allowing for chance in a small sample.
+        score: enough ? (typical === undefined ? s.cost : excess - err) * SKILL_META[s.area].trainable : -Infinity,
       };
     })
     .sort((a, b) => b.score - a.score);

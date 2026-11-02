@@ -83,7 +83,7 @@ function StatusDetails({ onClose }: { onClose: () => void }) {
                 : sync.error
                   ? `Last sync failed: ${sync.error}`
                   : sync.lastSync
-                    ? `Synced ${timeAgo(sync.lastSync)}${sync.lastNew ? ` · ${sync.lastNew} new` : ''}. New games are fetched automatically.`
+                    ? `Synced ${timeAgo(sync.lastSync)}${sync.lastNew ? ` · ${sync.lastNew} new` : ''}.${settings.autoSync ? ' New games are fetched automatically.' : ''}`
                     : 'Not synced yet'}
             </div>
           </div>
@@ -91,6 +91,16 @@ function StatusDetails({ onClose }: { onClose: () => void }) {
             <Icon name="sync" size={16} className={sync.syncing ? 'spin' : ''} /> Sync
           </button>
         </div>
+        <Toggle
+          checked={settings.autoSync}
+          onChange={(v) =>
+            void saveSettings({ autoSync: v }).then(() => {
+              if (v) void syncManager.syncNow();
+            })
+          }
+          label="Import new games automatically"
+          hint={settings.autoSync ? 'When the app opens and every 10 minutes.' : 'Off: only when you press Sync.'}
+        />
       </section>
 
       <section>
@@ -114,6 +124,32 @@ function StatusDetails({ onClose }: { onClose: () => void }) {
             <div className="h-1.5 rounded bg-accent transition-all" style={{ width: `${p * 100}%` }} />
           </div>
         ))}
+        <Toggle
+          checked={settings.autoAnalyze}
+          onChange={(v) => void saveSettings({ autoAnalyze: v }).then(() => analysisQueue.refreshCount().then(() => analysisQueue.kick()))}
+          label="Analyse new games automatically"
+          hint={settings.autoAnalyze ? `Your latest ${settings.autoAnalyzeLimit} games are kept analysed.` : 'Off: a game is analysed when you open it.'}
+        />
+        {settings.autoAnalyze && (
+          <div className="mt-3">
+            <div className="muted text-xs mb-1">How many of your latest games to analyse</div>
+            <div className="grid grid-cols-4 gap-2">
+              {[50, 100, 150, 200].map((n) => (
+                <button
+                  key={n}
+                  className={`btn justify-center !px-2 ${settings.autoAnalyzeLimit === n ? 'btn-primary' : ''}`}
+                  onClick={async () => {
+                    await saveSettings({ autoAnalyzeLimit: n });
+                    await analysisQueue.refreshCount();
+                    void analysisQueue.kick();
+                  }}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="mt-3">
           <div className="muted text-xs mb-1">Speed</div>
           <div className="grid grid-cols-3 gap-2">
@@ -138,5 +174,18 @@ function StatusDetails({ onClose }: { onClose: () => void }) {
         More settings
       </Link>
     </div>
+  );
+}
+
+/** An on/off row with a label and a one-line explanation. */
+function Toggle({ checked, onChange, label, hint }: { checked: boolean; onChange: (v: boolean) => void; label: string; hint: string }) {
+  return (
+    <label className="flex items-center justify-between gap-3 mt-3 cursor-pointer">
+      <span>
+        <span className="block font-semibold">{label}</span>
+        <span className="block muted text-xs">{hint}</span>
+      </span>
+      <input type="checkbox" role="switch" className="switch shrink-0" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+    </label>
   );
 }

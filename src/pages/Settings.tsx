@@ -96,10 +96,22 @@ export default function SettingsPage() {
         </label>
         {settings.username && (
           <div className="mt-3 text-sm muted space-y-2">
-            <div>
-              Last sync: {syncState?.lastSync ? timeAgo(syncState.lastSync) : 'never'} · new games are fetched automatically when the app opens and every
-              10 minutes while it's open.
-            </div>
+            <div>Last sync: {syncState?.lastSync ? timeAgo(syncState.lastSync) : 'never'}.</div>
+            <label className="flex items-center justify-between gap-3 text-[var(--text)] cursor-pointer">
+              <span>
+                <span className="block font-semibold">Import new games automatically</span>
+                <span className="block muted text-xs">
+                  {settings.autoSync ? 'When the app opens and every 10 minutes while it is open.' : 'Off: only when you press Sync now.'}
+                </span>
+              </span>
+              <input
+                type="checkbox"
+                role="switch"
+                className="switch shrink-0"
+                checked={settings.autoSync}
+                onChange={(e) => void saveSettings({ autoSync: e.target.checked })}
+              />
+            </label>
             <div className="flex flex-wrap gap-2">
               <button className="btn" onClick={() => void syncManager.syncNow()} disabled={busy}>
                 Sync now

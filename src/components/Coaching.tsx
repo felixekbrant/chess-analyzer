@@ -118,7 +118,7 @@ export function TodayCard({ games, focus, minutes }: { games: StoredGame[]; focu
   );
 }
 
-/** "You lose 9.1 per game here; typical 1200s lose 5.4." */
+/** "You lose 9.1% win chance per game here; typical 1200 blitz players lose 5.4%: clearly more." */
 export function Comparison({ r, rating, timeClass }: { r: AreaRank; rating?: number; timeClass: string }) {
   return (
     <>
@@ -126,6 +126,7 @@ export function Comparison({ r, rating, timeClass }: { r: AreaRank; rating?: num
       {r.typical !== undefined && rating ? (
         <>
           ; typical {Math.round(rating / 100) * 100} {tcName(timeClass)} players lose {fmt(r.typical)}%
+          {r.verdict === 'worse' ? ', so this clearly costs you more than most' : r.verdict === 'better' ? ', so you clearly do better than most' : ', about the same'}
         </>
       ) : null}
       .
@@ -229,10 +230,10 @@ export function FocusCard({
 }
 
 /** Two bars: your cost and the typical cost at your rating, on a shared scale. */
-export function CostBars({ cost, typical, max }: { cost: number; typical?: number; max: number }) {
+export function CostBars({ cost, typical, max, verdict }: { cost: number; typical?: number; max: number; verdict?: AreaRank['verdict'] }) {
   const w = (v: number) => `${Math.max(2, Math.min(100, (100 * v) / Math.max(max, 0.01)))}%`;
-  const worse = typical !== undefined && cost > typical * 1.15;
-  const better = typical !== undefined && cost < typical * 0.85;
+  const worse = verdict === 'worse';
+  const better = verdict === 'better';
   return (
     <div className="space-y-1 text-[11px] muted tabular-nums">
       <div className="flex items-center gap-2">
@@ -283,9 +284,9 @@ export function PointsCard({ ranked, stats, rating, timeClass, games }: { ranked
               <div className="flex items-center gap-2 mb-1">
                 <span className="font-semibold text-sm">{SKILL_META[r.area].label}</span>
                 <TrendChip trend={stats.find((s) => s.area === r.area)?.trend} />
-                {r.level !== undefined && <span className="ml-auto muted text-xs">plays like {levelLabel(r.level)}</span>}
+                {r.level !== undefined && <span className="ml-auto muted text-xs">plays like {levelLabel(r.level.level)}</span>}
               </div>
-              <CostBars cost={r.cost} typical={r.typical} max={max} />
+              <CostBars cost={r.cost} typical={r.typical} max={max} verdict={r.verdict} />
             </div>
           ))}
         </div>

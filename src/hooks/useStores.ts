@@ -11,7 +11,8 @@ export function useSettings(): Settings {
 }
 
 export function useSyncStatus(): SyncStatus {
-  const [s, setS] = useState<SyncStatus>({ syncing: false });
+  // Start from the current status, so a component that mounts later doesn't flash "not synced".
+  const [s, setS] = useState<SyncStatus>(() => syncManager.current);
   useEffect(() => {
     const unsub = syncManager.subscribe(setS);
     return () => void unsub();

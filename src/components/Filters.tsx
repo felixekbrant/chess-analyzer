@@ -11,12 +11,24 @@ export function Filters({ value, onChange }: { value: InsightFilters; onChange: 
           </option>
         ))}
       </select>
-      <select className="input" value={value.days} onChange={(e) => onChange({ ...value, days: Number(e.target.value) })}>
-        <option value={0}>All time</option>
-        <option value={7}>Last 7 days</option>
-        <option value={30}>Last 30 days</option>
-        <option value={90}>Last 90 days</option>
-        <option value={365}>Last year</option>
+      <select
+        className="input"
+        aria-label="Which games"
+        value={value.lastGames ? `g${value.lastGames}` : `d${value.days}`}
+        onChange={(e) => {
+          const v = e.target.value;
+          const n = Number(v.slice(1));
+          onChange(v[0] === 'g' ? { ...value, days: 0, lastGames: n } : { ...value, days: n, lastGames: 0 });
+        }}
+      >
+        <option value="d0">All games</option>
+        <option value="g50">Last 50 games</option>
+        <option value="g100">Last 100 games</option>
+        <option value="g200">Last 200 games</option>
+        <option value="d7">Last 7 days</option>
+        <option value="d30">Last 30 days</option>
+        <option value="d90">Last 90 days</option>
+        <option value="d365">Last year</option>
       </select>
       <select className="input" value={value.color} onChange={(e) => onChange({ ...value, color: e.target.value })}>
         <option value="all">Both colours</option>

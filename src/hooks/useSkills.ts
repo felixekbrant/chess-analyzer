@@ -31,8 +31,10 @@ export interface SkillsData {
 export function mainTimeClass(games: StoredGame[]): string {
   const c = new Map<string, number>();
   for (const g of games.slice(0, 100)) c.set(g.timeClass, (c.get(g.timeClass) ?? 0) + 1);
-  const ranked = [...c.entries()].sort((a, b) => b[1] - a[1]).map(([tc]) => tc);
-  return ranked.find((tc) => tc !== 'daily') ?? ranked[0] ?? 'blitz';
+  const ranked = [...c.entries()].sort((a, b) => b[1] - a[1]);
+  // A timed control needs enough games to build a profile on; a stray bullet game doesn't count.
+  const timed = ranked.find(([tc, n]) => tc !== 'daily' && n >= MIN_PROFILE_GAMES);
+  return timed?.[0] ?? ranked[0]?.[0] ?? 'blitz';
 }
 
 /** Median of your rating over your last 20 games in a time class. */
@@ -57,9 +59,9 @@ export function useSkills(games: StoredGame[], ag: AnalyzedGame[], manageFocus =
     const timeClass = mainTimeClass(games);
     // Costs differ a lot between bullet and rapid, so the profile sticks to one time class when
     // there are enough games in it.
+    // Until enough games of that control are analysed, the profile uses whatever is analysed.
     const inClass = ag.filter((a) => a.game.timeClass === timeClass);
-    const timed = timeClass === 'daily' ? ag : ag.filter((a) => a.game.timeClass !== 'daily');
-    const used = inClass.length >= MIN_PROFILE_GAMES ? inClass : timed.length >= MIN_PROFILE_GAMES ? timed : ag;
+    const used = inClass.length >= MIN_PROFILE_GAMES ? inClass : ag;
     const rating = currentRating(games, timeClass);
     const profile = skillProfile(used);
     return { timeClass, rating, ag: used, profile, ranked: rankAreas(profile, timeClass, rating), ready: used.length >= MIN_PROFILE_GAMES };

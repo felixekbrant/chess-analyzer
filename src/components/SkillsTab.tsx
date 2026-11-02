@@ -40,12 +40,17 @@ export function SkillsTab({ data }: { data: SkillsData }) {
     <div className="space-y-4">
       <Section>
         <p className="text-sm">
-          Every inaccuracy or worse in your last {profile.games} {timeClass} games is counted in one area. Together you lose{' '}
-          <b>{profile.total.toFixed(0)}%</b> win chance per game (this can add up to more than 100%, since chances swing back and forth in a game).
+          Each mistake in your last {profile.games} {timeClass} games is counted in one area, by how much winning chance it cost you.
           {ranked.some((r) => r.typical !== undefined) && rating
-            ? ` The grey bars show what players rated about ${Math.round(rating / 100) * 100} typically lose, and "plays like" is the rating whose typical loss matches yours (an estimate).`
+            ? ` The grey bar is what players rated about ${Math.round(rating / 100) * 100} typically lose.`
             : ''}
         </p>
+        {ranked.some((r) => r.level) && (
+          <p className="muted text-xs mt-2">
+            "Plays like" is an estimate that starts from your rating and only moves away from it when your games clearly show it. It's hidden
+            where {profile.games} games aren't enough to tell, and for areas where strong and weak players lose about the same.
+          </p>
+        )}
       </Section>
       <div className="grid lg:grid-cols-2 gap-3">
         {/* Daily games have no clock pressure to speak of. */}
@@ -61,11 +66,11 @@ export function SkillsTab({ data }: { data: SkillsData }) {
                   {focus === area && <span className="chip">focus</span>}
                   <TrendChip trend={s.trend} />
                   <span className="ml-auto flex items-center gap-2">
-                    {r.level !== undefined && <span className="muted text-xs whitespace-nowrap">plays like {levelLabel(r.level)}</span>}
+                    {r.level !== undefined && <span className="muted text-xs whitespace-nowrap">plays like {levelLabel(r.level.level)}</span>}
                     <Sparkline values={s.series} />
                   </span>
                 </div>
-                <CostBars cost={r.cost} typical={r.typical} max={max} />
+                <CostBars cost={r.cost} typical={r.typical} max={max} verdict={r.verdict} />
               </button>
               {isOpen && (
                 <div className="mt-3 text-sm space-y-2">
@@ -73,6 +78,11 @@ export function SkillsTab({ data }: { data: SkillsData }) {
                   <p>
                     <Comparison r={r} rating={rating} timeClass={timeClass} /> {s.share >= 1 ? `That's ${s.share.toFixed(0)}% of everything you lose.` : ''}
                   </p>
+                  {r.level && (
+                    <p className="muted text-xs">
+                      Plays like {levelLabel(r.level.level)}: likely between {r.level.low} and {r.level.high}, based on {profile.games} games.
+                    </p>
+                  )}
                   <p>💡 {SKILL_META[area].tip}</p>
                   <div className="flex flex-wrap gap-2 items-center">
                     {area !== 'time' && (
