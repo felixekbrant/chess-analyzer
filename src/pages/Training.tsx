@@ -443,7 +443,8 @@ function PuzzleView({
     if (engine) return setEngine(null);
     if (!done) setPeeked(true);
     setLineView(null);
-    setEngine({ base: fenRef.current, moves: [] });
+    // Always from the puzzle's starting position, so any move can be tried there, including your game move.
+    setEngine({ base: puzzle.fen, moves: [] });
   };
   const onEngineMove = (uci: string): boolean => {
     if (!engine || !engineFen) return false;
@@ -569,6 +570,25 @@ function PuzzleView({
         {engine && settings.showSuggestions && (
           <div className="panel p-3">
             <EngineLines result={live.settled ? live.result : null} fen={engineFen!} onPlayLine={onEngineMove} />
+          </div>
+        )}
+        {engine && (
+          <div className="flex flex-wrap gap-2">
+            {puzzle.playedUci && (
+              <button className="btn !py-1.5 !text-sm" onClick={() => setEngine({ ...engine, moves: [puzzle.playedUci] })}>
+                <ClassificationBadge c={puzzle.classification} size={14} /> Your move {puzzle.playedSan}
+              </button>
+            )}
+            {puzzle.solutionUci[0] && (
+              <button className="btn !py-1.5 !text-sm" onClick={() => setEngine({ ...engine, moves: [puzzle.solutionUci[0]] })}>
+                <Icon name="star" size={14} /> Best move
+              </button>
+            )}
+            {engine.moves.length > 0 && (
+              <button className="btn !py-1.5 !text-sm" onClick={() => setEngine({ ...engine, moves: [] })}>
+                <Icon name="first" size={14} /> Start
+              </button>
+            )}
           </div>
         )}
         <div className="flex gap-2">

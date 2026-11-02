@@ -326,6 +326,11 @@ test('engine controls: open the engine and toggle eval bar and suggestions in re
   await pc.getByRole('button', { name: 'Suggestions' }).click();
   await pc.getByRole('button', { name: 'Engine' }).click();
   await expect(page.getByText(/Stockfish 19 lite · depth \d+/).filter({ visible: true })).toBeVisible();
+  // The engine starts at the puzzle position; your game move can be played there and taken back.
+  await page.getByRole('button', { name: /Your move / }).click();
+  await expect(page.getByRole('button', { name: 'Start' })).toBeVisible();
+  await page.getByRole('button', { name: 'Start' }).click();
+  await expect(page.getByRole('button', { name: 'Start' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Back to puzzle' }).click();
   await expect(page.getByRole('button', { name: /Solution/ })).toBeVisible();
 });
