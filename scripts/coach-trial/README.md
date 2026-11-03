@@ -19,7 +19,8 @@ npm run build
 COACH_USER=<chess.com name> COACH_MONTHS=1 COACH_GAMES=25 npx playwright test --project=coach-trial
 
 # 2. Ask the questions (paced to stay under the free per-minute limit; resumable).
-npx vitest run --config scripts/coach-trial/vitest.config.ts
+# (NODE_USE_ENV_PROXY=1: Node's fetch then goes through the environment's proxy, which adds the key.)
+NODE_USE_ENV_PROXY=1 npx vitest run --config scripts/coach-trial/vitest.config.ts
 ```
 
 Output in `scripts/coach-trial/data/` (git-ignored: personal data and raw answers):
