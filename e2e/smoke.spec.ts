@@ -194,7 +194,14 @@ test('training: solve a puzzle, reveal the next and see the full line', async ({
   if (await full.isVisible()) {
     await full.click();
     await expect(page.getByText(/^The full line after/)).toBeVisible();
-    await page.getByRole('button', { name: 'Close the line' }).click();
+    // The arrow keys step through the line (desktop), Esc closes it.
+    const first = await boardPlacement(page, 'puzzle');
+    await page.keyboard.press('ArrowLeft');
+    await expect.poll(() => boardPlacement(page, 'puzzle')).not.toBe(first);
+    await page.keyboard.press('ArrowRight');
+    await expect.poll(() => boardPlacement(page, 'puzzle')).toBe(first);
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('button', { name: 'Close the line' })).toHaveCount(0);
   }
   // A revealed puzzle counts as missed once you move on.
   await page.getByRole('button', { name: /Next puzzle/ }).click();
