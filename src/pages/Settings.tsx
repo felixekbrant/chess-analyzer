@@ -176,7 +176,7 @@ export default function SettingsPage() {
           <Segmented
             label="Daily plan" value={settings.sessionMinutes} options={[[10, '10 min'], [15, '15 min'], [25, '25 min']]} onChange={(m) => saveSettings({ sessionMinutes: m })} />
         </Row>
-        {switchRow('Next puzzle after a clean solve', settings.autoNextPuzzle, (v) => void saveSettings({ autoNextPuzzle: v }))}
+        {switchRow('Move on after a correct answer', settings.autoNextPuzzle, (v) => void saveSettings({ autoNextPuzzle: v }))}
       </Group>
 
       <Group title="Board">

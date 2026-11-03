@@ -45,7 +45,8 @@ export const MiniBoard = memo(function MiniBoard({
       aria-label={`Chess position ${fen}`}
     >
       {ordered.map(({ sq, piece }) => {
-        const light = (FILES.indexOf(sq[0]) + Number(sq[1])) % 2 === 1;
+        // a1 is dark: light squares are where file index + rank is even.
+        const light = (FILES.indexOf(sq[0]) + Number(sq[1])) % 2 === 0;
         const hl = highlight.includes(sq);
         return (
           <div key={sq} className="aspect-square" style={{ background: hl ? (light ? '#f5f682' : '#b9ca43') : light ? theme.light : theme.dark }}>

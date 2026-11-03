@@ -77,30 +77,50 @@ function BoardImpl({ fen, orientation = 'white', arrows = [], lastMove, badge, m
       setSelected(null);
       return;
     }
+    // Tapping the selected piece again puts it down; tapping another of your pieces switches to it.
+    if (square === selected) return setSelected(null);
     const p = new Chess(fen).get(square as Square);
     setSelected(p && p.color === fen.split(' ')[1] ? square : null);
   }
 
+  // Which target squares hold a piece (captures get a ring instead of a dot).
+  const occupied = useMemo(() => {
+    if (!targets.length) return new Set<string>();
+    const c = new Chess(fen);
+    return new Set(targets.filter((t) => !!c.get(t as Square)));
+  }, [fen, targets]);
+
   const squareStyles = useMemo(() => {
     const s: Record<string, React.CSSProperties> = {};
-    const tint = badge ? CLASS_META[badge.classification].color : '#f6f669';
+    // Highlights are solid colours mixed into each square's own colour (like chess.com), not a
+    // see-through layer, which turned muddy over the page behind the board.
+    const base = (sq: string) => (isLightSquare(sq) ? theme.light : theme.dark);
+    const tint = (sq: string, color: string, amount: number) => ({ backgroundColor: mix(base(sq), color, amount) });
+    const moveTint = badge ? CLASS_META[badge.classification].color : '#ffff33';
     if (lastMove) {
-      s[lastMove.from] = { backgroundColor: hexAlpha(tint, 0.45) };
-      s[lastMove.to] = { backgroundColor: hexAlpha(tint, 0.55) };
+      s[lastMove.from] = tint(lastMove.from, moveTint, 0.42);
+      s[lastMove.to] = tint(lastMove.to, moveTint, 0.5);
     }
     // Only longhand properties, so the legal-move dots (backgroundImage) can be layered on top.
     // Hints: a strong fill plus a ring, so the square stands out on every board theme.
     for (const [sq, color] of Object.entries(highlight ?? {})) s[sq] = { ...s[sq], backgroundColor: color, boxShadow: 'inset 0 0 0 4px rgba(255,255,255,0.75)' };
-    if (selected) s[selected] = { backgroundColor: 'rgba(255, 255, 80, 0.5)' };
+    if (selected) s[selected] = { ...tint(selected, '#ffff33', 0.5), transition: 'background-color 120ms ease-out' };
+    // Where the selected piece can go: a soft dot on empty squares, a ring around pieces it can take.
     for (const t of targets)
-      s[t] = { ...s[t], backgroundImage: 'radial-gradient(circle, rgba(0,0,0,.22) 22%, transparent 24%)' };
+      s[t] = {
+        ...s[t],
+        backgroundImage: occupied.has(t)
+          ? 'radial-gradient(circle, transparent 79%, rgba(0,0,0,.16) 80%)'
+          : 'radial-gradient(circle, rgba(0,0,0,.16) 26%, transparent 27%)',
+        cursor: 'pointer',
+      };
     // Rounded board corners: round the four corner squares (badges may hang over the edge, so the
     // board itself can't clip its contents).
     const corners = orientation === 'white' ? ['a8', 'h8', 'a1', 'h1'] : ['h1', 'a1', 'h8', 'a8'];
     const radius = ['borderTopLeftRadius', 'borderTopRightRadius', 'borderBottomLeftRadius', 'borderBottomRightRadius'] as const;
     corners.forEach((sq, i) => (s[sq] = { ...s[sq], [radius[i]]: BOARD_RADIUS }));
     return s;
-  }, [lastMove, badge, highlight, selected, targets, orientation]);
+  }, [lastMove, badge, highlight, selected, targets, occupied, orientation, theme]);
   const pieces = useMemo(() => pieceRenderers(settings.pieceSet ?? 'classic'), [settings.pieceSet]);
 
   const overlay = badge || marker;
@@ -113,7 +133,8 @@ function BoardImpl({ fen, orientation = 'white', arrows = [], lastMove, badge, m
     allowDragging: canMove,
     allowDrawingArrows: true,
     clearArrowsOnPositionChange: true,
-    animationDurationInMs: 200,
+    // Moves glide with an ease-out curve (see [data-piece] in index.css).
+    animationDurationInMs: 220,
     showNotation: settings.showCoordinates,
     pieces,
     boardStyle: { borderRadius: BOARD_RADIUS, boxShadow: '0 0 0 3px var(--board-frame), 0 10px 24px rgba(0,0,0,.28)' },
@@ -126,6 +147,17 @@ function BoardImpl({ fen, orientation = 'white', arrows = [], lastMove, badge, m
     darkSquareStyle: { backgroundColor: theme.dark },
     lightSquareStyle: { backgroundColor: theme.light },
     onSquareClick: ({ square }) => onSquareClick(square),
+    // Picking a piece up shows where it can go, as tapping it does.
+    onPieceDrag: ({ square }) => {
+      if (!onMove || !square) return;
+      const p = new Chess(fen).get(square as Square);
+      if (p && p.color === fen.split(' ')[1]) setSelected(square);
+    },
+    onPieceDragCancel: () => setSelected(null),
+    // A lifted piece: slightly bigger with a soft shadow; the square it left keeps a faint copy.
+    draggingPieceStyle: { transform: 'scale(1.12)', filter: 'drop-shadow(0 6px 8px rgba(0,0,0,.35))' },
+    draggingPieceGhostStyle: { opacity: 0.3 },
+    dropSquareStyle: { boxShadow: 'inset 0 0 0 4px rgba(255,255,255,.7)' },
     onPieceDrop: ({ sourceSquare, targetSquare, piece }) => {
       if (!onMove || !targetSquare) return false;
       const isPawn = piece.pieceType[1] === 'P';
@@ -185,7 +217,13 @@ export const Board = memo(
     same(a.highlight, b.highlight),
 );
 
-function hexAlpha(hex: string, a: number) {
-  const n = parseInt(hex.slice(1), 16);
-  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+const FILES = 'abcdefgh';
+/** a1 is dark; light squares are where file index + rank is even. */
+const isLightSquare = (sq: string) => (FILES.indexOf(sq[0]) + Number(sq[1])) % 2 === 0;
+
+/** `a` mixed with `b` (both #rrggbb) by `t` (0 = a, 1 = b), as a solid colour. */
+function mix(a: string, b: string, t: number) {
+  const p = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  const [x, y] = [p(a), p(b)];
+  return `rgb(${x.map((v, i) => Math.round(v + (y[i] - v) * t)).join(', ')})`;
 }

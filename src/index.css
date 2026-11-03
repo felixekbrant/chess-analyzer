@@ -110,6 +110,13 @@
 
 }
 
+/* Pieces glide with an ease-out curve instead of the board library's default; this beats its inline
+   transition timing. */
+[data-piece] {
+  transition-timing-function: cubic-bezier(0.22, 0.9, 0.32, 1) !important;
+  will-change: transform;
+}
+
 /* Component classes live in a layer, so Tailwind utilities on the same element (md:hidden, border-l-4, …) win. */
 @layer components {
 /* Cards: flat surfaces, no outlines (a border is only drawn when a component asks for a colour). */

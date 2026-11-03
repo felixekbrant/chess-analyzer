@@ -299,14 +299,15 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
     return true;
   });
 
-  // After a correct retry in "retry all" mode, move on by itself.
+  // After a correct retry in "retry all" mode, move on by itself, but only if that's switched on
+  // (the same setting as puzzles); otherwise "Next mistake" waits for you.
   useEffect(() => {
-    if (!retry?.sequence || retry.state !== 'right') return;
+    if (!settings.autoNextPuzzle || !retry?.sequence || retry.state !== 'right') return;
     const i = mistakes.indexOf(retry.move);
     if (i < 0 || i >= mistakes.length - 1) return;
     const t = setTimeout(() => startRetry(mistakes[i + 1], true), 1200);
     return () => clearTimeout(t);
-  }, [retry?.state, retry?.move]);
+  }, [retry?.state, retry?.move, settings.autoNextPuzzle]);
 
   // ----- Keyboard -----
   const onKey = useStableCallback((e: KeyboardEvent) => {
