@@ -668,9 +668,10 @@ test('puzzles: a wrong move shows in red for a moment, then goes back by itself'
   await clickSquare(page, current.playedUci!.slice(2, 4));
   const cross = page.locator('[id="puzzle-board"]').getByText('✗');
   await expect(cross).toBeVisible();
-  await expect(page.getByText("That's the move you played in the game", { exact: false }).first()).toBeVisible();
+  // The try is on the board for a moment (after its slide-in animation).
+  await expect.poll(() => boardPlacement(page, 'puzzle'), { intervals: [50], timeout: 1500 }).not.toBe(placement);
   if (process.env.E2E_SHOTS) await page.screenshot({ path: `${process.env.E2E_SHOTS}/puzzle-wrong.png` });
-  expect(await boardPlacement(page, 'puzzle')).not.toBe(placement);
+  await expect(page.getByText("That's the move you played in the game", { exact: false }).first()).toBeVisible();
   // …then taken back: the puzzle position again, nothing left on the board, and you can try again.
   await expect(cross).toHaveCount(0, { timeout: 3000 });
   await expect.poll(() => boardPlacement(page, 'puzzle')).toBe(placement);
