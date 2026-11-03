@@ -48,7 +48,19 @@ test('collect games for the coach trial', async ({ page }) => {
     )
     .toBe(true);
   console.log(`${total} games imported`);
-  await expect.poll(() => count('analyses'), { timeout: 55 * 60_000, intervals: [10_000] }).toBeGreaterThanOrEqual(Math.min(total, enough));
+  const progress = fileURLToPath(new URL('../scripts/coach-trial/data/progress.txt', import.meta.url));
+  mkdirSync(fileURLToPath(new URL('../scripts/coach-trial/data/', import.meta.url)), { recursive: true });
+  await expect
+    .poll(
+      async () => {
+        const n = await count('analyses');
+        writeFileSync(progress, `${new Date().toISOString()} ${n}/${Math.min(total, enough)} analysed of ${total} games\n`, { flag: 'a' });
+        await page.screenshot({ path: progress.replace('progress.txt', 'progress.png') });
+        return n;
+      },
+      { timeout: 55 * 60_000, intervals: [15_000] },
+    )
+    .toBeGreaterThanOrEqual(Math.min(total, enough));
 
   const download = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export backup' }).click();
