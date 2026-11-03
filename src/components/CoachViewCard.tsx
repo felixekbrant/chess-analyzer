@@ -4,7 +4,8 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { Section } from './ui';
 import { Icon } from './Icon';
 import { useCoachKey } from '../lib/coach/key';
-import { canRefresh, savedCoachView, writeCoachView } from '../lib/coach/view';
+import { COACH_VIEW, canRefresh, savedText, writeSaved } from '../lib/coach/view';
+import { PROFILE_PROMPT, profileFacts } from '../lib/coach/profile';
 import { timeAgo } from '../lib/format';
 import type { AnalyzedGame } from '../lib/insights/compute';
 import type { GameSummary } from '../lib/insights/summary';
@@ -17,7 +18,7 @@ import type { StoredGame } from '../lib/types';
  */
 export function CoachViewCard({ games, summaries, ag, basis }: { games: StoredGame[]; summaries: Map<string, GameSummary>; ag: AnalyzedGame[]; basis: string }) {
   const key = useCoachKey();
-  const saved = useLiveQuery(savedCoachView, []);
+  const saved = useLiveQuery(() => savedText(COACH_VIEW), []);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   // The last one stays readable after new games; a new one can then be written straight away.
@@ -28,7 +29,7 @@ export function CoachViewCard({ games, summaries, ag, basis }: { games: StoredGa
     setBusy(true);
     setError(undefined);
     try {
-      await writeCoachView(key, basis, games, summaries, ag);
+      await writeSaved(COACH_VIEW, key, basis, profileFacts(games, summaries, ag), PROFILE_PROMPT);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -78,7 +79,7 @@ export function CoachViewCard({ games, summaries, ag, basis }: { games: StoredGa
 }
 
 /** The model's text: paragraphs and "- " lists, with **bold** markers dropped. */
-function CoachText({ text }: { text: string }) {
+export function CoachText({ text }: { text: string }) {
   const blocks: ReactNode[] = [];
   let list: string[] = [];
   const flush = () => {

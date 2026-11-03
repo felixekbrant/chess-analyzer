@@ -4,7 +4,7 @@ import { defineConfig } from 'vitest/config';
 // TypeScript directly. Not part of `npm test`.
 export default defineConfig({
   test: {
-    include: ['scripts/coach-trial/trial.run.ts'],
+    include: [process.env.COACH_WEEKLY ? 'scripts/coach-trial/weekly.run.ts' : 'scripts/coach-trial/trial.run.ts'],
     environment: 'node',
     testTimeout: 24 * 60 * 60_000,
     reporters: ['verbose'],

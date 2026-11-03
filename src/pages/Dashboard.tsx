@@ -9,6 +9,7 @@ import { coachReport } from '../lib/insights/coach';
 import { CoachReport } from '../components/CoachReport';
 import { FocusCard, TodayCard } from '../components/Coaching';
 import { MIN_PROFILE_GAMES, useSkills } from '../hooks/useSkills';
+import { WeeklyNoteCard } from '../components/WeeklyNoteCard';
 // Charts (recharts) are loaded after the rest of the dashboard so first paint isn't blocked by them.
 const LineTrend = lazy(() => import('../components/charts').then((m) => ({ default: m.LineTrend })));
 import { GameCardList } from '../components/GameTable';
@@ -52,6 +53,7 @@ export default function Dashboard() {
       <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-4 items-start">
         <div className="space-y-3 min-w-0">
           <TodayCard games={games} focus={skills.ready ? skills.focus.current?.area : undefined} minutes={settings.sessionMinutes} />
+          <WeeklyNoteCard games={games} ag={ag} focus={skills.ready ? skills.focus.current?.area : undefined} />
           {skills.ready && skills.focus.current ? (
             <FocusCard store={skills.focus} ranked={skills.ranked} ag={skills.ag} rating={skills.rating} timeClass={skills.timeClass} />
           ) : (

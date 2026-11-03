@@ -1,5 +1,6 @@
-import { test as base, expect, type Page } from '@playwright/test';
+import { test as base, expect, type BrowserContext, type Page } from '@playwright/test';
 import { SEED_FILE, USERNAME, mockChessCom, openTab, pick, seed } from './helpers';
+import { readFileSync } from 'node:fs';
 
 // Click-through tests of the main flows at phone size. Every test starts with an empty browser;
 // most load e2e/fixtures/seed.json (29 analysed games) first. chess.com is answered from fixtures.
@@ -541,8 +542,8 @@ test('dragging pieces: own pieces only, centred under the pointer, snaps back fr
   await expect(page.getByText(/^✔ /)).toBeVisible();
 });
 
-test("AI coach: a Groq key in Settings turns on Coach's view, which is saved", async ({ page, context }) => {
-  // Groq answered by a fake: the key is checked, and the coach writes from the statistics only.
+/** Answers Groq with a fake: only the key "gsk_test" works; every chat request is kept in `asked`. */
+async function fakeGroq(context: BrowserContext, content: string) {
   const asked: string[] = [];
   await context.route('https://api.groq.com/**', async (route) => {
     const req = route.request();
@@ -554,9 +555,15 @@ test("AI coach: a Groq key in Settings turns on Coach's view, which is saved", a
       status: 200,
       contentType: 'application/json',
       headers: { 'access-control-allow-origin': '*' },
-      body: JSON.stringify({ choices: [{ message: { content: 'You score well.\n- **Time management**: keep half your clock by move 20.' } }], usage: { prompt_tokens: 900, completion_tokens: 60 } }),
+      body: JSON.stringify({ choices: [{ message: { content } }], usage: { prompt_tokens: 900, completion_tokens: 60 } }),
     });
   });
+  return asked;
+}
+
+test("AI coach: a Groq key in Settings turns on Coach's view, which is saved", async ({ page, context }) => {
+  // Groq answered by a fake: the key is checked, and the coach writes from the statistics only.
+  const asked = await fakeGroq(context, 'You score well.\n- **Time management**: keep half your clock by move 20.');
   await seed(page);
   await openTab(page, 'Insights');
   await expect(page.getByText('It needs a free Groq key')).toBeVisible();
@@ -584,5 +591,29 @@ test("AI coach: a Groq key in Settings turns on Coach's view, which is saved", a
   await page.reload();
   await expect(page.getByText('keep half your clock by move 20.')).toBeVisible();
   await expect(page.getByRole('button', { name: /Write/ })).toHaveCount(0);
+  expect(asked).toHaveLength(1);
+});
+
+test('AI coach: a weekly note on Home, written once a week', async ({ page, context }) => {
+  // "Now" is just after a game with two more in the 7 days before it.
+  const ends = (JSON.parse(readFileSync(SEED_FILE, 'utf8')).games as { endTime: number }[]).map((g) => g.endTime).sort((x, y) => y - x);
+  const j = ends.findIndex((t, i) => i + 2 < ends.length && t - ends[i + 2] < 6 * 86_400_000);
+  expect(j, 'three seed games within a week').toBeGreaterThanOrEqual(0);
+  await page.clock.setFixedTime(ends[j] + 3_600_000);
+  const asked = await fakeGroq(context, 'A busy week: your score went up. Watch the clock in the middlegame.');
+  await seed(page);
+  // Without a key there is no note.
+  await openTab(page, 'Home');
+  await expect(page.getByText('This week', { exact: true })).toHaveCount(0);
+
+  await page.evaluate(() => localStorage.setItem('coach-groq-key', 'gsk_test'));
+  await page.reload();
+  await expect(page.getByText('A busy week: your score went up.')).toBeVisible();
+  expect(asked).toHaveLength(1);
+  expect(asked[0]).toContain('thisWeek');
+  expect(asked[0]).not.toContain(USERNAME);
+  // Saved: opening Home again doesn't ask again.
+  await page.reload();
+  await expect(page.getByText('A busy week: your score went up.')).toBeVisible();
   expect(asked).toHaveLength(1);
 });
