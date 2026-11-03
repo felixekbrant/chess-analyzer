@@ -1,3 +1,4 @@
+import { formatPeak, isThrown } from '../lib/games/thrown';
 import { opponentElo, opponentName, userElo } from '../lib/games/build';
 import { analysisQueue } from '../lib/engine/queue';
 import { useQueueProgress } from '../hooks/useStores';
@@ -53,6 +54,7 @@ export function GameTable({
                   <TimeClassIcon tc={g.timeClass} />
                   <span className="font-semibold">{g.userColor ? opponentName(g) : `${g.white} – ${g.black}`}</span>
                   {opponentElo(g) && <span className="muted">({opponentElo(g)})</span>}
+                  <ThrownMark g={g} />
                 </div>
                 {compact && g.openingName && <div className="muted text-xs truncate max-w-64">{g.openingName}</div>}
               </td>
@@ -107,6 +109,16 @@ function AccuracyCell({ g }: { g: StoredGame }) {
   );
 }
 
+/** On games lost after being +3 or better: how far ahead you were. */
+export function ThrownMark({ g }: { g: StoredGame }) {
+  if (!isThrown(g)) return null;
+  return (
+    <span className="chip !text-[10px] !py-0 shrink-0 whitespace-nowrap" style={{ color: '#e5713f' }} title="Lost after being clearly winning">
+      was {formatPeak(g.peakEval!)}
+    </span>
+  );
+}
+
 /** Accuracy as a coloured pill (green = accurate, orange = rough game). */
 export function AccuracyPill({ value }: { value: number }) {
   const color = value >= 90 ? '#81b64c' : value >= 80 ? '#96bc4b' : value >= 70 ? '#f7c631' : '#ffa459';
@@ -144,6 +156,7 @@ export function GameCardList({ games, onOpen, grouped = true }: { games: StoredG
                     <div className="flex items-center gap-1.5">
                       <span className="font-bold truncate">{g.userColor ? opponentName(g) : `${g.white} – ${g.black}`}</span>
                       {opponentElo(g) && <span className="muted text-xs shrink-0 tabular-nums">({opponentElo(g)})</span>}
+                      <ThrownMark g={g} />
                     </div>
                     <div className="muted text-xs truncate flex items-center gap-1 mt-0.5">
                       <TimeClassIcon tc={g.timeClass} size={12} />

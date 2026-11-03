@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { isThrown } from '../lib/games/thrown';
 import { addGames, db } from '../db/schema';
 import { useGames, useSettings } from '../hooks/useStores';
 import { buildGameFromPgn, opponentName } from '../lib/games/build';
@@ -16,7 +17,9 @@ export default function Games() {
   const settings = useSettings();
   const navigate = useNavigate();
   const [timeClass, setTimeClass] = useState('all');
-  const [result, setResult] = useState('all');
+  // ?result=thrown (from Insights) opens the list filtered to games thrown from a winning position.
+  const [params] = useSearchParams();
+  const [result, setResult] = useState(() => params.get('result') ?? 'all');
   const [color, setColor] = useState('all');
   const [q, setQ] = useState('');
   const [limit, setLimit] = useState(50);
@@ -29,7 +32,7 @@ export default function Games() {
     return games.filter(
       (g) =>
         (timeClass === 'all' || g.timeClass === timeClass) &&
-        (result === 'all' || g.userResult === result) &&
+        (result === 'all' || (result === 'thrown' ? isThrown(g) : g.userResult === result)) &&
         (color === 'all' || g.userColor === color) &&
         (!needle || opponentName(g).toLowerCase().includes(needle) || (g.openingName ?? '').toLowerCase().includes(needle)),
     );
@@ -58,6 +61,7 @@ export default function Games() {
           { value: 'win', label: 'Wins' },
           { value: 'loss', label: 'Losses' },
           { value: 'draw', label: 'Draws' },
+          { value: 'thrown', label: 'Thrown games (lost from +3)' },
         ]}
       />
       <Picker

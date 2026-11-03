@@ -32,6 +32,8 @@ export interface StoredGame {
   /** The user's accuracy once analysed. */
   userAccuracy?: number;
   opponentAccuracy?: number;
+  /** Your biggest advantage during the game, in centipawns from your side (see games/thrown.ts). */
+  peakEval?: number;
   /** chess.com's own accuracy, present once someone has run Game Review on chess.com. */
   chesscomAccuracy?: { w: number; b: number };
   addedAt: number;

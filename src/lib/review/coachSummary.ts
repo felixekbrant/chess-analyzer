@@ -1,3 +1,4 @@
+import { THROWN_CP, formatPeak, peakAdvantage } from '../games/thrown';
 import type { Classification, Color, GameAnalysis, MoveAnalysis, Phase, StoredGame } from '../types';
 
 export type PhaseGrade = 'excellent' | 'good' | 'inaccurate' | 'poor';
@@ -93,7 +94,9 @@ export function coachSummary(game: StoredGame, analysis: GameAnalysis): CoachSum
   const result =
     game.userResult === 'win' ? 'Nice win!' : game.userResult === 'loss' ? 'A tough loss.' : game.userResult === 'draw' ? 'A hard-fought draw.' : '';
   let point = '';
-  if (inTimeTrouble >= 2) point = 'The clock cost you.';
+  const peak = game.userColor ? peakAdvantage(analysis, game.userColor) : undefined;
+  if (game.userResult === 'loss' && peak !== undefined && peak >= THROWN_CP) point = `You were ${formatPeak(peak)} and let it slip.`;
+  else if (inTimeTrouble >= 2) point = 'The clock cost you.';
   else if (!errors.length) point = 'No mistakes at all.';
   else if (graded.length >= 2) {
     const byAcc = [...graded].sort((a, b) => analysis.phaseAccuracy[me][b]! - analysis.phaseAccuracy[me][a]!);

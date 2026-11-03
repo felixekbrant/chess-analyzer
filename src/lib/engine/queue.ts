@@ -1,3 +1,4 @@
+import { peakAdvantage } from '../games/thrown';
 import { db, getSettings, saveSettings } from '../../db/schema';
 import { buildAnalysis } from '../analysis/analyzeGame';
 import { legalMoveCount, terminalScore } from '../analysis/board';
@@ -276,6 +277,7 @@ class AnalysisQueue {
         analysisDepth: depth,
         userAccuracy: analysis.accuracy[userColor],
         opponentAccuracy: analysis.accuracy[userColor === 'w' ? 'b' : 'w'],
+        peakEval: game.userColor ? peakAdvantage(analysis, game.userColor) : undefined,
       });
       if (game.userColor) await upsertPuzzlesFromAnalysis(game, analysis);
     });

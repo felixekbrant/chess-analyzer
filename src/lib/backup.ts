@@ -1,4 +1,4 @@
-import { ANALYSIS_MODEL_KEY, upgradeStoredAnalyses } from './analysis/upgrade';
+import { ANALYSIS_MODEL_KEY, backfillPeakEval, upgradeStoredAnalyses } from './analysis/upgrade';
 import { db, withoutPgn } from '../db/schema';
 import { buildSummary } from './insights/summary';
 import type { GameAnalysis, NewGame, StoredGame } from './types';
@@ -51,7 +51,7 @@ export async function importBackup(file: File): Promise<number> {
     // The backup may hold analyses from an older model: check them all again.
     await db.kv.delete(ANALYSIS_MODEL_KEY);
   });
-  void upgradeStoredAnalyses();
+  void upgradeStoredAnalyses().then(() => backfillPeakEval());
   return data.games.length;
 }
 

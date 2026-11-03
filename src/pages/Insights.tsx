@@ -1,6 +1,6 @@
 import { Icon } from '../components/Icon';
 import { opponentName } from '../lib/games/build';
-import { relativeDay } from '../lib/format';
+import { formatPeak, isThrown } from '../lib/games/thrown';
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useInsightData, DEFAULT_FILTERS, type InsightFilters } from '../hooks/useInsightData';
@@ -43,6 +43,9 @@ export default function Insights() {
     setParams(t === 'skills' ? {} : { tab: t }, { replace: true });
     window.scrollTo({ top: 0 });
   };
+
+  // Lost after being +3 or better, newest first.
+  const thrown = useMemo(() => games.filter(isThrown), [games]);
 
   const data = useMemo(() => {
     const tr = trend(games, summaries);
@@ -299,18 +302,20 @@ export default function Insights() {
                     {data.conv.saved} / {data.conv.hadLosing} <span className="text-sm muted">({fmtPct(data.conv.saveRate)})</span>
                   </div>
                 </div>
-                {data.conv.thrownGameIds.length > 0 && (
+                {thrown.length > 0 && (
                   <div>
-                    <div className="muted text-xs mb-1">Winning games you didn't win</div>
+                    <div className="flex items-baseline justify-between gap-2 mb-1">
+                      <span className="muted text-xs">Thrown games · lost from +3 or better</span>
+                      <Link className="text-xs underline muted shrink-0" to="/games?result=thrown">
+                        All {thrown.length}
+                      </Link>
+                    </div>
                     <div className="flex flex-wrap gap-1">
-                      {data.conv.thrownGameIds.slice(0, 10).map((id) => {
-                        const g = games.find((x) => x.id === id);
-                        return (
-                          <Link key={id} className="chip hover:underline" to={`/game/${encodeURIComponent(id)}`}>
-                            {g ? `${opponentName(g)} · ${relativeDay(g.endTime)}` : 'Game'}
-                          </Link>
-                        );
-                      })}
+                      {thrown.slice(0, 6).map((g) => (
+                        <Link key={g.id} className="chip !py-1 !px-2.5 hover:brightness-110" to={`/game/${encodeURIComponent(g.id)}`}>
+                          {opponentName(g)} <span style={{ color: '#e5713f' }}>was {formatPeak(g.peakEval!)}</span>
+                        </Link>
+                      ))}
                     </div>
                   </div>
                 )}

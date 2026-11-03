@@ -1,3 +1,4 @@
+import { isThrown } from '../lib/games/thrown';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -50,6 +51,7 @@ export default function Training() {
   const phase = params.get('phase') as Phase | null;
   const opening = params.get('opening');
   const repeated = params.get('repeated') === '1';
+  const thrownOnly = params.get('thrown') === '1';
   const area = params.get('area') as SkillArea | null;
   const inSession = params.get('session') === 'today';
   const [practiceAll, setPracticeAll] = useState(false);
@@ -59,6 +61,8 @@ export default function Training() {
   const settings = useSettings();
 
   const puzzles = useLiveQuery(() => db.puzzles.toArray(), []);
+  // Games lost after being +3 or better: their mistakes can be drilled on their own.
+  const thrownIds = useLiveQuery(async () => new Set(await db.games.filter(isThrown).primaryKeys()), []);
   // Lichess puzzles that top up the focus drill (added from Home's Today plan).
   const ext = useLiveQuery(() => db.extPuzzles.toArray(), []);
   const now = Date.now();
@@ -72,9 +76,10 @@ export default function Training() {
           (!phase || p.phase === phase) &&
           (!opening || (p.opening ?? '').startsWith(opening)) &&
           (!repeated || p.occurrences >= 2) &&
+          (!thrownOnly || p.gameIds.some((id) => thrownIds?.has(id))) &&
           (!area || puzzleArea(p) === area),
       ),
-    [puzzles, motif, phase, opening, repeated, area],
+    [puzzles, motif, phase, opening, repeated, area, thrownOnly, thrownIds],
   );
   const due = filtered.filter((p) => p.due <= now);
   const queue = useMemo(() => {
@@ -99,7 +104,20 @@ export default function Training() {
   // In today's session the counter shows progress through the current part of the plan.
   const inDuePart = sess.stage === 'due' && !!current && !current.lichess && current.due <= now;
   const sessionPart = inDuePart ? { done: sess.progress.puzzles, target: sess.targets.puzzles } : { done: sess.progress.drill, target: sess.targets.drill };
-  const focusLabel = area ? SKILL_META[area].label : motif ? MOTIF_LABEL[motif] : phase ? phase[0].toUpperCase() + phase.slice(1) : opening ? opening : repeated ? 'Repeated mistakes' : 'All puzzles';
+  const focusLabel = area
+    ? SKILL_META[area].label
+    : motif
+      ? MOTIF_LABEL[motif]
+      : phase
+        ? phase[0].toUpperCase() + phase.slice(1)
+        : opening
+          ? opening
+          : repeated
+            ? 'Repeated mistakes'
+            : thrownOnly
+              ? 'Thrown games'
+              : 'All puzzles';
+  const thrownCount = useMemo(() => (puzzles ?? []).filter((p) => p.gameIds.some((id) => thrownIds?.has(id))).length, [puzzles, thrownIds]);
 
   const motifCounts = useMemo(() => {
     const m = new Map<Motif, number>();
@@ -168,7 +186,10 @@ export default function Training() {
       </div>
       <Sheet open={focusOpen} onClose={() => setFocusOpen(false)} title="What to practise">
         <div className="grid gap-1">
-          <FocusItem active={!motif && !phase && !opening && !repeated && !area} onClick={() => setFocus({})} label="All puzzles" count={puzzles?.length} />
+          <FocusItem active={!motif && !phase && !opening && !repeated && !area && !thrownOnly} onClick={() => setFocus({})} label="All puzzles" count={puzzles?.length} />
+          {thrownCount > 0 && (
+            <FocusItem active={thrownOnly} onClick={() => setFocus({ thrown: '1' })} label="Thrown games" sub="Lost from +3 or better" count={thrownCount} />
+          )}
           {!!puzzles?.some((p) => p.occurrences >= 2) && (
             <FocusItem active={repeated} onClick={() => setFocus({ repeated: '1' })} label="Repeated mistakes" count={puzzles.filter((p) => p.occurrences >= 2).length} />
           )}

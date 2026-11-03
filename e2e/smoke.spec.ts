@@ -371,3 +371,29 @@ test('backup: export is compressed and restores into an empty app', async ({ pag
   await expect(p2.locator('[data-game-id]')).not.toHaveCount(0);
   await fresh.close();
 });
+
+test('thrown games: lost from +3 or better, as a filter, in Insights and as puzzles', async ({ page }) => {
+  await seed(page);
+  // The biggest advantage is filled in for restored games in the background.
+  await page.goto('./#/games');
+  await expect(page.getByText(/^was \+\d+\.\d$/).filter({ visible: true })).toHaveCount(2, { timeout: 30_000 });
+
+  await pick(page, 'Result', 'Thrown games (lost from +3)');
+  await expect(page.locator('[data-game-id]')).toHaveCount(2);
+  await expect(page.getByText('was +7.5').filter({ visible: true })).toBeVisible();
+
+  await page.goto('./#/insights?tab=results');
+  await expect(page.getByText('Thrown games · lost from +3 or better')).toBeVisible();
+  await page.getByRole('link', { name: 'All 2' }).click();
+  await expect(page.locator('[data-game-id]')).toHaveCount(2);
+
+  // Their review says what happened.
+  await page.locator('[data-game-id]').first().click();
+  await expect(page.getByText(/You were \+\d+\.\d and let it slip\./)).toBeVisible();
+
+  await page.goto('./#/training');
+  await page.getByRole('button', { name: /All puzzles/ }).click();
+  await page.getByRole('dialog').getByRole('button', { name: /Thrown games/ }).click();
+  await expect(page.getByRole('button', { name: /Thrown games/ })).toBeVisible();
+  await expect(page.getByText(/to move$/)).toBeVisible();
+});

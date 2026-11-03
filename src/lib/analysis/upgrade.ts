@@ -4,6 +4,7 @@ import { ensureOpenings } from '../openings/eco';
 import { parsePgn } from '../pgn/parse';
 import { upsertPuzzlesFromAnalysis } from '../training/puzzles';
 import { ANALYSIS_MODEL, rebuildAnalysis } from './analyzeGame';
+import { peakAdvantage } from '../games/thrown';
 
 /** kv key holding the ANALYSIS_MODEL every stored analysis has been upgraded to. */
 export const ANALYSIS_MODEL_KEY = 'analysisModel';
@@ -46,6 +47,7 @@ async function run(): Promise<number> {
       await db.games.update(game.id, {
         userAccuracy: next.accuracy[userColor],
         opponentAccuracy: next.accuracy[userColor === 'w' ? 'b' : 'w'],
+        peakEval: game.userColor ? peakAdvantage(next, game.userColor) : undefined,
       });
       if (game.userColor) await upsertPuzzlesFromAnalysis(game, next);
     });
@@ -55,4 +57,24 @@ async function run(): Promise<number> {
   }
   await db.kv.put({ key: ANALYSIS_MODEL_KEY, value: ANALYSIS_MODEL });
   return upgraded;
+}
+
+/**
+ * Fills in each analysed game's biggest advantage (for "thrown" games) where it isn't stored yet:
+ * games analysed before it existed. Only touches games that are missing it, so it's cheap to call
+ * on every start.
+ */
+export async function backfillPeakEval(): Promise<number> {
+  const games = await db.games.filter((g) => g.analysisStatus === 'done' && !!g.userColor && g.peakEval === undefined).toArray();
+  let n = 0;
+  for (const g of games) {
+    const a = await db.analyses.get(g.id);
+    if (!a || !g.userColor) continue;
+    const peak = peakAdvantage(a, g.userColor);
+    if (peak === undefined) continue;
+    await db.games.update(g.id, { peakEval: peak });
+    n++;
+    if (n % 20 === 0) await new Promise((r) => setTimeout(r, 0));
+  }
+  return n;
 }
