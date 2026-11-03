@@ -38,6 +38,8 @@ const SETUPS: Setup[] = [
   { id: 'oss-facts', label: 'gpt-oss-120b, facts + tools', model: 'openai/gpt-oss-120b', extra: { reasoning_effort: 'low' }, take: (x) => x },
   { id: 'oss-bare', label: 'gpt-oss-120b, no facts or tools', model: 'openai/gpt-oss-120b', extra: { reasoning_effort: 'low' }, bare: true, take: (x) => x.filter((i) => i.kind === 'why').slice(0, 12) },
   { id: 'qwen-facts', label: 'qwen3.8-27b, facts + tools', model: 'qwen/qwen3.8-27b', take: (x) => x.filter((_, n) => n % 2 === 0) },
+  // Trial 3: explanations only, thinking longer.
+  { id: 'oss-medium', label: 'gpt-oss-120b, facts + tools, more reasoning', model: 'openai/gpt-oss-120b', extra: { reasoning_effort: 'medium' }, take: (x) => x.filter((i) => ['why', 'whatif', 'inaccuracy', 'good'].includes(i.kind)) },
 ];
 
 type Kind = 'why' | 'hint' | 'inaccuracy' | 'punish' | 'good' | 'whatif';

@@ -14,7 +14,7 @@ import { usePgn, useSettings } from '../hooks/useStores';
 import { useStableCallback } from '../hooks/useStableCallback';
 import { schedule, type Grade } from '../lib/training/srs';
 import { winPercentFor } from '../lib/analysis/winprob';
-import { playUci } from '../lib/analysis/board';
+import { playUci, uciToSan } from '../lib/analysis/board';
 import { explainLine } from '../lib/analysis/lines';
 import { LineViewer } from '../components/LineViewer';
 import { parsePgn } from '../lib/pgn/parse';
@@ -39,6 +39,7 @@ import { Board } from '../components/Board';
 import { ClassificationBadge } from '../components/ClassificationBadge';
 import { Icon } from '../components/Icon';
 import { Sheet } from '../components/Sheet';
+import { hintText } from '../lib/training/hint';
 import { EMPTY_FENS, EmptyState, PageHeader, Section } from '../components/ui';
 
 type State = 'solving' | 'checking' | 'wrong' | 'solved' | 'revealed';
@@ -328,7 +329,10 @@ function PuzzleView({
   const [step, setStep] = useState(0);
   const [state, setState] = useState<State>('solving');
   const [mistakes, setMistakes] = useState(0);
-  const [hint, setHint] = useState(false);
+  // Hints in two steps: what to look for (in words), then the piece is highlighted.
+  const [hintLevel, setHintLevel] = useState(0);
+  const hint = hintLevel > 0;
+  const moreHint = () => setHintLevel((h) => Math.min(2, h + 1));
   // A Lichess puzzle starts right after the opponent's move: show it.
   const setupMove = puzzle.lichess ? { from: puzzle.lichess.lastMove.slice(0, 2), to: puzzle.lichess.lastMove.slice(2, 4) } : undefined;
   const [lastMove, setLastMove] = useState<{ from: string; to: string } | undefined>(setupMove);
@@ -540,7 +544,7 @@ function PuzzleView({
       return;
     }
     const k = e.key.toLowerCase();
-    if (!done && k === 'h') setHint(true);
+    if (!done && k === 'h') moreHint();
     else if (!done && k === 's') setState('revealed');
     else if (!done && k === 'k') onSkip();
     else if (done && (k === 'enter' || k === 'n')) void finish(gradeFor());
@@ -553,7 +557,8 @@ function PuzzleView({
     return () => window.removeEventListener('keydown', h);
   }, [onKey]);
 
-  const highlight = useMemo(() => (hint && expected ? { [expected.slice(0, 2)]: 'rgba(247,198,49,0.9)' } : undefined), [hint, expected]);
+  const highlight = useMemo(() => (hintLevel >= 2 && expected ? { [expected.slice(0, 2)]: 'rgba(247,198,49,0.9)' } : undefined), [hintLevel, expected]);
+  const hintWords = useMemo(() => (hint && expected ? hintText(fen, uciToSan(fen, expected), fen.split(' ')[1] as 'w' | 'b') : undefined), [hint, expected, fen]);
   const total = doneCount + remaining;
 
   const status =
@@ -630,6 +635,11 @@ function PuzzleView({
             role="status"
           >
             {status}
+            {hintWords && !done && (
+              <p className="mt-1.5 font-normal flex gap-1.5" style={{ color: 'var(--attention-ink)' }}>
+                <Icon name="bulb" size={16} /> {hintWords}
+              </p>
+            )}
           </div>
         )}
         <EngineControls open={!!engine} onToggle={toggleEngine} />
@@ -666,8 +676,8 @@ function PuzzleView({
             </>
           ) : !done ? (
             <>
-              <button className="btn flex-1 justify-center !py-3" onClick={() => setHint(true)} disabled={hint} title="Hint (h)">
-                <Icon name="bulb" size={18} /> Hint
+              <button className="btn flex-1 justify-center !py-3" onClick={moreHint} disabled={hintLevel >= 2} title={hint ? 'Show the piece (h)' : 'Hint (h)'} aria-label={hint ? 'More hint' : 'Hint'}>
+                <Icon name="bulb" size={18} /> {hint ? 'More' : 'Hint'}
               </button>
               <button className="btn flex-1 justify-center !py-3" onClick={() => setState('revealed')} title="Show solution (s)">
                 <Icon name="eye" size={18} /> Solution

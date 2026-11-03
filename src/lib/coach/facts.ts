@@ -35,8 +35,12 @@ export interface MoveFacts {
   appNote?: string;
   /** The engine's best move instead, with its line. */
   bestInstead?: { move: string; line: LineFacts };
-  /** How the opponent punishes your move (your mistakes). */
+  /** The move just before, which the discussed move answers (a recapture, a reply to a threat, …). */
+  previousMove?: string;
+  /** How the opponent punishes your move (your inaccuracies and mistakes). */
   howItIsPunished?: LineFacts;
+  /** How the game goes on after a good move of yours (the engine's line). */
+  howItContinues?: LineFacts;
   /** How you could punish the opponent's move (their mistakes). */
   howYouCouldPunish?: LineFacts;
   /** Best moves hidden: what to hint at, from general (target) to specific (piece). */
@@ -46,6 +50,8 @@ export interface MoveFacts {
   /** Seconds spent on the move, when the game has clocks. */
   timeSpent?: number;
 }
+
+const ERRORS = ['inaccuracy', 'mistake', 'miss', 'blunder'];
 
 /** A score (white's point of view) as seen by `color`: "+1.4", "-0.3", "mate in 3", "mated in 2". */
 export function scoreFor(score: Score | undefined, color: Color): string {
@@ -80,6 +86,7 @@ export function moveFacts(moves: MoveAnalysis[], ply: number, you: Color, opts: 
     opponent: opp,
     playedBy: mine ? 'you' : 'your opponent',
     move: describeMove(played, you, opp),
+    ...(ply > 1 ? { previousMove: describeMove(new Chess(moves[ply - 2].fenBefore).move(moves[ply - 2].san), you, opp) } : {}),
     verdict: m.classification,
     evalBefore: scoreFor(m.evalBefore, you),
     evalAfter: scoreFor(m.evalAfter, you),
@@ -90,7 +97,8 @@ export function moveFacts(moves: MoveAnalysis[], ply: number, you: Color, opts: 
     appNote: m.explanation ? (hide ? hideBestMove(m.explanation, m.bestSan) : m.explanation) || undefined : undefined,
     // The opponent's own better move is beside the point for you (and muddled the hints in trial 1).
     ...(best && mine && !hide ? { bestInstead: best } : {}),
-    ...(reply && mine ? { howItIsPunished: reply } : {}),
+    // A good move isn't "punished": the same line is just how the game goes on.
+    ...(reply && mine ? (ERRORS.includes(m.classification) ? { howItIsPunished: reply } : { howItContinues: reply }) : {}),
     ...(reply && !mine && !hide ? { howYouCouldPunish: reply } : {}),
     ...(hide && secret
       ? {

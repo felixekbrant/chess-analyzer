@@ -4,6 +4,7 @@ import { useLiveEngine, evaluateOnce } from '../../hooks/useLiveEngine';
 import { useQueueProgress, useSettings } from '../../hooks/useStores';
 import { EngineControls, pill } from '../../components/EngineControls';
 import { hideBestMove } from '../../lib/review/hideBest';
+import { hintText } from '../../lib/training/hint';
 import { saveSettings } from '../../db/schema';
 import { playMove, stepBack, stepForward, stepKey, toEnd, toStart } from '../../lib/moveSteps';
 import { EngineShortcuts } from '../../components/EngineShortcuts';
@@ -61,7 +62,8 @@ interface RetryStateFull {
   move: MoveAnalysis;
   state: RetryState;
   attemptUci?: string;
-  hint: boolean;
+  /** 0 none, 1 what to look for (in words), 2 the piece is highlighted too. */
+  hint: number;
   /** Part of "retry all mistakes": ▶ goes to the next one. */
   sequence: boolean;
 }
@@ -234,7 +236,7 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
   function startRetry(move: MoveAnalysis, sequence = false) {
     setExplore(null);
     setPly(move.ply);
-    setRetry({ move, state: 'try', hint: false, sequence });
+    setRetry({ move, state: 'try', hint: 0, sequence });
   }
 
   /** "Best": play the engine's best line from the position before the current move. */
@@ -376,7 +378,7 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
     [retry],
   );
   const highlight = useMemo(
-    () => (retry?.hint && retry.move.bestUci ? { [retry.move.bestUci.slice(0, 2)]: 'rgba(247,198,49,0.9)' } : undefined),
+    () => (retry && retry.hint >= 2 && retry.move.bestUci ? { [retry.move.bestUci.slice(0, 2)]: 'rgba(247,198,49,0.9)' } : undefined),
     [retry],
   );
 
@@ -431,9 +433,10 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
       <ActionButton icon={<Icon name="prev" />} label="Back" onClick={prev} />
       <ActionButton
         icon={<Icon name="bulb" />}
-        label="Hint"
-        onClick={() => setRetry({ ...retry, hint: true })}
-        disabled={retry.hint || retry.state === 'right' || retry.state === 'shown'}
+        label={retry.hint ? 'More' : 'Hint'}
+        title={retry.hint ? 'Show the piece' : 'What to look for'}
+        onClick={() => setRetry({ ...retry, hint: Math.min(2, retry.hint + 1) })}
+        disabled={retry.hint >= 2 || retry.state === 'right' || retry.state === 'shown'}
       />
       <ActionButton
         icon={<Icon name="eye" />}
@@ -700,6 +703,11 @@ function Coach({
             <Icon name="close" size={16} />
           </button>
         </div>
+        {retry.hint > 0 && (retry.state === 'try' || retry.state === 'wrong') && (
+          <p className="mt-1 flex gap-1.5" style={{ color: 'var(--attention-ink)' }}>
+            <Icon name="bulb" size={16} /> {hintText(m.fenBefore, m.bestSan, m.color)}
+          </p>
+        )}
         {retry.state === 'wrong' && (
           <p className="mt-1">
             {retry.attemptUci === m.uci ? "That's the move you played in the game. " : ''}

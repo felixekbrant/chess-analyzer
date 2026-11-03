@@ -133,6 +133,9 @@ test('game review: summary, walkthrough and the line viewer', async ({ page }) =
   await expect(arrows).toHaveCount(0);
   await page.getByRole('button', { name: 'Find a better move' }).filter({ visible: true }).click();
   await expect(page.getByText(/^Find a better move than /).filter({ visible: true })).toBeVisible();
+  // The first hint says what to look for, in words.
+  await page.getByRole('button', { name: 'Hint' }).filter({ visible: true }).click();
+  await expect(page.getByText(/(Look for|No capture or check|There is a checkmate)/).filter({ visible: true })).toBeVisible();
   await page.getByRole('button', { name: 'Stop retrying' }).filter({ visible: true }).click();
   // Still hidden on the next visit, until switched back on.
   await expect(arrows).toHaveCount(0);
@@ -179,6 +182,11 @@ test('training: solve a puzzle, reveal the next and see the full line', async ({
   const current = puzzles.find((p) => p.fen.split(' ')[0] === placement);
   expect(current, 'the shown puzzle is in the database').toBeTruthy();
   const move = current!.solutionUci[0];
+  // Hints come in two steps: what to look for in words, then the piece is highlighted.
+  await page.getByRole('button', { name: 'Hint' }).click();
+  await expect(page.getByRole('status').getByText(/(Look for|No capture or check|There is a checkmate)/)).toBeVisible();
+  await page.getByRole('button', { name: 'More hint' }).click();
+  await expect(page.getByRole('button', { name: 'More hint' })).toBeDisabled();
   await clickSquare(page, move.slice(0, 2));
   await clickSquare(page, move.slice(2, 4));
   await expect(page.getByText(/^✔ /)).toBeVisible();
