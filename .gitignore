@@ -13,3 +13,6 @@ scripts/baselines/*.log
 /playwright-report/
 scripts/calibration/*.log
 __pycache__/
+
+# AI coach trial: personal game data and raw results
+scripts/coach-trial/data/

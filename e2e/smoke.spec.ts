@@ -195,6 +195,8 @@ test('training: solve a puzzle, reveal the next and see the full line', async ({
     await full.click();
     await expect(page.getByText(/^The full line after/)).toBeVisible();
     // The arrow keys step through the line (desktop), Esc closes it.
+    // Read the board once the move animation has finished.
+    await page.waitForTimeout(500);
     const first = await boardPlacement(page, 'puzzle');
     await page.keyboard.press('ArrowLeft');
     await expect.poll(() => boardPlacement(page, 'puzzle')).not.toBe(first);

@@ -26,6 +26,8 @@ export default defineConfig({
     // Reference screenshots (e2e/visual.spec.ts-snapshots). Fonts are bundled, so they match across machines.
     { name: 'visual', testMatch: /visual\.spec\.ts/, use: { ...devices['Pixel 7'] } },
     { name: 'seed', testMatch: /seed\.gen\.ts/, timeout: 30 * 60_000, use: { viewport: { width: 1280, height: 800 } } },
+    // Real games for the AI coach trial (scripts/coach-trial/README.md); needs network access to chess.com.
+    { name: 'coach-trial', testMatch: /coach-trial\.gen\.ts/, timeout: 60 * 60_000, use: { viewport: { width: 1280, height: 800 }, acceptDownloads: true } },
   ],
   webServer: {
     command: `npx vite preview --port ${PORT} --strictPort`,
