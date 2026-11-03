@@ -25,6 +25,8 @@ interface Props {
   /** A ✓ or ✗ on a square, e.g. for puzzle answers. */
   marker?: { square: string; kind: 'correct' | 'wrong' };
   highlight?: Record<string, string>;
+  /** Colour for the last move's squares instead of the usual yellow (e.g. red for a wrong try). */
+  lastMoveTint?: string;
   /** Called with uci; return true if the move was accepted. Enables dragging and tap-to-move when set. Keep it stable (useStableCallback). */
   onMove?: (uci: string) => boolean;
   /** Play a move sound when the position advances by one move (default true). */
@@ -32,7 +34,7 @@ interface Props {
   id?: string;
 }
 
-function BoardImpl({ fen, orientation = 'white', arrows = [], lastMove, badge, marker, highlight, onMove, sound = true, id = 'board' }: Props) {
+function BoardImpl({ fen, orientation = 'white', arrows = [], lastMove, badge, marker, highlight, lastMoveTint, onMove, sound = true, id = 'board' }: Props) {
   const settings = useSettings();
   const theme = BOARD_THEMES[settings.boardTheme] ?? BOARD_THEMES.green;
   setSoundEnabled(settings.sounds);
@@ -113,10 +115,12 @@ function BoardImpl({ fen, orientation = 'white', arrows = [], lastMove, badge, m
     // see-through layer, which turned muddy over the page behind the board.
     const base = (sq: string) => (isLightSquare(sq) ? theme.light : theme.dark);
     const tint = (sq: string, color: string, amount: number) => ({ backgroundColor: mix(base(sq), color, amount) });
-    const moveTint = badge ? CLASS_META[badge.classification].color : '#ffff33';
+    const moveTint = lastMoveTint ?? (badge ? CLASS_META[badge.classification].color : '#ffff33');
     if (lastMove) {
-      s[lastMove.from] = tint(lastMove.from, moveTint, 0.42);
-      s[lastMove.to] = tint(lastMove.to, moveTint, 0.5);
+      // A custom tint (the red of a wrong try) is mixed in more strongly, so it doesn't turn brown on green.
+      const [from, to] = lastMoveTint ? [0.62, 0.72] : [0.42, 0.5];
+      s[lastMove.from] = tint(lastMove.from, moveTint, from);
+      s[lastMove.to] = tint(lastMove.to, moveTint, to);
     }
     // Only longhand properties, so the legal-move dots (backgroundImage) can be layered on top.
     // Hints: a strong fill plus a ring, so the square stands out on every board theme.
@@ -137,7 +141,7 @@ function BoardImpl({ fen, orientation = 'white', arrows = [], lastMove, badge, m
     const radius = ['borderTopLeftRadius', 'borderTopRightRadius', 'borderBottomLeftRadius', 'borderBottomRightRadius'] as const;
     corners.forEach((sq, i) => (s[sq] = { ...s[sq], [radius[i]]: BOARD_RADIUS }));
     return s;
-  }, [lastMove, badge, highlight, selected, targets, occupied, orientation, theme]);
+  }, [lastMove, lastMoveTint, badge, highlight, selected, targets, occupied, orientation, theme]);
   const pieces = useMemo(() => pieceRenderers(settings.pieceSet ?? 'classic'), [settings.pieceSet]);
 
   const overlay = badge || marker;
@@ -247,6 +251,7 @@ export const Board = memo(
     same(a.arrows, b.arrows) &&
     same(a.lastMove, b.lastMove) &&
     same(a.badge, b.badge) &&
+    a.lastMoveTint === b.lastMoveTint &&
     same(a.marker, b.marker) &&
     same(a.highlight, b.highlight),
 );

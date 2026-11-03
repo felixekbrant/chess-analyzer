@@ -338,6 +338,10 @@ function PuzzleView({
   const setupMove = puzzle.lichess ? { from: puzzle.lichess.lastMove.slice(0, 2), to: puzzle.lichess.lastMove.slice(2, 4) } : undefined;
   const [lastMove, setLastMove] = useState<{ from: string; to: string } | undefined>(setupMove);
   const [marker, setMarker] = useState<{ square: string; kind: 'correct' | 'wrong' } | undefined>();
+  // A try that isn't the answer: shown on the board (red, with a ✗) for a moment, then taken back.
+  const [attempt, setAttempt] = useState<{ fen: string; uci: string; failed?: boolean } | null>(null);
+  const takeBack = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(takeBack.current), []);
   const [note, setNote] = useState('');
   const started = useRef(Date.now());
   const settings = useSettings();
@@ -407,9 +411,18 @@ function PuzzleView({
     setMistakes((x) => x + 1);
     setState('wrong');
     setNote(text);
+    // The move stays on the board in red for a moment, then glides back by itself.
+    const c = new Chess(fenRef.current);
+    c.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] });
+    setAttempt({ fen: c.fen(), uci, failed: true });
     setMarker({ square: uci.slice(2, 4), kind: 'wrong' });
     playSound('wrong');
     navigator.vibrate?.(60);
+    clearTimeout(takeBack.current);
+    takeBack.current = setTimeout(() => {
+      setAttempt(null);
+      setMarker(undefined);
+    }, 900);
   };
 
   const onMove = useStableCallback((uci: string): boolean => {
@@ -435,10 +448,11 @@ function PuzzleView({
     }
     if (uci === puzzle.playedUci && step === 0) {
       wrong(uci, `That's the move you played in the game (${puzzle.playedSan}). Look again!`);
-      return false;
+      return true;
     }
-    // A different move may be just as good: check it with the engine.
+    // A different move may be just as good: it stays on the board while the engine checks it.
     const after = c.fen();
+    setAttempt({ fen: after, uci });
     setState('checking');
     setNote('');
     evaluateOnce(after, 14)
@@ -446,14 +460,18 @@ function PuzzleView({
         const color = puzzle.fen.split(' ')[1] as 'w' | 'b';
         const win = e.lines[0] ? winPercentFor(e.lines[0].score, color) : 0;
         if (puzzle.solutionUci.length === 1 && win >= puzzle.bestWin - 3) {
+          setAttempt(null);
           apply(uci);
           solved(uci, 'Also good! The engine rates this about as highly as its own choice.');
         } else {
           wrong(uci, 'Not the best move here. Try again.');
         }
       })
-      .catch(() => setState('solving'));
-    return false;
+      .catch(() => {
+        setAttempt(null);
+        setState('solving');
+      });
+    return true;
   });
 
   function solved(uci: string, text: string) {
@@ -607,10 +625,19 @@ function PuzzleView({
             ) : (
               <Board
                 id="puzzle"
-                fen={lineFen ?? fen}
+                fen={lineFen ?? attempt?.fen ?? fen}
                 orientation={toMove}
-                onMove={!lineFen && (state === 'solving' || state === 'wrong') ? onMove : undefined}
-                lastMove={lineFen ? (lineLast ? { from: lineLast.slice(0, 2), to: lineLast.slice(2, 4) } : undefined) : lastMove}
+                onMove={!lineFen && !attempt && (state === 'solving' || state === 'wrong') ? onMove : undefined}
+                lastMove={
+                  lineFen
+                    ? lineLast
+                      ? { from: lineLast.slice(0, 2), to: lineLast.slice(2, 4) }
+                      : undefined
+                    : attempt
+                      ? { from: attempt.uci.slice(0, 2), to: attempt.uci.slice(2, 4) }
+                      : lastMove
+                }
+                lastMoveTint={attempt?.failed && !lineFen ? '#e5533d' : undefined}
                 marker={lineFen ? undefined : marker}
                 highlight={highlight}
               />

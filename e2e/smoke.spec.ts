@@ -653,3 +653,26 @@ test('AI coach: ask about your games, answered from looked-up statistics', async
   await expect(page.getByText('How do I do with White?')).toBeVisible();
   if (process.env.E2E_SHOTS) await page.locator('section', { hasText: 'Ask about your games' }).last().screenshot({ path: `${process.env.E2E_SHOTS}/ask.png` });
 });
+
+test('puzzles: a wrong move shows in red for a moment, then goes back by itself', async ({ page }) => {
+  await seed(page);
+  await openTab(page, 'Train');
+  await expect(page.getByText(/to move$/)).toBeVisible();
+  const placement = await boardPlacement(page, 'puzzle');
+  const puzzles = (await readPuzzles(page)) as { fen: string; playedUci?: string }[];
+  const current = puzzles.find((p) => p.fen.split(' ')[0] === placement)!;
+  expect(current.playedUci, 'the puzzle has your game move').toBeTruthy();
+
+  // Your move from the game: played on the board, marked ✗ on red squares…
+  await clickSquare(page, current.playedUci!.slice(0, 2));
+  await clickSquare(page, current.playedUci!.slice(2, 4));
+  const cross = page.locator('[id="puzzle-board"]').getByText('✗');
+  await expect(cross).toBeVisible();
+  await expect(page.getByText("That's the move you played in the game", { exact: false }).first()).toBeVisible();
+  if (process.env.E2E_SHOTS) await page.screenshot({ path: `${process.env.E2E_SHOTS}/puzzle-wrong.png` });
+  expect(await boardPlacement(page, 'puzzle')).not.toBe(placement);
+  // …then taken back: the puzzle position again, nothing left on the board, and you can try again.
+  await expect(cross).toHaveCount(0, { timeout: 3000 });
+  await expect.poll(() => boardPlacement(page, 'puzzle')).toBe(placement);
+  await expect(page.getByText("That's the move you played in the game", { exact: false }).first()).toBeVisible();
+});

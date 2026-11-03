@@ -62,6 +62,8 @@ interface RetryStateFull {
   move: MoveAnalysis;
   state: RetryState;
   attemptUci?: string;
+  /** The last wrong try, kept after it has been taken back off the board. */
+  wrongUci?: string;
   /** 0 none, 1 what to look for (in words), 2 the piece is highlighted too. */
   hint: number;
   /** Part of "retry all mistakes": ▶ goes to the next one. */
@@ -281,7 +283,9 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
     }
     playSound(ok ? 'correct' : 'wrong');
     if (!ok) navigator.vibrate?.(60);
-    setRetry((r) => (r && r.move === m ? { ...r, attemptUci: uci, state: ok ? 'right' : 'wrong' } : r));
+    setRetry((r) => (r && r.move === m ? { ...r, attemptUci: uci, state: ok ? 'right' : 'wrong', wrongUci: ok ? r.wrongUci : uci } : r));
+    // A wrong try shows in red for a moment, then glides back so you can try again straight away.
+    if (!ok) setTimeout(() => setRetry((r) => (r && r.move === m && r.attemptUci === uci && r.state === 'wrong' ? { ...r, attemptUci: undefined } : r)), 900);
   };
 
   const onBoardMove = useStableCallback((uci: string): boolean => {
@@ -405,7 +409,6 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
       keyOnly={keyOnly}
       keyCount={keyPlies.length}
       onExitRetry={() => go(retry ? retry.move.ply + 1 : ply)}
-      onRetryReset={() => retry && setRetry({ ...retry, attemptUci: undefined, state: 'try' })}
       onExitExplore={exitExplore}
       line={explained}
       onLineIndex={(i) => explore?.line && setExplore({ ...explore, moves: explore.line.slice(0, i) })}
@@ -533,6 +536,7 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
               badge={badge}
               marker={marker}
               highlight={highlight}
+              lastMoveTint={retry?.state === 'wrong' && retry.attemptUci ? '#e5533d' : undefined}
               onMove={onBoardMove}
             />
             <PlayerStrip {...bottom} fen={fen} />
@@ -649,7 +653,6 @@ function Coach({
   keyOnly,
   keyCount,
   onExitRetry,
-  onRetryReset,
   onExitExplore,
   line,
   onLineIndex,
@@ -667,7 +670,6 @@ function Coach({
   keyOnly: boolean;
   keyCount: number;
   onExitRetry: () => void;
-  onRetryReset: () => void;
   onExitExplore: () => void;
   line?: ExplainedLine;
   onLineIndex: (i: number) => void;
@@ -709,12 +711,7 @@ function Coach({
           </p>
         )}
         {retry.state === 'wrong' && (
-          <p className="mt-1">
-            {retry.attemptUci === m.uci ? "That's the move you played in the game. " : ''}
-            <button className="underline font-semibold" onClick={onRetryReset}>
-              Try again
-            </button>
-          </p>
+          <p className="mt-1">{retry.wrongUci === m.uci ? "That's the move you played in the game. Try another one." : 'Try another move.'}</p>
         )}
         {(retry.state === 'right' || retry.state === 'shown') && (
           <p className="mt-1">
