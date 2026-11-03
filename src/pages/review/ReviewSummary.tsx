@@ -5,7 +5,7 @@ import { db } from '../../db/schema';
 import { opponentName } from '../../lib/games/build';
 import type { ParsedGame } from '../../lib/pgn/parse';
 import type { Color, GameAnalysis, Phase, StoredGame } from '../../lib/types';
-import { coachSummary, GRADE_META } from '../../lib/review/coachSummary';
+import { coachSummary } from '../../lib/review/coachSummary';
 import { useQueueProgress, useSettings } from '../../hooks/useStores';
 import { analysisQueue } from '../../lib/engine/queue';
 import { ClassificationBadge } from '../../components/ClassificationBadge';
@@ -13,7 +13,8 @@ import { MiniBoard } from '../../components/MiniBoard';
 import { TimeChart } from '../../components/TimeChart';
 import { Icon } from '../../components/Icon';
 import { formatDate } from '../../components/ui';
-import { ClassificationTable, CoachBubble, ERROR_CLASSES, KEY_CLASSES } from './parts';
+import { CoachBubble, ERROR_CLASSES, KEY_CLASSES } from './parts';
+import { CLASS_META, CLASS_ORDER } from '../../lib/classificationMeta';
 
 export interface StartOptions {
   ply?: number;
@@ -53,18 +54,11 @@ export function ReviewSummary({
   );
 
   return (
-    <div className="grid lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)] gap-5 max-w-5xl mx-auto">
-      <div className="space-y-3">
-        <div className="flex items-start gap-3">
-          {/* Phones: a thumbnail, so the coach and the Start button fit on the first screen. */}
-          <div className="w-20 shrink-0 lg:hidden">
-            <MiniBoard fen={finalFen} orientation={me === 'b' ? 'black' : 'white'} />
-          </div>
-          <GameHeading game={game} />
-        </div>
-        <div className="hidden lg:block max-w-[420px] w-full">
-          <MiniBoard fen={finalFen} orientation={me === 'b' ? 'black' : 'white'} />
-        </div>
+    <div className="grid lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)] gap-5 lg:gap-8 max-w-5xl mx-auto">
+      {/* The result first: what happened, on a proper board (half the width on phones). */}
+      <div className="grid grid-cols-[minmax(0,44%)_1fr] lg:grid-cols-1 gap-4 items-center lg:items-start">
+        <MiniBoard fen={finalFen} orientation={me === 'b' ? 'black' : 'white'} />
+        <GameHeading game={game} moves={Math.ceil(parsed.plies.length / 2)} />
       </div>
 
       <div className="space-y-4 min-w-0">
@@ -86,7 +80,7 @@ export function ReviewSummary({
                 <div
                   key={c}
                   className="pop rounded-xl p-3 text-center"
-                  style={{ background: c === 'w' ? '#f4f4f4' : '#403d39', color: c === 'w' ? '#1d1d1b' : '#f4f4f4' }}
+                  style={{ background: c === 'w' ? '#f4f2ee' : '#1f1d1b', color: c === 'w' ? '#1f1d1b' : '#f4f2ee' }}
                 >
                   <div className="text-xs font-semibold opacity-70 truncate">
                     {c === 'w' ? game.white : game.black}
@@ -99,6 +93,21 @@ export function ReviewSummary({
                       chess.com {game.chesscomAccuracy[c].toFixed(1)}
                     </div>
                   )}
+                  {/* Accuracy per phase as three thin bars (replaces the separate phase boxes). */}
+                  <div className="mt-2.5 space-y-1 text-left">
+                    {PHASES.map((ph) => {
+                      const v = analysis.phaseAccuracy[c][ph];
+                      return (
+                        <div key={ph} className="flex items-center gap-1.5 text-[10px] font-bold tabular-nums">
+                          <span className="w-3 opacity-60 uppercase">{ph[0]}</span>
+                          <span className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: c === 'w' ? '#dcdad5' : '#2b2926' }}>
+                            {v !== undefined && <span className="block h-full rounded-full" style={{ width: `${v}%`, background: v >= 80 ? 'var(--win)' : v >= 65 ? 'var(--brass)' : 'var(--attention)' }} />}
+                          </span>
+                          <span className="w-6 text-right opacity-80">{v !== undefined ? v.toFixed(0) : '–'}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               ))}
             </div>
@@ -123,22 +132,7 @@ export function ReviewSummary({
             </div>
 
             <div className="panel p-3">
-              <ClassificationTable analysis={analysis} game={game} />
-            </div>
-
-            <div className="grid grid-cols-3 gap-2">
-              {PHASES.map((ph) => {
-                const g = summary.grades[ph];
-                return (
-                  <div key={ph} className="panel p-2 text-center">
-                    <div className="text-xs font-semibold muted capitalize">{ph}</div>
-                    <div className="flex justify-center my-1">
-                      {g ? <ClassificationBadge c={GRADE_META[g].badge} size={26} /> : <span className="muted">–</span>}
-                    </div>
-                    <div className="text-xs font-bold">{g ? GRADE_META[g].label : '–'}</div>
-                  </div>
-                );
-              })}
+              <MoveBreakdown analysis={analysis} me={me} />
             </div>
 
             <details className="panel p-3">
@@ -154,17 +148,21 @@ export function ReviewSummary({
   );
 }
 
-function GameHeading({ game }: { game: StoredGame }) {
-  const resultText = game.userResult === 'win' ? 'You won' : game.userResult === 'loss' ? 'You lost' : game.userResult === 'draw' ? 'Draw' : game.result;
+function GameHeading({ game, moves }: { game: StoredGame; moves: number }) {
+  const r = game.userResult;
+  const word = r === 'win' ? 'Won' : r === 'loss' ? 'Lost' : r === 'draw' ? 'Draw' : game.result;
+  const ink = r === 'win' ? 'var(--felt-ink)' : r === 'loss' ? 'var(--loss-ink)' : 'var(--muted)';
+  const opponent = game.userColor === 'w' ? game.black : game.white;
   return (
-    <div className="min-w-0">
-      <div className="font-bold text-lg leading-tight">
-        {game.white} <span className="muted font-normal">vs</span> {game.black}
+    <div className="min-w-0 space-y-1">
+      <div className="text-4xl font-black tracking-tight leading-none" style={{ color: ink }}>
+        {word}
       </div>
-      <div className="muted text-xs mt-0.5">
-        {resultText} · {game.timeClass} · {formatDate(game.endTime)}
+      <div className="font-bold leading-tight truncate">vs {game.userColor ? opponent : `${game.white} – ${game.black}`}</div>
+      <div className="muted text-xs font-semibold">
+        {game.timeClass} · {moves} moves · {formatDate(game.endTime)}
       </div>
-      {game.openingName && <div className="muted text-xs mt-0.5 truncate">{game.openingName}</div>}
+      {game.openingName && <div className="muted text-xs truncate">{game.openingName}</div>}
     </div>
   );
 }
@@ -194,5 +192,31 @@ function Analysing({ gameId, failed, onBrowse }: { gameId: string; failed: boole
         </button>
       </div>
     </CoachBubble>
+  );
+}
+
+/** Your moves by classification as a compact grid of badges, with the opponent's count beside. */
+function MoveBreakdown({ analysis, me }: { analysis: GameAnalysis; me: Color }) {
+  const count = (c: Color, cls: string) => analysis.moves.filter((m) => m.color === c && m.classification === cls).length;
+  const rows = CLASS_ORDER.map((cls) => ({ cls, mine: count(me, cls), theirs: count(me === 'w' ? 'b' : 'w', cls) })).filter((r) => r.mine || r.theirs);
+  return (
+    <div>
+      <div className="flex justify-between text-[11px] font-extrabold uppercase tracking-wider muted mb-2">
+        <span>Your moves</span>
+        <span>you · them</span>
+      </div>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+        {rows.map((r) => (
+          <div key={r.cls} className="flex items-center gap-2 text-sm min-w-0">
+            <ClassificationBadge c={r.cls} size={18} />
+            <span className="flex-1 truncate font-semibold">{CLASS_META[r.cls].label}</span>
+            <span className="tabular-nums font-black" style={{ color: r.mine ? CLASS_META[r.cls].color : 'var(--muted)' }}>
+              {r.mine}
+            </span>
+            <span className="tabular-nums muted text-xs w-4 text-right">{r.theirs}</span>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

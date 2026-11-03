@@ -515,11 +515,12 @@ function round(n: number, d = 1) {
 }
 
 /** Colour per time class. Fixed per entity so filtering never repaints a series. */
+// Neutral hues: red and orange mean "loss" and "attention" elsewhere in the app.
 export const TIME_CLASS_COLOR: Record<string, string> = {
-  blitz: 'var(--series-1)',
-  rapid: 'var(--series-2)',
-  bullet: 'var(--series-3)',
-  daily: 'var(--series-4)',
+  rapid: 'var(--felt)',
+  blitz: 'var(--info)',
+  bullet: 'var(--draw)',
+  daily: 'var(--brass)',
 };
 
 /** Rating history with one column per time class (ratings are separate pools on chess.com). */

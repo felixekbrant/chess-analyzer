@@ -67,5 +67,6 @@ Open http://localhost:5173, go to **Settings** and enter your chess.com username
   - Engine: [Stockfish.js](https://github.com/nmrugg/stockfish.js) (GPLv3)
   - Opening names: [lichess-org/chess-openings](https://github.com/lichess-org/chess-openings) (CC0)
   - Games: [chess.com Published-Data API](https://www.chess.com/news/view/published-data-api)
+  - Piece sets: Merida (Armando Hernandez Marroquin, GPLv2+) and Chessnut (Alexis Luengas, Apache 2.0), from the [Lichess](https://github.com/lichess-org/lila) repository; typeface [Figtree](https://github.com/erikdkennedy/figtree) (SIL OFL 1.1)
   - Extra focus-drill puzzles: [Lichess puzzle database](https://database.lichess.org/#puzzles) (CC0), packed by `scripts/lichess-puzzles/build.py`
 - **Not affiliated with Chess.com.** This is an independent, non-commercial project. It is not affiliated with, endorsed by or sponsored by Chess.com; it only reads public game data through their published API.

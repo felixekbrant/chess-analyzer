@@ -202,6 +202,8 @@ export interface Settings {
   autoNextPuzzle: boolean;
   sounds: boolean;
   boardTheme: BoardTheme;
+  /** Piece artwork: the board library's own, or one of the open-licence sets in public/pieces. */
+  pieceSet: PieceSet;
   showCoordinates: boolean;
   /** Fetch new games from chess.com automatically (on open and every 10 minutes). */
   autoSync: boolean;
@@ -216,6 +218,7 @@ export interface Settings {
 }
 
 export type BoardTheme = 'green' | 'brown' | 'blue' | 'gray';
+export type PieceSet = 'classic' | 'merida' | 'chessnut';
 
 export const DEFAULT_SETTINGS: Settings = {
   username: '',
@@ -228,6 +231,7 @@ export const DEFAULT_SETTINGS: Settings = {
   autoNextPuzzle: false,
   sounds: true,
   boardTheme: 'green',
+  pieceSet: 'classic',
   showCoordinates: true,
   sessionMinutes: 15,
   autoSync: true,

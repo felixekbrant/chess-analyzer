@@ -22,7 +22,9 @@ export default defineConfig({
   },
   projects: [
     // Phone-sized (Pixel 7 viewport, touch, mobile user agent) in Chromium.
-    { name: 'smoke', testMatch: /.*\.spec\.ts/, use: { ...devices['Pixel 7'] } },
+    { name: 'smoke', testMatch: /.*\.spec\.ts/, testIgnore: /visual\.spec\.ts/, use: { ...devices['Pixel 7'] } },
+    // Reference screenshots (e2e/visual.spec.ts-snapshots). Fonts are bundled, so they match across machines.
+    { name: 'visual', testMatch: /visual\.spec\.ts/, use: { ...devices['Pixel 7'] } },
     { name: 'seed', testMatch: /seed\.gen\.ts/, timeout: 30 * 60_000, use: { viewport: { width: 1280, height: 800 } } },
   ],
   webServer: {

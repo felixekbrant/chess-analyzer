@@ -11,6 +11,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { Toasts } from './components/Toasts';
 import { Icon, type IconName } from './components/Icon';
 import { Sheet } from './components/Sheet';
+import { BrandMark } from './components/BrandMark';
 import { StatusIndicator } from './components/StatusIndicator';
 
 // Pages other than the dashboard are loaded on first visit to keep the initial download small.
@@ -111,9 +112,7 @@ async function adoptDarkLook() {
 
 function Logo() {
   return (
-    <span className="inline-flex w-8 h-8 rounded-lg bg-accent text-white items-center justify-center text-lg" aria-hidden="true">
-      ♞
-    </span>
+    <BrandMark size={32} />
   );
 }
 

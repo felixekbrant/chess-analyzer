@@ -28,7 +28,7 @@ import { useSkills } from '../hooks/useSkills';
 import { Filters, loadFilters, storeFilters } from '../components/Filters';
 import { HBarList, LineTrend } from '../components/charts';
 import { MiniBoard } from '../components/MiniBoard';
-import { Empty, PageHeader, Section, fmtPct } from '../components/ui';
+import { Empty, EmptyState, Headline, PageHeader, Section, fmtPct } from '../components/ui';
 
 export default function Insights() {
   const [filters, setFiltersState] = useState<InsightFilters>(() => loadFilters() ?? DEFAULT_FILTERS);
@@ -83,7 +83,9 @@ export default function Insights() {
         subtitle={loading ? 'Loading…' : `${ag.length} analysed games`}
         actions={<Filters value={filters} onChange={setFilters} />}
       />
-      {!loading && !games.length && <Empty>No games for these filters.</Empty>}
+      {!loading && !games.length && (
+        <EmptyState title="No games here">Try another time control or a longer period.</EmptyState>
+      )}
       {games.length > 0 && (
         <>
           <TabBar tab={tab} onChange={setTab} />
@@ -105,6 +107,11 @@ export default function Insights() {
           )}
           {tab === 'mistakes' && (
           <>
+          {data.motifs[0] && (
+            <Headline sub={`${data.motifs[0].count}× in ${ag.length} games`}>
+              <span style={{ color: 'var(--attention-ink)' }}>{MOTIF_LABEL[data.motifs[0].motif]}</span> costs you the most: {data.motifs[0].costPerGame.toFixed(0)}% win chance per game.
+            </Headline>
+          )}
           <div className="grid lg:grid-cols-2 gap-4">
             <Section title="Game phases" id="phases">
               <div className="grid grid-cols-3 gap-2" title="Book moves are excluded. Errors = mistakes and blunders per 100 moves. Share = how much of the win chance you lost happened in that phase.">
@@ -128,7 +135,7 @@ export default function Insights() {
               </div>
             </Section>
 
-            <Section title="Mistake types" id="mistakes" right={<span className="muted text-xs" title="Compared with your earlier games in this selection"><span style={{ color: "#6a9e36" }}>↓</span> less often · <span style={{ color: "#e02828" }}>↑</span> more often</span>}>
+            <Section title="Mistake types" id="mistakes" right={<span className="muted text-xs" title="Compared with your earlier games in this selection"><span style={{ color: "var(--felt-ink)" }}>↓</span> less often · <span style={{ color: "var(--loss-ink)" }}>↑</span> more often</span>}>
               {!data.motifs.length ? (
                 <Empty>No errors detected yet.</Empty>
               ) : (
@@ -200,6 +207,12 @@ export default function Insights() {
           </>
           )}
           {tab === 'time' && (
+          <>
+          {data.time.gamesWithClock > 0 && (
+            <Headline sub={`${data.time.lostOnTime} of ${data.time.lossesTotal} losses were on time`}>
+              You get into time trouble in {fmtPct(data.time.timeTroubleGamesPct)} of your games.
+            </Headline>
+          )}
           <Section title={data.mixesDailyAndLive ? 'Time management · live games' : 'Time management'} id="time">
             {data.time.gamesWithClock === 0 ? (
               <Empty>No clock data (daily games don't have clocks).</Empty>
@@ -241,7 +254,7 @@ export default function Insights() {
                     x="move"
                     lines={[
                       { key: 'you', name: 'You', color: 'var(--series-1)', dots: true },
-                      { key: 'opponent', name: 'Opponents', color: 'var(--series-2)', dots: true },
+                      { key: 'opponent', name: 'Opponents', color: 'var(--series-3)', dots: true },
                     ]}
                     yDomain={[0, 100]}
                     xFormat={(v) => `Move ${v}`}
@@ -263,10 +276,15 @@ export default function Insights() {
               </div>
             )}
           </Section>
-
+          </>
           )}
           {tab === 'results' && (
           <>
+          {data.conv.hadWinning > 0 && (
+            <Headline sub={`You saved ${data.conv.saved} of ${data.conv.hadLosing} lost positions`}>
+              You convert {fmtPct(data.conv.conversionRate)} of your winning positions.
+            </Headline>
+          )}
           <div id="trends" className="grid lg:grid-cols-2 gap-4 scroll-mt-16">
             <Section title="Rating">
               <LineTrend
@@ -276,14 +294,10 @@ export default function Insights() {
                 xFormat={dateFmt}
               />
             </Section>
-            <Section
-              title="Accuracy & blunders"
-              right={
-                <span className="muted text-xs tabular-nums" title="Per game; the charts are 10-game averages">
-                  {data.ov.blundersPerGame.toFixed(2)} blunders · {data.ov.mistakesPerGame.toFixed(2)} mistakes / game
-                </span>
-              }
-            >
+            <Section title="Accuracy & blunders">
+              <p className="muted text-xs font-semibold tabular-nums -mt-1 mb-2" title="The charts are 10-game averages">
+                Per game: {data.ov.blundersPerGame.toFixed(2)} blunders · {data.ov.mistakesPerGame.toFixed(2)} mistakes
+              </p>
               <LineTrend
                 data={data.tr.filter((p) => p.accuracyAvg !== undefined)}
                 x="t"
@@ -326,7 +340,7 @@ export default function Insights() {
                     <div className="flex flex-wrap gap-1">
                       {thrown.slice(0, 6).map((g) => (
                         <Link key={g.id} className="chip !py-1 !px-2.5 hover:brightness-110" to={`/game/${encodeURIComponent(g.id)}`}>
-                          {opponentName(g)} <span style={{ color: '#e5713f' }}>was {formatPeak(g.peakEval!)}</span>
+                          {opponentName(g)} <span style={{ color: 'var(--attention-ink)' }}>was {formatPeak(g.peakEval!)}</span>
                         </Link>
                       ))}
                     </div>
@@ -397,8 +411,8 @@ function MiniStat({ label, value, hint }: { label: string; value: string; hint?:
 
 function TrendArrow({ earlier, recent }: { earlier: number; recent: number }) {
   if (!earlier && !recent) return null;
-  if (recent < earlier * 0.75) return <span title="Happening less often recently" style={{ color: '#6a9e36' }}>↓</span>;
-  if (recent > earlier * 1.25) return <span title="Happening more often recently" style={{ color: '#e02828' }}>↑</span>;
+  if (recent < earlier * 0.75) return <span title="Happening less often recently" style={{ color: 'var(--felt-ink)' }}>↓</span>;
+  if (recent > earlier * 1.25) return <span title="Happening more often recently" style={{ color: 'var(--loss-ink)' }}>↑</span>;
   return <span className="muted" title="Steady">→</span>;
 }
 
@@ -431,21 +445,22 @@ const TABS: [Tab, string][] = [
 function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
   return (
     <nav
-      className="sticky top-12 md:top-0 z-20 -mx-4 md:-mx-6 px-4 md:px-6 py-2 bg-[var(--bg)]/95 backdrop-blur border-b border-[var(--border)] flex gap-1 overflow-x-auto no-scrollbar"
-      role="tablist"
-      aria-label="Insight sections"
+      className="sticky top-12 md:top-0 z-20 -mx-4 md:-mx-6 px-4 md:px-6 py-2 bg-[var(--bg)]/95 backdrop-blur"
     >
-      {TABS.map(([id, label]) => (
-        <button
-          key={id}
-          role="tab"
-          aria-selected={tab === id}
-          className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-semibold ${tab === id ? 'bg-[var(--text)] text-[var(--bg)]' : 'bg-[var(--panel-2)] muted'}`}
-          onClick={() => onChange(id)}
-        >
-          {label}
-        </button>
-      ))}
+      {/* One segmented control: a raised track with the chosen tab in felt green. */}
+      <div className="grid grid-cols-4 rounded-full bg-[var(--panel-2)] p-1 max-w-md" role="tablist" aria-label="Insight sections">
+        {TABS.map(([id, label]) => (
+          <button
+            key={id}
+            role="tab"
+            aria-selected={tab === id}
+            className={`rounded-full px-2 py-1.5 text-sm font-bold transition-colors duration-200 ${tab === id ? 'bg-primary text-white shadow' : 'muted hover:text-[var(--text)]'}`}
+            onClick={() => onChange(id)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
     </nav>
   );
 }

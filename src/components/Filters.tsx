@@ -1,4 +1,7 @@
-import { Picker, type PickerOption } from './Picker';
+import { useState } from 'react';
+import { type PickerOption } from './Picker';
+import { Icon } from './Icon';
+import { Sheet } from './Sheet';
 import type { InsightFilters } from '../hooks/useInsightData';
 
 const TIME: PickerOption<string>[] = [
@@ -21,22 +24,57 @@ const COLOUR: PickerOption<string>[] = [
   { value: 'b', label: 'As Black' },
 ];
 
+/** All three filters behind one pill that says what is shown; one sheet to change them. */
 export function Filters({ value, onChange }: { value: InsightFilters; onChange: (f: InsightFilters) => void }) {
-  return (
-    <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-1 px-1">
-      <Picker label="Time control" value={value.timeClass} options={TIME} onChange={(timeClass) => onChange({ ...value, timeClass })} className="shrink-0" />
-      <Picker
-        label="Which games"
-        value={value.lastGames ? `g${value.lastGames}` : `d${value.days}`}
-        options={WHICH}
-        onChange={(v) => {
-          const n = Number(v.slice(1));
-          onChange(v[0] === 'g' ? { ...value, days: 0, lastGames: n } : { ...value, days: n, lastGames: 0 });
-        }}
-        className="shrink-0"
-      />
-      <Picker label="Colour" value={value.color} options={COLOUR} onChange={(color) => onChange({ ...value, color })} className="shrink-0" />
+  const [open, setOpen] = useState(false);
+  const which = value.lastGames ? `g${value.lastGames}` : `d${value.days}`;
+  const label = (opts: PickerOption<string>[], v: string) => opts.find((o) => o.value === v)?.label ?? v;
+  const summary = [label(TIME, value.timeClass), label(WHICH, which), label(COLOUR, value.color)].join(' · ');
+  const group = (title: string, opts: PickerOption<string>[], current: string, set: (v: string) => void) => (
+    <div>
+      <div className="muted text-xs font-extrabold uppercase tracking-wider mb-1.5 px-1">{title}</div>
+      <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label={title}>
+        {opts.map((o) => (
+          <button
+            key={o.value}
+            role="radio"
+            aria-checked={o.value === current}
+            className={`rounded-full px-3 py-1.5 text-sm font-bold transition-colors ${o.value === current ? 'bg-primary text-white' : 'bg-[var(--panel-2)] hover:brightness-110'}`}
+            onClick={() => set(o.value)}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
     </div>
+  );
+  return (
+    <>
+      <button
+        type="button"
+        className="inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-sm font-bold bg-[var(--panel-2)] hover:brightness-110 max-w-full"
+        onClick={() => setOpen(true)}
+        aria-haspopup="dialog"
+        aria-label={`Filters: ${summary}`}
+      >
+        <Icon name="filter" size={14} className="shrink-0" />
+        <span className="truncate">{summary}</span>
+        <Icon name="chevronDown" size={14} className="muted shrink-0" />
+      </button>
+      <Sheet open={open} onClose={() => setOpen(false)} title="Filters">
+        <div className="space-y-4">
+          {group('Time control', TIME, value.timeClass, (timeClass) => onChange({ ...value, timeClass }))}
+          {group('Which games', WHICH, which, (v) => {
+            const n = Number(v.slice(1));
+            onChange(v[0] === 'g' ? { ...value, days: 0, lastGames: n } : { ...value, days: n, lastGames: 0 });
+          })}
+          {group('Colour', COLOUR, value.color, (color) => onChange({ ...value, color }))}
+          <button className="btn btn-primary w-full justify-center" onClick={() => setOpen(false)}>
+            Done
+          </button>
+        </div>
+      </Sheet>
+    </>
   );
 }
 

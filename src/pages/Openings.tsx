@@ -1,10 +1,14 @@
 import { useMemo, useState } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '../db/schema';
+import { parsePgn } from '../lib/pgn/parse';
+import { MiniBoard } from '../components/MiniBoard';
 import { Link } from 'react-router-dom';
 import { useInsightData, DEFAULT_FILTERS, type InsightFilters } from '../hooks/useInsightData';
 import { openingStats, type OpeningStat } from '../lib/insights/compute';
 import { Filters, loadFilters, storeFilters } from '../components/Filters';
 import { Picker } from '../components/Picker';
-import { Empty, PageHeader, Section, fmtPct } from '../components/ui';
+import { Empty, LoadingShape, PageHeader, fmtPct } from '../components/ui';
 
 export default function Openings() {
   const [filters, setFiltersState] = useState<InsightFilters>(() => ({ ...(loadFilters() ?? DEFAULT_FILTERS), color: 'all' }));
@@ -37,81 +41,35 @@ export default function Openings() {
         }
       />
       {loading ? (
-        <Empty>Loading…</Empty>
+        <LoadingShape />
       ) : (
         (['w', 'b'] as const)
           .filter((c) => filters.color === 'all' || filters.color === c)
           .map((c) => (
-            <Section key={c} title={c === 'w' ? 'As White' : 'As Black'}>
-              <div className="hidden md:block">
-                <OpeningTable rows={stats.filter((s) => s.color === c)} />
+            <section key={c} className="space-y-3">
+              <h2 className="font-extrabold text-[17px] tracking-tight px-1">{c === 'w' ? 'As White' : 'As Black'}</h2>
+              {/* Your three main openings as cards, with the position where you usually leave book. */}
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {stats
+                  .filter((s) => s.color === c)
+                  .slice(0, 3)
+                  .map((r) => (
+                    <MainOpening key={r.key} r={r} />
+                  ))}
               </div>
-              <div className="md:hidden">
-                <OpeningCards rows={stats.filter((s) => s.color === c)} />
-              </div>
-            </Section>
+              {stats.filter((s) => s.color === c).length > 3 && (
+                <div className="panel px-4">
+                  <OpeningCards rows={stats.filter((s) => s.color === c).slice(3)} />
+                </div>
+              )}
+            </section>
           ))
       )}
     </div>
   );
 }
 
-function OpeningTable({ rows }: { rows: OpeningStat[] }) {
-  if (!rows.length) return <Empty>No games.</Empty>;
-  return (
-    <div className="overflow-x-auto">
-      <table className="data">
-        <thead>
-          <tr>
-            <th>Opening</th>
-            <th>Games</th>
-            <th className="min-w-40">Results</th>
-            <th>Score</th>
-            <th>Accuracy</th>
-            <th>Opening acc.</th>
-            <th>Leave book</th>
-            <th>Where you go wrong</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.key}>
-              <td className="font-semibold max-w-72">{r.name}</td>
-              <td className="tabular-nums">{r.games}</td>
-              <td>
-                <WDL w={r.wins} d={r.draws} l={r.losses} />
-              </td>
-              <td className="tabular-nums font-semibold" style={{ color: r.games >= 3 ? (r.score >= 55 ? '#6a9e36' : r.score < 40 ? '#e02828' : undefined) : undefined }}>
-                {fmtPct(r.score)}
-              </td>
-              <td className="tabular-nums">{fmtPct(r.accuracy)}</td>
-              <td className="tabular-nums">{fmtPct(r.openingAccuracy)}</td>
-              <td className="tabular-nums muted">{r.avgBookExit ? `move ${r.avgBookExit.toFixed(0)}` : '–'}</td>
-              <td className="text-xs">
-                {r.commonErrors.map((e, i) => (
-                  <div key={i}>
-                    <Link className="hover:underline font-semibold" to={`/game/${encodeURIComponent(e.ref.gameId)}?ply=${e.ref.ply + 1}`}>
-                      {e.moveLabel}
-                    </Link>
-                    {e.bestSan && <span className="muted"> → {e.bestSan}</span>}
-                    {e.count > 1 && <span className="muted"> ({e.count}×)</span>}
-                  </div>
-                ))}
-                {r.commonErrors.length > 0 && (
-                  <Link className="underline muted" to={`/training?opening=${encodeURIComponent(r.name)}`}>
-                    drill
-                  </Link>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-/** Phones: one compact row per opening; tap for the details. */
+/** The rest of your openings: one compact row each; tap for the details. */
 function OpeningCards({ rows }: { rows: OpeningStat[] }) {
   const [open, setOpen] = useState<string | null>(null);
   if (!rows.length) return <Empty>No games.</Empty>;
@@ -122,20 +80,21 @@ function OpeningCards({ rows }: { rows: OpeningStat[] }) {
         const isOpen = open === r.key;
         return (
           <li key={r.key} className="px-1">
-            <button className="w-full text-left py-2.5 space-y-1.5" onClick={() => setOpen(isOpen ? null : r.key)} aria-expanded={isOpen}>
-              <div className="flex items-baseline justify-between gap-2">
-                <span className="font-bold leading-snug truncate">{r.name}</span>
-                <span className="shrink-0 text-sm tabular-nums">
-                  <span className="muted text-xs mr-2">{r.games} game{r.games === 1 ? '' : 's'}</span>
-                  <b style={{ color: few ? undefined : r.score >= 55 ? '#81b64c' : r.score < 40 ? '#e5713f' : undefined }} className={few ? 'muted' : ''}>
-                    {fmtPct(r.score)}
-                  </b>
-                </span>
-              </div>
-              {/* Too few games to mean much: shown dimmed. */}
-              <div className={few ? 'opacity-30' : ''}>
+            <button className="w-full text-left py-2.5 flex items-center gap-3" onClick={() => setOpen(isOpen ? null : r.key)} aria-expanded={isOpen}>
+              <span className="font-bold leading-snug truncate flex-1 min-w-0">{r.name}</span>
+              <span className="muted text-xs tabular-nums shrink-0">
+                {r.games} game{r.games === 1 ? '' : 's'}
+              </span>
+              {/* A small results bar; dimmed when there are too few games to mean much. */}
+              <span className={`w-16 sm:w-28 shrink-0 ${few ? 'opacity-30' : ''}`}>
                 <WDL w={r.wins} d={r.draws} l={r.losses} />
-              </div>
+              </span>
+              <b
+                className={`w-10 text-right text-sm tabular-nums shrink-0 ${few ? 'muted' : ''}`}
+                style={{ color: few ? undefined : r.score >= 55 ? 'var(--felt-ink)' : r.score < 40 ? 'var(--loss-ink)' : undefined }}
+              >
+                {fmtPct(r.score)}
+              </b>
             </button>
             {isOpen && (
               <div className="pb-3 space-y-2 text-sm">
@@ -170,10 +129,75 @@ function OpeningCards({ rows }: { rows: OpeningStat[] }) {
 function WDL({ w, d, l }: { w: number; d: number; l: number }) {
   const t = w + d + l || 1;
   return (
-    <div className="flex h-3 rounded overflow-hidden gap-px" title={`${w} wins, ${d} draws, ${l} losses`}>
-      {w > 0 && <div style={{ width: `${(100 * w) / t}%`, background: '#81b64c' }} />}
+    <div className="flex h-2 rounded-full overflow-hidden gap-px" title={`${w} wins, ${d} draws, ${l} losses`}>
+      {w > 0 && <div style={{ width: `${(100 * w) / t}%`, background: 'var(--win)' }} />}
       {d > 0 && <div style={{ width: `${(100 * d) / t}%`, background: '#a3a19c' }} />}
-      {l > 0 && <div style={{ width: `${(100 * l) / t}%`, background: '#e02828' }} />}
+      {l > 0 && <div style={{ width: `${(100 * l) / t}%`, background: 'var(--loss)' }} />}
     </div>
+  );
+}
+
+/** A main opening: the position where you usually leave book, your score as a ring, and what to fix. */
+function MainOpening({ r }: { r: OpeningStat }) {
+  const pgn = useLiveQuery(async () => (await db.pgns.get(r.gameIds[r.gameIds.length - 1]))?.pgn, [r.key]);
+  const fen = useMemo(() => {
+    if (!pgn) return undefined;
+    try {
+      const parsed = parsePgn(pgn);
+      const ply = Math.min(parsed.plies.length, Math.max(1, Math.round((r.avgBookExit ?? 4) * 2) - (r.color === 'w' ? 2 : 1)));
+      return parsed.plies[ply - 1]?.fenAfter ?? parsed.startFen;
+    } catch {
+      return undefined;
+    }
+  }, [pgn, r.avgBookExit, r.color]);
+  const few = r.games < 3;
+  return (
+    <article className="panel p-3 flex gap-3 min-w-0">
+      <div className="w-24 shrink-0">{fen ? <MiniBoard fen={fen} orientation={r.color === 'b' ? 'black' : 'white'} /> : <div className="skeleton aspect-square rounded-lg" />}</div>
+      <div className="min-w-0 flex-1 flex flex-col gap-1.5">
+        <div className="flex items-start gap-2">
+          <div className="min-w-0 flex-1">
+            <div className="font-extrabold leading-tight">{r.name}</div>
+            <div className="muted text-xs font-semibold tabular-nums mt-0.5">
+              {r.games} game{r.games === 1 ? '' : 's'} · {r.wins}W {r.draws}D {r.losses}L
+            </div>
+          </div>
+          <ScoreRing score={r.score} dim={few} />
+        </div>
+        <div className="muted text-xs">
+          {r.accuracy !== undefined && `accuracy ${fmtPct(r.accuracy)}`}
+          {r.avgBookExit ? ` · out of book ~move ${r.avgBookExit.toFixed(0)}` : ''}
+        </div>
+        {r.commonErrors.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 items-center mt-auto">
+            {r.commonErrors.slice(0, 2).map((e, i) => (
+              <Link key={i} className="chip !py-0.5 !px-2" to={`/game/${encodeURIComponent(e.ref.gameId)}?ply=${e.ref.ply + 1}`}>
+                {e.moveLabel}
+                {e.bestSan && <span className="muted font-normal"> → {e.bestSan}</span>}
+              </Link>
+            ))}
+            <Link className="btn btn-primary !py-0.5 !px-2.5 !text-xs" to={`/training?opening=${encodeURIComponent(r.name)}`}>
+              Drill
+            </Link>
+          </div>
+        )}
+      </div>
+    </article>
+  );
+}
+
+/** Score as a ring: green when it's going well, red when it isn't, dimmed with too few games to tell. */
+function ScoreRing({ score, dim }: { score: number; dim: boolean }) {
+  const r = 16;
+  const c = 2 * Math.PI * r;
+  const color = dim ? 'var(--draw)' : score >= 55 ? 'var(--win)' : score < 40 ? 'var(--loss)' : 'var(--brass)';
+  return (
+    <svg width="42" height="42" viewBox="0 0 42 42" className={`shrink-0 ${dim ? 'opacity-60' : ''}`} role="img" aria-label={`Score ${Math.round(score)}%`}>
+      <circle cx="21" cy="21" r={r} fill="none" stroke="var(--panel-2)" strokeWidth="4.5" />
+      <circle cx="21" cy="21" r={r} fill="none" stroke={color} strokeWidth="4.5" strokeLinecap="round" strokeDasharray={`${(c * score) / 100} ${c}`} transform="rotate(-90 21 21)" />
+      <text x="21" y="25" textAnchor="middle" fontSize="11" fontWeight="900" fill="var(--text)">
+        {Math.round(score)}
+      </text>
+    </svg>
   );
 }

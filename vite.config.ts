@@ -51,5 +51,7 @@ export default defineConfig({
     environment: 'node',
     // Browser tests in e2e/ run with Playwright (`npm run e2e`), not Vitest.
     exclude: ['**/node_modules/**', 'e2e/**'],
+    // The contrast test reads the theme tokens from index.css as text.
+    css: { include: [/index\.css/] },
   },
 });

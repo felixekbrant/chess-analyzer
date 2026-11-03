@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { dismissToast, subscribeToasts, type Toast } from '../lib/toast';
 
 const ICON = { info: 'ℹ', success: '✔', error: '⚠' };
-const COLOR = { info: 'var(--series-1)', success: '#81b64c', error: '#e02828' };
+const COLOR = { info: 'var(--info-ink)', success: 'var(--felt-ink)', error: 'var(--loss-ink)' };
 
 export function Toasts() {
   const [list, setList] = useState<Toast[]>([]);
@@ -14,7 +14,7 @@ export function Toasts() {
         <div
           key={t.id}
           role={t.kind === 'error' ? 'alert' : 'status'}
-          className="rise pointer-events-auto rounded-full shadow-lg px-4 py-2 text-sm font-semibold flex items-center gap-2.5 max-w-sm bg-[var(--panel-2)] text-[var(--text)]"
+          className="rise pointer-events-auto rounded-full shadow-[var(--lift)] px-4 py-2 text-sm font-semibold flex items-center gap-2.5 max-w-sm bg-[var(--overlay)] text-[var(--text)]"
         >
           <span style={{ color: COLOR[t.kind] }}>{ICON[t.kind]}</span>
           <span className="flex-1">{t.message}</span>

@@ -11,7 +11,7 @@ export function EngineControls({ open, onToggle }: { open: boolean; onToggle: ()
   const settings = useSettings();
   const pill = (on: boolean) =>
     `inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold border transition ${
-      on ? 'bg-accent text-white border-transparent' : 'bg-[var(--panel-2)] border-[var(--border)] muted'
+      on ? 'bg-primary text-white border-transparent' : 'bg-[var(--panel-2)] border-[var(--border)] muted'
     }`;
   return (
     <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Engine">

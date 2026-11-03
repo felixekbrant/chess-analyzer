@@ -199,7 +199,9 @@ test('insights: skills tab and game filters', async ({ page }) => {
   await expect(page.locator('button[aria-expanded="true"]')).toHaveCount(1);
 
   for (const option of ['Last 50 games', 'Last 100 games', 'Last 200 games', 'All games']) {
-    await pick(page, 'Which games', option);
+    await page.getByRole('button', { name: /^Filters:/ }).click();
+    await page.getByRole('radiogroup', { name: 'Which games' }).getByRole('radio', { name: option }).click();
+    await page.getByRole('button', { name: 'Done' }).click();
     await expect(page.getByText(/last \d+ rapid games/)).toBeVisible();
   }
   for (const name of ['Mistakes', 'Time', 'Results', 'Skills']) {
@@ -252,7 +254,7 @@ test('focus drill: tops up with Lichess puzzles and plays one', async ({ page })
   const today = page.locator('section', { has: page.getByRole('heading', { name: 'Today', exact: true }) });
   await expect(today.getByText('Focus drill')).toBeVisible();
   // This player has plenty of their own middlegame positions; pick an area with few, so the drill needs Lichess puzzles.
-  await page.getByRole('button', { name: 'Change' }).click();
+  await page.getByTitle('Change focus').click();
   await page.getByRole('dialog').getByRole('button', { name: /^Opening/ }).click();
   await expect(today.getByText(/Lichess puzzles/)).toBeVisible();
   // The pack for the focus area is downloaded and its puzzles stored in the browser.
@@ -293,7 +295,7 @@ test('focus drill: tops up with Lichess puzzles and plays one', async ({ page })
     expect(i, 'a Lichess puzzle in the session').toBeLessThan(30);
     await page.getByRole('button', { name: /Skip/ }).click();
   }
-  await expect(page.getByText(/Lichess puzzle · \d+/)).toBeVisible();
+  await expect(page.getByTitle('Lichess puzzle rating')).toBeVisible();
   if (process.env.E2E_SHOTS) await page.screenshot({ path: `${process.env.E2E_SHOTS}/lichess-puzzle.png`, fullPage: true });
   await page.getByRole('button', { name: /Solution/ }).click();
   await expect(page.getByText(/^Solution:/)).toBeVisible();
@@ -402,7 +404,7 @@ test('review edges: missing game, end of game, next game, offline message', asyn
   await seed(page);
   // A link to a game that doesn't exist says so (it used to load forever).
   await page.goto('./#/game/does-not-exist');
-  await expect(page.getByText('Game not found.')).toBeVisible();
+  await expect(page.getByText('Game not found')).toBeVisible();
 
   // At the end of a game Next becomes Summary; the summary offers the next game to review.
   await page.goto('./#/games');

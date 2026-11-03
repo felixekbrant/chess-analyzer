@@ -4,7 +4,7 @@ import { db, getSettings, saveSettings } from '../db/schema';
 import { useSettings } from '../hooks/useStores';
 import { fetchArchives } from '../lib/chesscom/api';
 import { connectAccount } from '../lib/account';
-import { ANALYSE_LIMITS, speedChoices, workerCount } from '../lib/engine/queue';
+import { ANALYSE_LIMITS, shownSpeed, speedChoices, workerCount } from '../lib/engine/queue';
 import { toast } from '../lib/toast';
 import { monthIndex, syncMonths } from '../lib/chesscom/sync';
 import { syncManager } from '../lib/syncManager';
@@ -13,10 +13,12 @@ import { exportBackup, importBackup } from '../lib/backup';
 import { PageHeader } from '../components/ui';
 import { Picker } from '../components/Picker';
 import { timeAgo } from '../lib/format';
-import { BOARD_THEMES } from '../lib/boardThemes';
+import { BOARD_THEMES, PIECE_SETS, pieceUrl } from '../lib/boardThemes';
+import { defaultPieces } from 'react-chessboard';
+import { Icon, type IconName } from '../components/Icon';
 import { playSound, setSoundEnabled } from '../lib/sound';
 import { isIos, isStandalone, useInstallPrompt } from '../pwa/install';
-import type { BoardTheme } from '../lib/types';
+import type { BoardTheme, PieceSet } from '../lib/types';
 
 export default function SettingsPage() {
   const settings = useSettings();
@@ -143,7 +145,8 @@ export default function SettingsPage() {
         </Row>
         <Row label="Speed" hint={`${workerCount(settings.analysisSpeed)} engine${workerCount(settings.analysisSpeed) > 1 ? 's' : ''}`}>
           <Segmented
-            value={settings.analysisSpeed}
+            label="Speed"
+            value={shownSpeed(settings.analysisSpeed)}
             options={speedChoices().map((k) => [k, k[0].toUpperCase() + k.slice(1)] as [typeof k, string])}
             onChange={async (k) => {
               await saveSettings({ analysisSpeed: k });
@@ -163,39 +166,53 @@ export default function SettingsPage() {
             value={settings.depth}
             aria-label="Engine depth"
             onChange={(e) => saveSettings({ depth: Number(e.target.value) })}
-            className="w-full accent-[#81b64c] mt-1"
+            className="w-full accent-[var(--felt)] mt-1"
           />
         </div>
       </Group>
 
       <Group title="Training">
         <Row label="Daily plan">
-          <Segmented value={settings.sessionMinutes} options={[[10, '10 min'], [15, '15 min'], [25, '25 min']]} onChange={(m) => saveSettings({ sessionMinutes: m })} />
+          <Segmented
+            label="Daily plan" value={settings.sessionMinutes} options={[[10, '10 min'], [15, '15 min'], [25, '25 min']]} onChange={(m) => saveSettings({ sessionMinutes: m })} />
         </Row>
         {switchRow('Next puzzle after a clean solve', settings.autoNextPuzzle, (v) => void saveSettings({ autoNextPuzzle: v }))}
       </Group>
 
       <Group title="Board">
+        {/* Previews with real pieces, in the chosen piece set. */}
         <div className="grid grid-cols-4 gap-2 px-4 py-3">
-          {(Object.keys(BOARD_THEMES) as BoardTheme[]).map((k) => {
-            const t = BOARD_THEMES[k];
-            return (
-              <button
-                key={k}
-                onClick={() => saveSettings({ boardTheme: k })}
-                className={`rounded-lg p-1.5 border-2 ${settings.boardTheme === k ? 'border-accent' : 'border-transparent'}`}
-                aria-pressed={settings.boardTheme === k}
-              >
-                <span className="grid grid-cols-2 aspect-square rounded overflow-hidden">
-                  <span style={{ background: t.light }} />
-                  <span style={{ background: t.dark }} />
-                  <span style={{ background: t.dark }} />
-                  <span style={{ background: t.light }} />
-                </span>
-                <span className="block text-xs font-semibold mt-1">{t.label}</span>
-              </button>
-            );
-          })}
+          {(Object.keys(BOARD_THEMES) as BoardTheme[]).map((k) => (
+            <button
+              key={k}
+              onClick={() => saveSettings({ boardTheme: k })}
+              className={`rounded-xl p-1.5 border-2 transition-colors ${settings.boardTheme === k ? 'border-[var(--felt)]' : 'border-transparent hover:border-[var(--border)]'}`}
+              aria-pressed={settings.boardTheme === k}
+            >
+              <ThemePreview theme={k} set={settings.pieceSet ?? 'classic'} />
+              <span className="block text-xs font-bold mt-1.5">{BOARD_THEMES[k].label}</span>
+            </button>
+          ))}
+        </div>
+        <div className="grid grid-cols-3 gap-2 px-4 pb-3">
+          {(Object.keys(PIECE_SETS) as PieceSet[]).map((k) => (
+            <button
+              key={k}
+              onClick={() => saveSettings({ pieceSet: k })}
+              className={`rounded-xl p-2 border-2 flex flex-col items-center gap-1 transition-colors ${(settings.pieceSet ?? 'classic') === k ? 'border-[var(--felt)]' : 'border-transparent hover:border-[var(--border)]'}`}
+              aria-pressed={(settings.pieceSet ?? 'classic') === k}
+              aria-label={`Pieces: ${PIECE_SETS[k].label}`}
+            >
+              <span className="flex">
+                {['wN', 'bQ'].map((code) => (
+                  <span key={code} className="w-9 h-9">
+                    {k === 'classic' ? defaultPieces[code]?.({ svgStyle: { width: '100%', height: '100%' } }) : <img src={pieceUrl(k, code)} alt="" className="w-full h-full" />}
+                  </span>
+                ))}
+              </span>
+              <span className="text-xs font-bold">{PIECE_SETS[k].label}</span>
+            </button>
+          ))}
         </div>
         {switchRow('Coordinates', settings.showCoordinates, (v) => void saveSettings({ showCoordinates: v }))}
         {switchRow('Engine: eval bar', settings.showEvalBar, (v) => void saveSettings({ showEvalBar: v }))}
@@ -209,6 +226,7 @@ export default function SettingsPage() {
         })}
         <Row label="Theme">
           <Segmented
+            label="Theme"
             value={settings.theme}
             options={[
               ['dark', 'Dark'],
@@ -263,8 +281,8 @@ export default function SettingsPage() {
         </Row>
         <Row label="Delete everything">
           <button
-            className="btn !py-1.5 !px-3"
-            style={{ color: '#e5713f' }}
+            className="btn !py-1.5 !px-3 !bg-transparent !shadow-none ring-2 ring-[var(--loss)]"
+            style={{ color: 'var(--loss-ink)' }}
             onClick={async () => {
               if (!confirm('Delete ALL games, analyses and puzzles from this browser? This cannot be undone.')) return;
               const s = await getSettings();
@@ -300,7 +318,7 @@ export default function SettingsPage() {
           <a className="underline" href="https://database.lichess.org/#puzzles" target="_blank" rel="noopener noreferrer">
             Lichess puzzle database
           </a>{' '}
-          (CC0).
+          (CC0). Pieces: Merida by Armando Hernandez Marroquin (GPLv2+) and Chessnut by Alexis Luengas (Apache 2.0), via Lichess. Typeface: Figtree (OFL).
         </p>
       </div>
     </div>
@@ -308,10 +326,15 @@ export default function SettingsPage() {
 }
 
 /** A group of settings rows under a small heading (like a phone's settings app). */
+const GROUP_ICON: Record<string, IconName> = { 'chess.com': 'sync', Analysis: 'engine', Training: 'puzzle', Board: 'games', App: 'install', Data: 'book' };
+
 function Group({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section>
-      <h2 className="muted text-xs font-bold uppercase tracking-wide px-1 mb-1.5">{title}</h2>
+      <h2 className="muted text-xs font-extrabold uppercase tracking-wider px-1 mb-1.5 flex items-center gap-1.5">
+        {GROUP_ICON[title] && <Icon name={GROUP_ICON[title]} size={13} />}
+        {title}
+      </h2>
       <div className="panel divide-y divide-[var(--border)] overflow-hidden">{children}</div>
     </section>
   );
@@ -331,15 +354,15 @@ function Row({ label, hint, children }: { label: string; hint?: string; children
 }
 
 /** A few options side by side; the chosen one is green. */
-function Segmented<T extends string | number>({ value, options, onChange }: { value: T; options: [T, string][]; onChange: (v: T) => void }) {
+function Segmented<T extends string | number>({ value, options, onChange, label }: { value: T; options: [T, string][]; onChange: (v: T) => void; label: string }) {
   return (
-    <div className="inline-flex rounded-full bg-[var(--panel-2)] p-0.5" role="radiogroup">
+    <div className="inline-flex rounded-full bg-[var(--panel-2)] p-1" role="radiogroup" aria-label={label}>
       {options.map(([v, label]) => (
         <button
           key={String(v)}
           role="radio"
           aria-checked={value === v}
-          className={`rounded-full px-3 py-1 text-xs font-bold transition ${value === v ? 'bg-accent text-white' : 'muted'}`}
+          className={`rounded-full px-3 py-1 text-xs font-bold transition-colors duration-200 ${value === v ? 'bg-primary text-white shadow' : 'muted hover:text-[var(--text)]'}`}
           onClick={() => onChange(v)}
         >
           {label}
@@ -363,5 +386,25 @@ function InstallSection() {
         )}
       </Row>
     </Group>
+  );
+}
+
+/** A 4×4 corner of a board in a theme, with a few real pieces on it. */
+function ThemePreview({ theme, set }: { theme: BoardTheme; set: PieceSet }) {
+  const t = BOARD_THEMES[theme];
+  const pieces: Record<number, string> = { 0: 'bR', 1: 'bN', 5: 'bP', 10: 'wB', 14: 'wP', 15: 'wK' };
+  return (
+    <span className="grid grid-cols-4 aspect-square rounded-lg overflow-hidden">
+      {Array.from({ length: 16 }, (_, i) => (
+        <span key={i} className="aspect-square" style={{ background: (Math.floor(i / 4) + i) % 2 === 0 ? t.light : t.dark }}>
+          {pieces[i] &&
+            (set === 'classic' ? (
+              defaultPieces[pieces[i]]?.({ svgStyle: { width: '100%', height: '100%' } })
+            ) : (
+              <img src={pieceUrl(set, pieces[i])} alt="" className="w-full h-full" />
+            ))}
+        </span>
+      ))}
+    </span>
   );
 }

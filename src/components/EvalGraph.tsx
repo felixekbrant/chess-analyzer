@@ -1,3 +1,5 @@
+import { BOARD_THEMES } from '../lib/boardThemes';
+import { useSettings } from '../hooks/useStores';
 import { memo, useMemo, useRef } from 'react';
 import { CLASS_META } from '../lib/classificationMeta';
 import { winPercent } from '../lib/analysis/winprob';
@@ -28,6 +30,7 @@ export const EvalGraph = memo(function EvalGraph({
     const pts = evals.map((s, i) => `${(i / n) * 100},${100 - winPercent(s)}`);
     return { line: pts.join(' '), area: `0,100 ${pts.join(' ')} 100,100` };
   }, [evals, n]);
+  const theme = BOARD_THEMES[useSettings().boardTheme] ?? BOARD_THEMES.green;
   const dots = useMemo(
     () => moves.map((m, i) => ({ m, x: ((i + 1) / n) * 100, y: 100 - winPercent(evals[i + 1]) })).filter((d) => DOT_CLASSES.has(d.m.classification)),
     [moves, evals, n],
@@ -43,8 +46,9 @@ export const EvalGraph = memo(function EvalGraph({
   return (
     <div
       ref={ref}
-      className="relative w-full rounded-md overflow-hidden bg-[#403d39] cursor-pointer touch-none select-none"
-      style={{ height }}
+      className="relative w-full rounded-lg overflow-hidden cursor-pointer touch-none select-none shadow-[0_0_0_2px_var(--board-frame)]"
+      // Drawn in the board's own square colours, so it reads as part of the board.
+      style={{ height, background: shade(theme.dark, -0.35) }}
       role="slider"
       aria-label="Evaluation graph, move"
       aria-valuemin={0}
@@ -57,19 +61,26 @@ export const EvalGraph = memo(function EvalGraph({
       onPointerMove={(e) => e.buttons && seek(e.clientX)}
     >
       <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 w-full h-full">
-        <polygon points={area} fill="#f4f4f4" />
-        <polyline points={line} fill="none" stroke="#c8c6c3" strokeWidth={0.6} vectorEffect="non-scaling-stroke" />
-        <line x1={0} x2={100} y1={50} y2={50} stroke="#8b8987" strokeWidth={1} vectorEffect="non-scaling-stroke" />
+        <polygon points={area} fill={theme.light} />
+        <polyline points={line} fill="none" stroke={theme.dark} strokeWidth={1} vectorEffect="non-scaling-stroke" />
+        <line x1={0} x2={100} y1={50} y2={50} stroke="var(--draw)" strokeWidth={1} vectorEffect="non-scaling-stroke" />
       </svg>
-      <div className="absolute top-0 bottom-0 w-0.5 bg-accent pointer-events-none" style={{ left: `${(current / n) * 100}%` }} />
+      <div className="absolute top-0 bottom-0 w-[3px] -ml-px rounded-full bg-primary pointer-events-none shadow" style={{ left: `${(current / n) * 100}%` }} />
       {dots.map(({ m, x, y }) => (
         <span
           key={m.ply}
           title={`${m.moveNumber}${m.color === 'w' ? '.' : '...'} ${m.san} (${CLASS_META[m.classification].label})`}
           className="absolute w-2.5 h-2.5 rounded-full -translate-x-1/2 -translate-y-1/2 pointer-events-none"
-          style={{ left: `${x}%`, top: `${y}%`, background: CLASS_META[m.classification].color, boxShadow: '0 0 0 2px #403d39' }}
+          style={{ left: `${x}%`, top: `${y}%`, background: CLASS_META[m.classification].color, boxShadow: '0 0 0 2px rgba(0,0,0,.35)' }}
         />
       ))}
     </div>
   );
 });
+
+/** A darker (negative) or lighter (positive) version of a #rrggbb colour. */
+function shade(hex: string, amount: number) {
+  const n = parseInt(hex.slice(1), 16);
+  const f = (c: number) => Math.round(amount < 0 ? c * (1 + amount) : c + (255 - c) * amount);
+  return `rgb(${f((n >> 16) & 255)}, ${f((n >> 8) & 255)}, ${f(n & 255)})`;
+}

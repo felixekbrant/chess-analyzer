@@ -33,6 +33,19 @@ jobs:
       - run: npm run e2e
         env:
           CI: true
+      # Reference screenshots: reported, but they don't block a deploy (a different machine can
+      # render a pixel differently); the diff images are in the uploaded report.
+      - run: npm run e2e:visual
+        continue-on-error: true
+        id: visual
+        env:
+          CI: true
+      - uses: actions/upload-artifact@v4
+        if: steps.visual.outcome == 'failure'
+        with:
+          name: visual-diffs
+          path: test-results
+          retention-days: 7
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

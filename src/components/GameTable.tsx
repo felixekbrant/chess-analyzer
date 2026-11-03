@@ -3,7 +3,7 @@ import { opponentElo, opponentName, userElo } from '../lib/games/build';
 import { analysisQueue } from '../lib/engine/queue';
 import { useQueueProgress } from '../hooks/useStores';
 import type { StoredGame } from '../lib/types';
-import { ResultPill, TimeClassIcon, formatDate } from './ui';
+import { TimeClassIcon, formatDate } from './ui';
 import { relativeDay } from '../lib/format';
 
 export type SortKey = 'date' | 'accuracy';
@@ -46,8 +46,11 @@ export function GameTable({
         {games.map((g) => {
           return (
             <tr key={g.id} className="clickable" onClick={() => onOpen(g)}>
-              <td className="w-8">
-                <ResultPill g={g} />
+              <td className="w-16">
+                <span className="inline-flex items-center gap-2 text-xs font-extrabold" style={{ color: resultInk(g) }}>
+                  <span className="w-[3px] h-5 rounded" style={{ background: resultColor(g) }} aria-hidden="true" />
+                  {resultWord(g)}
+                </span>
               </td>
               <td>
                 <div className="flex items-center gap-2">
@@ -113,7 +116,7 @@ function AccuracyCell({ g }: { g: StoredGame }) {
 export function ThrownMark({ g }: { g: StoredGame }) {
   if (!isThrown(g)) return null;
   return (
-    <span className="chip !text-[10px] !py-0 shrink-0 whitespace-nowrap" style={{ color: '#e5713f' }} title="Lost after being clearly winning">
+    <span className="chip !text-[10px] !py-0 shrink-0 whitespace-nowrap" style={{ color: 'var(--attention-ink)' }} title="Lost after being clearly winning">
       was {formatPeak(g.peakEval!)}
     </span>
   );
@@ -129,11 +132,43 @@ export function AccuracyPill({ value }: { value: number }) {
   );
 }
 
+const resultWord = (g: StoredGame) => (g.userResult === 'win' ? 'Won' : g.userResult === 'loss' ? 'Lost' : g.userResult === 'draw' ? 'Draw' : '–');
+const resultColor = (g: StoredGame) => (g.userResult === 'win' ? 'var(--win)' : g.userResult === 'loss' ? 'var(--loss)' : 'var(--draw)');
+const resultInk = (g: StoredGame) => (g.userResult === 'win' ? 'var(--felt-ink)' : g.userResult === 'loss' ? 'var(--loss-ink)' : 'var(--muted)');
+
+/** "October 2026 · 15W 0D 14L · 74% accuracy" above each month of games. */
+function MonthHeader({ label, games }: { label: string; games: StoredGame[] }) {
+  const w = games.filter((g) => g.userResult === 'win').length;
+  const d = games.filter((g) => g.userResult === 'draw').length;
+  const l = games.filter((g) => g.userResult === 'loss').length;
+  const acc = games.filter((g) => g.userAccuracy !== undefined);
+  const avg = acc.length ? acc.reduce((s, g) => s + g.userAccuracy!, 0) / acc.length : undefined;
+  return (
+    <div className="flex items-baseline justify-between gap-2 px-1 mb-1.5">
+      <span className="text-xs font-extrabold uppercase tracking-wider">{label}</span>
+      <span className="muted text-xs font-semibold tabular-nums">
+        {w}W {d}D {l}L{avg !== undefined ? ` · ${avg.toFixed(0)}% accuracy` : ''}
+      </span>
+    </div>
+  );
+}
+
 /**
  * Games as tappable cards grouped by day ("Today", "Yesterday", …). Used on phones and for short
  * lists; each card subscribes only to its own analysis progress.
  */
-export function GameCardList({ games, onOpen, grouped = true }: { games: StoredGame[]; onOpen: (g: StoredGame) => void; grouped?: boolean }) {
+export function GameCardList({
+  games,
+  onOpen,
+  grouped = true,
+  flush = false,
+}: {
+  games: StoredGame[];
+  onOpen: (g: StoredGame) => void;
+  grouped?: boolean;
+  /** Inside another card: no card of its own. */
+  flush?: boolean;
+}) {
   const groups: { day: string; games: StoredGame[] }[] = [];
   for (const g of games) {
     // One continuous list per month (like chess.com's archive); each row carries its own date.
@@ -146,12 +181,20 @@ export function GameCardList({ games, onOpen, grouped = true }: { games: StoredG
     <div className="space-y-3">
       {groups.map((grp) => (
         <div key={grp.day + grp.games[0].id}>
-          {grouped && <div className="muted text-xs font-bold uppercase tracking-wide px-1 mb-1.5">{grp.day}</div>}
-          <ul className="panel divide-y divide-[var(--border)] overflow-hidden">
+          {grouped && <MonthHeader label={grp.day} games={grp.games} />}
+          <ul className={`${flush ? '' : 'panel'} divide-y divide-[var(--border)] overflow-hidden`}>
             {grp.games.map((g) => (
               <li key={g.id}>
-                <button className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-[var(--panel-2)]" onClick={() => onOpen(g)} data-game-id={g.id}>
-                  <ResultPill g={g} />
+                <button
+                  className="relative w-full flex items-center gap-3 pl-4 pr-3 py-2.5 text-left hover:bg-[var(--panel-2)]"
+                  onClick={() => onOpen(g)}
+                  data-game-id={g.id}
+                >
+                  {/* The result as a thin stripe and a word; your accuracy leads the row. */}
+                  <span className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r" style={{ background: resultColor(g) }} aria-hidden="true" />
+                  <span className="w-12 shrink-0 flex justify-center">
+                    <CardStatus g={g} />
+                  </span>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
                       <span className="font-bold truncate">{g.userColor ? opponentName(g) : `${g.white} – ${g.black}`}</span>
@@ -163,8 +206,10 @@ export function GameCardList({ games, onOpen, grouped = true }: { games: StoredG
                       <span className="truncate">{g.openingName ?? g.eco ?? `${Math.ceil(g.plyCount / 2)} moves`}</span>
                     </div>
                   </div>
-                  <div className="flex flex-col items-end gap-1 shrink-0">
-                    <CardStatus g={g} />
+                  <div className="flex flex-col items-end shrink-0 text-right">
+                    <span className="text-xs font-extrabold" style={{ color: resultInk(g) }}>
+                      {resultWord(g)}
+                    </span>
                     <span className="muted text-[11px] font-semibold">{relativeDay(g.endTime)}</span>
                   </div>
                 </button>

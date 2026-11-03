@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { MIN_PROFILE_GAMES, type SkillsData } from '../hooks/useSkills';
+import { Headline } from './ui';
 import { SKILL_AREAS, SKILL_META, type SkillArea } from '../lib/insights/skills';
 import { Comparison, CostBars, TrendChip } from './Coaching';
 import { Icon } from './Icon';
@@ -35,15 +36,26 @@ export function SkillsTab({ data }: { data: SkillsData }) {
   const byArea = new Map(ranked.map((r) => [r.area, r]));
   const max = Math.max(...ranked.map((r) => Math.max(r.cost, r.typical ?? 0)), 1);
   const focus = data.focus.current?.area;
+  // The biggest leak: the most win chance lost above what's typical (points, not ratio, so a big
+  // area that's well above typical beats a tiny one that's three times typical).
+  const leak = [...ranked].filter((r) => r.typical !== undefined && r.cost > r.typical * 1.15).sort((a, b) => b.cost - b.typical! - (a.cost - a.typical!))[0];
 
   return (
     <div className="space-y-4">
+      <Headline sub={`Win chance lost per game, last ${profile.games} ${timeClass} games`}>
+        {leak ? (
+          <>
+            <span style={{ color: 'var(--attention-ink)' }}>{SKILL_META[leak.area].label}</span> costs you {(leak.cost / leak.typical!).toFixed(1)}× what's typical.
+          </>
+        ) : (
+          'No area costs you clearly more than players at your rating.'
+        )}
+      </Headline>
       <p
         className="muted text-xs"
         title={`Each mistake is counted in one area, by how much winning chance it cost. "Plays like" starts from your rating and only moves when your games clearly show it.`}
       >
-        Win chance lost per game · last {profile.games} {timeClass} games
-        {ranked.some((r) => r.typical !== undefined) && rating ? ` · grey: typical ~${Math.round(rating / 100) * 100}` : ''}
+        {ranked.some((r) => r.typical !== undefined) && rating ? `The tick on each bar: typical for ~${Math.round(rating / 100) * 100} players` : ''}
       </p>
       <div className="grid lg:grid-cols-2 gap-3">
         {/* Daily games have no clock pressure to speak of. */}

@@ -38,7 +38,7 @@ import { Board } from '../components/Board';
 import { ClassificationBadge } from '../components/ClassificationBadge';
 import { Icon } from '../components/Icon';
 import { Sheet } from '../components/Sheet';
-import { Empty, PageHeader, Section } from '../components/ui';
+import { EMPTY_FENS, EmptyState, PageHeader, Section } from '../components/ui';
 
 type State = 'solving' | 'checking' | 'wrong' | 'solved' | 'revealed';
 
@@ -175,12 +175,12 @@ export default function Training() {
         )}
         <div className="ml-auto flex items-center gap-3 text-sm tabular-nums">
           {session.streak > 1 && (
-            <span title="Solved in a row" className="inline-flex items-center gap-0.5 font-bold" style={{ color: '#e5713f' }}>
+            <span title="Solved in a row" className="inline-flex items-center gap-0.5 font-bold" style={{ color: 'var(--brass-ink)' }}>
               <Icon name="flame" size={14} /> {session.streak}
             </span>
           )}
           <span className="muted" title="Solved / missed this session">
-            <span style={{ color: '#81b64c' }}>✓{session.solved}</span> <span style={{ color: '#e02828' }}>✗{session.failed}</span>
+            <span style={{ color: 'var(--felt-ink)' }}>✓{session.solved}</span> <span style={{ color: 'var(--loss-ink)' }}>✗{session.failed}</span>
           </span>
         </div>
       </div>
@@ -213,36 +213,29 @@ export default function Training() {
 
       {puzzles && !puzzles.length ? (
         <Section>
-          <Empty>
-            No puzzles yet. They're made automatically from your mistakes as your games are analysed.
-            <br />
-            <Link className="underline" to="/games">
-              Go to your games
+          <EmptyState fen={EMPTY_FENS.mate} title="No puzzles yet">
+            They're made from your mistakes as your games are analysed.
+            <Link className="btn btn-primary" to="/games">
+              Your games
             </Link>
-          </Empty>
+          </EmptyState>
         </Section>
       ) : !puzzles ? (
         <div className="skeleton aspect-square max-w-[560px]" />
       ) : inSession && !current ? (
         <Section>
-          <div className="text-center py-8 space-y-3">
-            <div className="text-lg font-black">{sess.stage === 'done' ? "Today's puzzles are done" : 'Nothing left in this part'}</div>
-            <p className="muted text-sm">
-              Solved {session.solved}, missed {session.failed}. Missed ones come back soon, so they stick.
-            </p>
+          <EmptyState fen={EMPTY_FENS.mate} title={sess.stage === 'done' ? "Today's puzzles are done" : 'Nothing left in this part'}>
+            Solved {session.solved}, missed {session.failed}. Missed ones come back soon.
             <Link className="btn btn-primary" to="/">
               Back to Today
             </Link>
-          </div>
+          </EmptyState>
         </Section>
       ) : !current ? (
         <Section>
-          <div className="text-center py-8 space-y-3">
-            <div className="text-lg font-black">All done{focusLabel !== 'All puzzles' ? ` for ${focusLabel}` : ''}</div>
-            <p className="muted text-sm">
-              {filtered.length} puzzle{filtered.length === 1 ? '' : 's'} in this set. Solved {session.solved}, missed {session.failed} this session
-              {session.best > 1 ? `, best streak ${session.best}` : ''}.
-            </p>
+          <EmptyState fen={EMPTY_FENS.mate} title={`All done${focusLabel !== 'All puzzles' ? ` for ${focusLabel}` : ''}`}>
+            {filtered.length} puzzle{filtered.length === 1 ? '' : 's'} in this set. Solved {session.solved}, missed {session.failed}
+            {session.best > 1 ? `, best streak ${session.best}` : ''}.
             {filtered.length > 0 && (
               <button
                 className="btn btn-primary"
@@ -254,7 +247,7 @@ export default function Training() {
                 Keep practising anyway
               </button>
             )}
-          </div>
+          </EmptyState>
         </Section>
       ) : (
         <PuzzleView
@@ -295,7 +288,7 @@ export default function Training() {
 function FocusItem({ active, onClick, label, count, sub }: { active: boolean; onClick: () => void; label: string; count?: number; sub?: string }) {
   return (
     <button
-      className={`flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-left font-semibold ${active ? 'bg-accent text-white' : 'hover:bg-[var(--panel-2)]'}`}
+      className={`flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-left font-semibold ${active ? 'bg-primary text-white' : 'hover:bg-[var(--panel-2)]'}`}
       onClick={onClick}
     >
       <span>
@@ -552,9 +545,9 @@ function PuzzleView({
     state === 'checking' ? (
       <span className="muted">Checking your move…</span>
     ) : state === 'wrong' ? (
-      <span style={{ color: '#e02828' }}>✗ {note}</span>
+      <span style={{ color: 'var(--loss-ink)' }}>✗ {note}</span>
     ) : state === 'solved' ? (
-      <span style={{ color: '#6a9e36' }}>✔ {note}</span>
+      <span style={{ color: 'var(--felt-ink)' }}>✔ {note}</span>
     ) : state === 'revealed' ? (
       <span>
         Solution: <b>{solutionSan.join(' ')}</b>
@@ -605,7 +598,25 @@ function PuzzleView({
 
       <div className="space-y-3">
         {/* Right under the board on phones: what to do, and the buttons. */}
-        {!engine && <div className="min-h-5 text-sm font-semibold">{status}</div>}
+        {/* The state of the puzzle as a banner: neutral, a green flash when right, a red shake when wrong. */}
+        {!engine && (
+          <div
+            key={`${state}-${mistakes}`}
+            className={`rounded-xl px-3.5 py-3 text-sm font-bold ${state === 'wrong' ? 'shake' : state === 'solved' ? 'pop' : ''}`}
+            style={{
+              background:
+                state === 'wrong'
+                  ? 'color-mix(in srgb, var(--loss) 18%, var(--panel))'
+                  : state === 'solved'
+                    ? 'color-mix(in srgb, var(--win) 20%, var(--panel))'
+                    : 'var(--panel)',
+              boxShadow: `inset 3px 0 0 ${state === 'wrong' ? 'var(--loss)' : state === 'solved' ? 'var(--win)' : 'var(--border)'}`,
+            }}
+            role="status"
+          >
+            {status}
+          </div>
+        )}
         <EngineControls open={!!engine} onToggle={toggleEngine} />
         {engine && settings.showSuggestions && (
           <div className="panel p-3">
@@ -665,7 +676,7 @@ function PuzzleView({
               </span>
               <span className="muted tabular-nums">−{puzzle.winLoss.toFixed(0)}%</span>
               {puzzle.occurrences > 1 && (
-                <span className="chip" style={{ color: '#e5713f' }}>
+                <span className="chip" style={{ color: 'var(--attention-ink)' }}>
                   ×{puzzle.occurrences} games
                 </span>
               )}
@@ -775,18 +786,19 @@ function LichessInfoPanel({ info }: { info: NonNullable<Puzzle['lichess']> }) {
   const themes = info.themes.filter((t) => THEME_LABEL[t]);
   return (
     <div className="panel p-3 text-sm space-y-2">
-      <p>
-        <b>{SKILL_META[info.area].label}</b> <span className="muted">· Lichess puzzle · {info.rating}</span>
+      {/* The same one-row shape as "You played …" on your own puzzles. */}
+      <p className="flex items-center gap-1.5 flex-wrap">
+        <span className="muted">Lichess</span>
+        <span className="font-bold">{SKILL_META[info.area].label}</span>
+        <span className="chip tabular-nums" title="Lichess puzzle rating">
+          {info.rating}
+        </span>
+        {themes.slice(0, 2).map((t) => (
+          <span key={t} className="chip">
+            {THEME_LABEL[t]}
+          </span>
+        ))}
       </p>
-      {themes.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {themes.map((t) => (
-            <span key={t} className="chip">
-              {THEME_LABEL[t]}
-            </span>
-          ))}
-        </div>
-      )}
       <a className="text-sm underline muted inline-flex items-center gap-1" href={`https://lichess.org/training/${info.id}`} target="_blank" rel="noopener noreferrer">
         Open on lichess.org <Icon name="external" size={14} />
       </a>

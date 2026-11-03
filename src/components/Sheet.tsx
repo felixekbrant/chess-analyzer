@@ -28,9 +28,9 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
       <div
         ref={panel}
         tabIndex={-1}
-        className="relative w-full md:max-w-md max-h-[85vh] overflow-y-auto panel !rounded-b-none md:!rounded-xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] outline-none animate-[sheet_.2s_ease-out]"
+        className="relative w-full md:max-w-md max-h-[85vh] overflow-y-auto bg-[var(--overlay)] shadow-[var(--lift)] rounded-t-[20px] md:rounded-[20px] p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] outline-none animate-[sheet_.28s_cubic-bezier(.2,.8,.3,1)]"
       >
-        <div className="md:hidden mx-auto mb-3 h-1 w-10 rounded-full bg-[var(--border)]" />
+        <div className="md:hidden mx-auto mb-3 h-1 w-10 rounded-full bg-[var(--muted)]/40" />
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-bold text-lg">{title}</h2>
           <button className="icon-btn" onClick={onClose} aria-label="Close">

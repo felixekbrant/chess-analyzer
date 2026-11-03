@@ -3,6 +3,7 @@ import { CLASS_META, CLASS_ORDER } from '../../lib/classificationMeta';
 import { formatClock, formatDuration, type ParsedGame } from '../../lib/pgn/parse';
 import type { Color, GameAnalysis, MoveAnalysis, StoredGame } from '../../lib/types';
 import { ClassificationBadge } from '../../components/ClassificationBadge';
+import { BrandMark } from '../../components/BrandMark';
 
 export const KEY_CLASSES = ['blunder', 'mistake', 'miss', 'brilliant', 'great'];
 export const ERROR_CLASSES = ['blunder', 'mistake', 'miss'];
@@ -18,16 +19,39 @@ export function lastClock(plies: { color: Color; clock?: number }[], ply: number
   return undefined;
 }
 
-export function PlayerStrip({ name, elo, clock, isUser, active }: { name: string; elo?: number; clock?: number; isUser?: boolean; active?: boolean }) {
+export function PlayerStrip({
+  name,
+  elo,
+  clock,
+  isUser,
+  active,
+  side,
+}: {
+  name: string;
+  elo?: number;
+  clock?: number;
+  isUser?: boolean;
+  active?: boolean;
+  side: 'w' | 'b';
+}) {
   return (
-    <div className="flex justify-between items-center text-sm px-1 h-7">
-      <span className="font-semibold truncate">
-        {name} {elo && <span className="muted font-normal">({elo})</span>}
-        {isUser && <span className="chip ml-1 !text-[10px] !py-0">you</span>}
+    <div className="flex justify-between items-center gap-2 text-sm px-1 h-9">
+      <span className="flex items-center gap-2 min-w-0">
+        {/* An initial as the avatar, in the colour the player has on the board. */}
+        <span
+          className={`w-6 h-6 rounded-md shrink-0 grid place-items-center text-[11px] font-black ${isUser ? 'ring-2 ring-[var(--felt)]' : ''}`}
+          style={{ background: side === 'w' ? '#f4f2ee' : '#1f1d1b', color: side === 'w' ? '#1f1d1b' : '#f4f2ee' }}
+          aria-hidden="true"
+        >
+          {name.slice(0, 1).toUpperCase()}
+        </span>
+        <span className="font-bold truncate">{name}</span>
+        {elo && <span className="muted text-xs font-semibold tabular-nums">{elo}</span>}
       </span>
       {clock !== undefined && (
+        // The clock of the side to move is lit, like a real clock.
         <span
-          className={`tabular-nums font-mono text-xs px-2 py-0.5 rounded ${active ? 'bg-[var(--text)] text-[var(--bg)]' : 'bg-[var(--panel-2)]'}`}
+          className={`tabular-nums text-sm font-extrabold px-2.5 py-0.5 rounded-md transition-colors ${active ? 'bg-[#f4f2ee] text-[#1f1d1b] shadow' : 'bg-[var(--panel-2)] muted'}`}
         >
           {formatClock(clock)}
         </span>
@@ -38,13 +62,12 @@ export function PlayerStrip({ name, elo, clock, isUser, active }: { name: string
 
 /** The coach's speech bubble (chess.com style): avatar on the left, message on the right. */
 export function CoachBubble({ children, tone = 'neutral', color }: { children: ReactNode; tone?: 'neutral' | 'good' | 'bad'; color?: string }) {
-  const border = color ?? (tone === 'good' ? '#81b64c' : tone === 'bad' ? '#e02828' : 'var(--border)');
+  const border = color ?? (tone === 'good' ? 'var(--win)' : tone === 'bad' ? 'var(--loss)' : 'var(--border)');
   return (
     <div className="flex gap-2 items-start">
-      <span className="shrink-0 w-10 h-10 rounded-full bg-accent text-white flex items-center justify-center text-xl shadow" aria-hidden="true">
-        ♞
-      </span>
-      <div className="relative flex-1 min-w-0 panel p-3 text-sm" style={{ borderColor: border }}>
+      <BrandMark size={40} shape="disc" />
+      {/* A steady minimum height, so the board and buttons don't jump as comments change length. */}
+      <div className="relative flex-1 min-w-0 panel p-3 text-sm min-h-[88px]" style={{ borderColor: border }}>
         <span
           className="absolute -left-1.5 top-3 w-3 h-3 rotate-45 bg-[var(--panel)] border-l border-b"
           style={{ borderColor: border }}
@@ -233,7 +256,7 @@ export function ActionButton({
       aria-label={label ?? title}
       className={`flex-1 min-h-12 mb-[3px] rounded-xl flex flex-col items-center justify-center gap-0.5 text-[11px] font-bold transition-[transform,box-shadow] duration-75 disabled:opacity-35 active:enabled:translate-y-[2px] ${
         primary
-          ? 'bg-accent text-white shadow-[0_3px_0_#45753c] active:enabled:shadow-[0_1px_0_#45753c]'
+          ? 'bg-primary text-white shadow-[0_3px_0_var(--primary-edge)] active:enabled:shadow-[0_1px_0_var(--primary-edge)]'
           : 'bg-[var(--btn)] shadow-[0_3px_0_var(--btn-edge)] active:enabled:shadow-[0_1px_0_var(--btn-edge)] hover:brightness-110'
       }`}
     >

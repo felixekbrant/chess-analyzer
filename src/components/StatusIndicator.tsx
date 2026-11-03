@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQueue, useSettings, useSyncStatus } from '../hooks/useStores';
-import { ANALYSE_LIMITS, analysisQueue, limitLabel, speedChoices, workerCount } from '../lib/engine/queue';
+import { ANALYSE_LIMITS, analysisQueue, limitLabel, shownSpeed, speedChoices, workerCount } from '../lib/engine/queue';
 import { syncManager } from '../lib/syncManager';
 import { saveSettings } from '../db/schema';
 import { formatEta, timeAgo } from '../lib/format';
@@ -52,7 +52,7 @@ export function StatusIndicator({ variant }: { variant: 'compact' | 'sidebar' })
             size={variant === 'compact' ? 20 : 16}
             className={sync.syncing ? 'spin' : busy ? 'text-accent' : 'muted'}
           />
-          {sync.error && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-[#e02828]" />}
+          {sync.error && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-loss" />}
         </span>
         {variant === 'compact' ? (busy || (paused && pending > 0) ? <span className="tabular-nums">{pending}</span> : null) : <span className="truncate">{label}</span>}
       </button>
@@ -161,7 +161,7 @@ function StatusDetails({ onClose }: { onClose: () => void }) {
             {speedChoices().map((k) => (
               <button
                 key={k}
-                className={`btn justify-center !px-2 ${settings.analysisSpeed === k ? 'btn-primary' : ''}`}
+                className={`btn justify-center !px-2 ${shownSpeed(settings.analysisSpeed) === k ? 'btn-primary' : ''}`}
                 onClick={async () => {
                   await saveSettings({ analysisSpeed: k });
                   void analysisQueue.kick();

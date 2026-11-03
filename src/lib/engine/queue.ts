@@ -39,6 +39,11 @@ export function speedChoices(): Settings['analysisSpeed'][] {
   return workerCount('balanced') === workerCount('light') ? ['light', 'max'] : ['light', 'balanced', 'max'];
 }
 
+/** The choice to show as selected: on phones "balanced" is the same as "light", which is shown instead. */
+export function shownSpeed(speed: Settings['analysisSpeed']): Settings['analysisSpeed'] {
+  return speedChoices().includes(speed) ? speed : 'light';
+}
+
 export function workerCount(speed: Settings['analysisSpeed']): number {
   const cores = typeof navigator !== 'undefined' ? navigator.hardwareConcurrency || 2 : 2;
   if (speed === 'light') return 1;
@@ -56,6 +61,7 @@ class AnalysisQueue {
   private status: QueueStatus = { running: false, paused: false, active: {}, pending: 0, workers: 1 };
   private listeners = new Set<Listener>();
   private priority: string[] = [];
+  private pauseLoaded = false;
   private claimed = new Set<string>();
   private loops = 0;
   private depthOverride = new Map<string, number>();
@@ -134,11 +140,13 @@ class AnalysisQueue {
 
   /** Pauses background analysis until resumed, also across restarts. */
   pause() {
+    this.pauseLoaded = true;
     this.set({ paused: true });
     void saveSettings({ analysisPaused: true });
   }
 
   resume() {
+    this.pauseLoaded = true;
     this.set({ paused: false });
     void saveSettings({ analysisPaused: false }).then(() => this.kick());
   }
@@ -158,7 +166,13 @@ class AnalysisQueue {
 
   async refreshCount() {
     const settings = await getSettings();
-    if (settings.analysisPaused !== this.status.paused) this.set({ paused: settings.analysisPaused });
+    // The saved pause state only seeds the queue once (at start). After that the queue is the
+    // authority: re-reading it here raced with pause()/resume(), whose save may not have landed yet,
+    // and could flip a fresh "Pause" straight back.
+    if (!this.pauseLoaded) {
+      this.pauseLoaded = true;
+      if (settings.analysisPaused !== this.status.paused) this.set({ paused: settings.analysisPaused });
+    }
     const pending = await this.pendingGames(settings.autoAnalyze ? settings.autoAnalyzeLimit : 0);
     this.set({ pending: pending.length + this.priority.filter((id) => !pending.some((g) => g.id === id)).length });
   }

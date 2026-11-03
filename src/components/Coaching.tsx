@@ -74,18 +74,25 @@ export function TodayCard({ games, focus, minutes }: { games: StoredGame[]; focu
   const next = plan.items.find((i) => !i.done);
 
   return (
-    <section className="panel p-4">
-      <div className="flex items-center justify-between gap-2 mb-2">
-        <h2 className="font-bold text-lg">Today</h2>
-        <span className="muted text-sm tabular-nums">
-          {days > 0 && (
-            <span title="Days in a row with the plan done" className="inline-flex items-center gap-0.5 font-bold" style={{ color: '#e5713f' }}>
-              <Icon name="flame" size={14} /> {days}
-              <span className="muted font-normal">&nbsp;·&nbsp;</span>
-            </span>
-          )}
-          {plan.done ? 'Done' : plan.items.length ? `~${Math.max(1, plan.minutesLeft)} min left` : ''}
-        </span>
+    // The hero of Home: the brightest surface on the page, with a ring for how much of today is done.
+    <section className="rounded-2xl p-4 md:p-5" style={{ background: 'color-mix(in srgb, var(--felt) 9%, var(--panel))', boxShadow: 'var(--shadow)' }}>
+      <div className="flex items-center gap-3 mb-3">
+        <ProgressRing done={plan.items.filter((i) => i.done).length} total={plan.items.length} />
+        <div className="flex-1 min-w-0">
+          <h2 className="font-black text-2xl leading-none">Today</h2>
+          <div className="muted text-sm font-semibold tabular-nums mt-1">
+            {plan.done ? 'All done' : plan.items.length ? `~${Math.max(1, plan.minutesLeft)} min left` : 'Nothing yet'}
+          </div>
+        </div>
+        {days > 0 && (
+          <span
+            title="Days in a row with the plan done"
+            className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-sm font-black tabular-nums"
+            style={{ color: 'var(--brass-ink)', background: 'color-mix(in srgb, var(--brass) 16%, transparent)' }}
+          >
+            <Icon name="flame" size={15} /> {days}
+          </span>
+        )}
       </div>
 
       {!plan.items.length ? (
@@ -99,7 +106,7 @@ export function TodayCard({ games, focus, minutes }: { games: StoredGame[]; focu
               <Link to={itemLink(i)} className="flex items-center gap-3 rounded-lg px-2 py-2 -mx-2 hover:bg-[var(--panel-2)]">
                 <span
                   className={`w-7 h-7 rounded-full shrink-0 flex items-center justify-center border-2 ${
-                    i.done ? 'bg-accent border-transparent text-white' : 'border-[var(--border)]'
+                    i.done ? 'bg-primary border-transparent text-white' : 'border-[var(--muted)]/40'
                   }`}
                   aria-label={i.done ? 'Done' : 'To do'}
                 >
@@ -131,6 +138,33 @@ export function TodayCard({ games, focus, minutes }: { games: StoredGame[]; focu
         )
       )}
     </section>
+  );
+}
+
+/** A ring that fills as today's items get done. */
+function ProgressRing({ done, total }: { done: number; total: number }) {
+  const r = 18;
+  const c = 2 * Math.PI * r;
+  const f = total ? done / total : 0;
+  return (
+    <svg width="46" height="46" viewBox="0 0 46 46" className="shrink-0" role="img" aria-label={`${done} of ${total} done`}>
+      <circle cx="23" cy="23" r={r} fill="none" stroke="var(--panel-2)" strokeWidth="5" />
+      <circle
+        cx="23"
+        cy="23"
+        r={r}
+        fill="none"
+        stroke="var(--felt)"
+        strokeWidth="5"
+        strokeLinecap="round"
+        strokeDasharray={`${c * f} ${c}`}
+        transform="rotate(-90 23 23)"
+        style={{ transition: 'stroke-dasharray .5s ease-out' }}
+      />
+      <text x="23" y="27" textAnchor="middle" fontSize="12" fontWeight="900" fill="var(--text)">
+        {done}/{total}
+      </text>
+    </svg>
   );
 }
 
@@ -175,7 +209,10 @@ export function FocusCard({
   return (
     <section className="panel p-4">
       {last && (
-        <div className="rounded-lg bg-[var(--panel-2)] p-2.5 text-sm mb-3">
+        <div
+          className="rounded-lg p-2.5 text-sm mb-3"
+          style={{ background: last.improved ? 'color-mix(in srgb, var(--brass) 16%, var(--panel))' : 'var(--panel-2)' }}
+        >
           {last.improved ? (
             <>
               Nice! {SKILL_META[last.area].label}: down {Math.round((1 - last.after / Math.max(0.01, last.before)) * 100)}% ({fmt(last.before)} →{' '}
@@ -189,48 +226,50 @@ export function FocusCard({
           )}
         </div>
       )}
-      <div className="flex items-start gap-3">
-        <span className="w-10 h-10 rounded-xl bg-[var(--panel-2)] text-accent flex items-center justify-center shrink-0">
+      {/* A slim strip under Today: the area, you vs typical as one small bar, and Train. */}
+      <div className="flex items-center gap-3">
+        <span className="w-10 h-10 rounded-xl bg-[var(--panel-2)] text-[var(--felt)] flex items-center justify-center shrink-0">
           <Icon name="target" size={22} />
         </span>
         <div className="min-w-0 flex-1">
-          <div className="muted text-xs font-bold uppercase tracking-wide">
+          <div className="muted text-[11px] font-extrabold uppercase tracking-wider">
             Focus · day {focusDay(f)}/{FOCUS_DAYS}
           </div>
-          <div className="font-extrabold text-lg leading-tight">{meta.label}</div>
-          {r ? (
-            <div className="flex items-baseline gap-3 mt-1 text-sm tabular-nums">
-              <span>
-                <b className="text-base" style={{ color: r.verdict === 'worse' ? '#e5713f' : undefined }}>
-                  {fmt(r.cost)}%
-                </b>{' '}
-                <span className="muted">lost / game</span>
-              </span>
+          <button className="font-extrabold text-lg leading-tight text-left truncate max-w-full hover:underline" onClick={() => setPicking(true)} title="Change focus">
+            {meta.label}
+          </button>
+          {r && (
+            <div className="flex items-center gap-2 mt-1 text-xs font-semibold tabular-nums">
+              <span style={{ color: r.typical !== undefined && r.cost > r.typical * 1.15 ? 'var(--attention-ink)' : 'var(--text)' }}>{fmt(r.cost)}%</span>
               {r.typical !== undefined && rating ? (
-                <span className="muted" title={`Typical for ${Math.round(rating / 100) * 100} ${tcName(timeClass)} players`}>
-                  typical {fmt(r.typical)}%
-                </span>
-              ) : null}
+                <>
+                  <span className="relative flex-1 max-w-28 h-1.5 rounded-full bg-[var(--panel-2)]" title={`Typical for ${Math.round(rating / 100) * 100} ${tcName(timeClass)} players: ${fmt(r.typical)}%`}>
+                    <span
+                      className="absolute left-0 top-0 bottom-0 rounded-full"
+                      style={{ width: `${Math.min(100, (100 * r.cost) / Math.max(r.cost, r.typical) )}%`, background: r.cost > r.typical * 1.15 ? 'var(--attention)' : 'var(--felt)' }}
+                    />
+                    <span className="absolute -top-1 -bottom-1 w-0.5 rounded bg-[var(--text)]" style={{ left: `${(100 * r.typical) / Math.max(r.cost, r.typical)}%` }} />
+                  </span>
+                  <span className="muted">typical {fmt(r.typical)}%</span>
+                </>
+              ) : (
+                <span className="muted">lost / game</span>
+              )}
             </div>
-          ) : (
-            <p className="text-sm muted mt-1">{meta.about}</p>
           )}
+        </div>
+        <div className="flex flex-col gap-1.5 shrink-0">
+          {f.area !== 'time' && (
+            <Link className="btn btn-primary !py-1.5 !px-3 !text-sm justify-center" to={`/training?area=${f.area}`}>
+              Train
+            </Link>
+          )}
+          <button className="btn !py-1 !px-3 !text-xs justify-center" onClick={() => setShowTip((v) => !v)} aria-expanded={showTip}>
+            <Icon name="bulb" size={12} /> Tip
+          </button>
         </div>
       </div>
       {showTip && <p className="text-sm mt-3">{meta.tip}</p>}
-      <div className="flex flex-wrap gap-2 mt-3">
-        {f.area !== 'time' && (
-          <Link className="btn btn-primary !py-1.5 !text-sm" to={`/training?area=${f.area}`}>
-            Train it
-          </Link>
-        )}
-        <button className="btn !py-1.5 !text-sm" onClick={() => setShowTip((v) => !v)}>
-          <Icon name="bulb" size={14} /> Tip
-        </button>
-        <button className="btn !py-1.5 !text-sm ml-auto" onClick={() => setPicking(true)}>
-          Change
-        </button>
-      </div>
       <Sheet open={picking} onClose={() => setPicking(false)} title="Choose your focus">
         <div className="grid gap-1">
           {ranked.map((x) => (
@@ -259,38 +298,40 @@ export function FocusCard({
 
 /** Two bars: your cost and the typical cost at your rating, on a shared scale. */
 export function CostBars({ cost, typical, max, verdict }: { cost: number; typical?: number; max: number; verdict?: AreaRank['verdict'] }) {
-  const w = (v: number) => `${Math.max(2, Math.min(100, (100 * v) / Math.max(max, 0.01)))}%`;
+  const w = (v: number) => Math.max(2, Math.min(100, (100 * v) / Math.max(max, 0.01)));
   // One rule for the colour, so it matches what the numbers say: clearly more than typical is orange,
   // clearly less is green (15% either way; the statistical verdict still decides the coach's wording).
   void verdict;
   const worse = typical !== undefined && cost > typical * 1.15;
   const better = typical !== undefined && cost < typical * 0.85;
+  // One track: your bar, and a tick where players at your rating typically are.
   return (
-    <div className="space-y-1 text-[11px] muted tabular-nums">
-      <div className="flex items-center gap-2">
-        <span className="w-12 shrink-0">You</span>
-        <span className="flex-1 h-2 rounded-full bg-[var(--panel-2)] overflow-hidden">
-          <span className="block h-full rounded-full" style={{ width: w(cost), background: worse ? '#e5793a' : better ? '#81b64c' : 'var(--series-1)' }} />
-        </span>
-        <span className="w-9 text-right">{fmt(cost)}</span>
-      </div>
-      {typical !== undefined && (
-        <div className="flex items-center gap-2">
-          <span className="w-12 shrink-0">Typical</span>
-          <span className="flex-1 h-2 rounded-full bg-[var(--panel-2)] overflow-hidden">
-            <span className="block h-full rounded-full bg-[var(--border)]" style={{ width: w(typical) }} />
-          </span>
-          <span className="w-9 text-right">{fmt(typical)}</span>
-        </div>
-      )}
+    <div className="flex items-center gap-2 text-[11px] font-semibold tabular-nums">
+      <span className="relative flex-1 h-2.5 rounded-full bg-[var(--panel-2)]">
+        <span
+          className="absolute left-0 top-0 bottom-0 rounded-full transition-[width] duration-500"
+          style={{ width: `${w(cost)}%`, background: worse ? 'var(--attention)' : better ? 'var(--win)' : 'var(--draw)' }}
+        />
+        {typical !== undefined && (
+          <span
+            className="absolute -top-1 -bottom-1 w-[3px] -ml-px rounded-full bg-[var(--text)]"
+            style={{ left: `${w(typical)}%` }}
+            title={`Typical: ${fmt(typical)}%`}
+          />
+        )}
+      </span>
+      <span className="w-20 text-right">
+        <b className="text-[var(--text)] text-xs">{fmt(cost)}%</b>
+        {typical !== undefined && <span className="muted"> / {fmt(typical)}</span>}
+      </span>
     </div>
   );
 }
 
 export function TrendChip({ trend }: { trend?: SkillStat['trend'] }) {
-  if (trend === 'improving') return <span className="chip whitespace-nowrap" style={{ color: '#81b64c' }}>↓ improving</span>;
+  if (trend === 'improving') return <span className="chip whitespace-nowrap" style={{ color: 'var(--felt-ink)' }}>↓ improving</span>;
   // "Slipping", not "worse": the bar colour already says how you compare with others; this is about you lately.
-  if (trend === 'worsening') return <span className="chip whitespace-nowrap" style={{ color: '#e5713f' }}>↑ slipping</span>;
+  if (trend === 'worsening') return <span className="chip whitespace-nowrap" style={{ color: 'var(--attention-ink)' }}>↑ slipping</span>;
   return null;
 }
 

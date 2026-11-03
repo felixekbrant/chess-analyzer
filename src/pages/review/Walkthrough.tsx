@@ -23,7 +23,6 @@ import { EngineLines } from '../../components/EngineLines';
 import { ClassificationBadge } from '../../components/ClassificationBadge';
 import { Icon } from '../../components/Icon';
 import { Sheet } from '../../components/Sheet';
-import { Section } from '../../components/ui';
 import {
   ActionBar,
   ActionButton,
@@ -375,8 +374,8 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
   const evalThinking = !!explore && !live.settled;
 
   const clockPly = retry ? retry.move.ply : explore ? explore.base : ply;
-  const white = { name: game.white, elo: game.whiteElo, clock: lastClock(parsed.plies, clockPly, 'w'), isUser: me === 'w' && !!game.userColor };
-  const black = { name: game.black, elo: game.blackElo, clock: lastClock(parsed.plies, clockPly, 'b'), isUser: me === 'b' };
+  const white = { name: game.white, elo: game.whiteElo, clock: lastClock(parsed.plies, clockPly, 'w'), isUser: me === 'w' && !!game.userColor, side: 'w' as const };
+  const black = { name: game.black, elo: game.blackElo, clock: lastClock(parsed.plies, clockPly, 'b'), isUser: me === 'b' && !!game.userColor, side: 'b' as const };
   const toMove = fen.split(' ')[1];
   const top = orientation === 'white' ? { ...black, active: toMove === 'b' } : { ...white, active: toMove === 'w' };
   const bottom = orientation === 'white' ? { ...white, active: toMove === 'w' } : { ...black, active: toMove === 'b' };
@@ -490,7 +489,8 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
     <div className="grid lg:grid-cols-[minmax(0,1fr)_380px] gap-3 lg:gap-5 max-w-[1300px]">
       {/* Board column */}
       <div className="min-w-0 space-y-2 lg:space-y-3">
-        <div className="flex gap-1.5 lg:gap-2 mx-auto lg:mx-0" style={{ maxWidth: 'min(720px, calc(100svh - 140px))' }}>
+        {/* Phones: the board runs edge to edge (the page gutter is taken back), like a chess app. */}
+        <div className="flex gap-2 -mx-2.5 px-1 lg:mx-0 lg:px-0" style={{ maxWidth: 'min(720px, calc(100svh - 140px))' }}>
           {/* Always part of the review; the engine's eval bar can be switched off while exploring. */}
           {(!engineOpen || settings.showEvalBar) && <EvalBar score={evalScore} orientation={orientation} thinking={evalThinking} />}
           <div className="flex-1 min-w-0">
@@ -521,18 +521,10 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
           <MoveStrip parsed={parsed} moves={moves} ply={ply} onSelect={go} />
         </div>
 
-        {analysis && (
-          <div className="hidden lg:block max-w-[720px] space-y-3">
-            <EvalGraph evals={analysis.evals} moves={analysis.moves} current={ply} onSelect={go} />
-            <Section title="Time per move">
-              <TimeChart moves={analysis.moves} current={ply} onSelect={go} userColor={game.userColor} />
-            </Section>
-          </div>
-        )}
       </div>
 
       {/* Side panel (larger screens) */}
-      <div className="hidden lg:block space-y-3 min-w-0">
+      <div className="hidden lg:flex lg:flex-col gap-3 min-w-0">
         <EngineControls open={engineOpen} onToggle={toggleEngine} />
         {shortcuts}
         {coach}
@@ -542,8 +534,14 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
           </div>
         )}
         <ActionBar>{actions}</ActionBar>
-        <div className="panel">
-          <div className="flex border-b border-[var(--border)] px-2" role="tablist">
+        {/* Desktop: one column card with the moves, the graph under them, and the report. */}
+        <div className="panel overflow-hidden">
+          {analysis && (
+            <div className="p-3 pb-0">
+              <EvalGraph evals={analysis.evals} moves={analysis.moves} current={ply} onSelect={go} height={64} />
+            </div>
+          )}
+          <div className="flex border-b border-[var(--border)] px-2 mt-1" role="tablist">
             {(['moves', 'report'] as const).map((t) => (
               <button key={t} role="tab" aria-selected={panelTab === t} className="tab capitalize" onClick={() => setPanelTab(t)}>
                 {t}
@@ -552,7 +550,18 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
           </div>
           <div className="p-3">
             {panelTab === 'moves' && <MoveList parsed={parsed} moves={moves} ply={ply} onSelect={go} />}
-            {panelTab === 'report' && (analysis ? <ClassificationTable analysis={analysis} game={game} /> : <p className="muted text-sm">Available once analysed.</p>)}
+            {panelTab === 'report' &&
+              (analysis ? (
+                <div className="space-y-4">
+                  <ClassificationTable analysis={analysis} game={game} />
+                  <div>
+                    <div className="text-xs font-extrabold uppercase tracking-wider muted mb-1">Time per move</div>
+                    <TimeChart moves={analysis.moves} current={ply} onSelect={go} userColor={game.userColor} />
+                  </div>
+                </div>
+              ) : (
+                <p className="muted text-sm">Available once analysed.</p>
+              ))}
           </div>
         </div>
       </div>

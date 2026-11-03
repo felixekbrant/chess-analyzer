@@ -5,7 +5,7 @@ import { db } from '../../db/schema';
 import { usePgn } from '../../hooks/useStores';
 import { analysisQueue } from '../../lib/engine/queue';
 import { parsePgn } from '../../lib/pgn/parse';
-import { Empty } from '../../components/ui';
+import { Empty, EmptyState, LoadingShape } from '../../components/ui';
 import type { GameAnalysis, StoredGame } from '../../lib/types';
 import { ReviewSummary, type StartOptions } from './ReviewSummary';
 import { Walkthrough } from './Walkthrough';
@@ -23,16 +23,14 @@ export default function ReviewPage() {
   // null = no analysis yet; undefined = still loading (so the first view is chosen with both known).
   const analysis = useLiveQuery(async () => (await db.analyses.get(gameId)) ?? null, [gameId]);
 
-  if (game === undefined || analysis === undefined) return <Empty>Loading…</Empty>;
+  if (game === undefined || analysis === undefined) return <LoadingShape kind="board" />;
   if (!game)
     return (
-      <Empty>
-        Game not found.
-        <br />
-        <Link className="btn mt-3" to="/games">
+      <EmptyState title="Game not found">
+        <Link className="btn btn-primary" to="/games">
           Your games
         </Link>
-      </Empty>
+      </EmptyState>
     );
   const plyParam = search.get('ply');
   return (
@@ -77,7 +75,7 @@ function ReviewInner({ game, analysis, initialPly, keyMoments }: { game: StoredG
     window.scrollTo(0, 0);
   }, [view.kind]);
 
-  if (pgn === undefined) return <Empty>Loading…</Empty>;
+  if (pgn === undefined) return <LoadingShape kind="board" />;
   if (!parsed) return <Empty>This game's moves are missing. Try importing it again.</Empty>;
   if (view.kind === 'summary') return <ReviewSummary game={game} analysis={analysis} parsed={parsed} onStart={(opts) => setView({ kind: 'walk', opts })} />;
   return (

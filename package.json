@@ -13,9 +13,11 @@
     "postinstall": "node scripts/copy-stockfish.mjs",
     "openings": "node scripts/build-openings.mjs",
     "e2e": "playwright test --project=smoke",
-    "e2e:seed": "playwright test --project=seed"
+    "e2e:seed": "playwright test --project=seed",
+    "e2e:visual": "playwright test --project=visual"
   },
   "dependencies": {
+    "@fontsource-variable/figtree": "^5.3.0",
     "chess.js": "^1.4.0",
     "dexie": "^4.4.6",
     "dexie-react-hooks": "^4.4.0",

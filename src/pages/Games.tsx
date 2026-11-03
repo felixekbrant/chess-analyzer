@@ -10,7 +10,7 @@ import { Picker } from '../components/Picker';
 import { importGameByUrl } from '../lib/chesscom/sync';
 import { analysisQueue } from '../lib/engine/queue';
 import type { Color } from '../lib/types';
-import { Empty, PageHeader, Section } from '../components/ui';
+import { EmptyState, PageHeader, Section } from '../components/ui';
 
 export default function Games() {
   const games = useGames();
@@ -96,7 +96,7 @@ export default function Games() {
           + Import
         </button>
       </div>
-      <div className="flex gap-2 mb-3 overflow-x-auto no-scrollbar -mx-1 px-1 [&>*]:shrink-0">
+      <div className="sticky top-12 md:top-0 z-20 -mx-4 px-4 py-2 mb-2 bg-[var(--bg)]/95 backdrop-blur flex gap-2 overflow-x-auto no-scrollbar [&>*]:shrink-0">
         {filterControls}
         <Picker
           label="Sort"
@@ -117,19 +117,16 @@ export default function Games() {
         </div>
       ) : !filtered.length ? (
         <div className="panel">
-          <Empty>
-            {games.length ? (
-              'No games match these filters.'
-            ) : (
-              <>
-                No games yet.{' '}
-                <button className="underline" onClick={() => setShowImport(true)}>
-                  Import one
-                </button>{' '}
-                or connect your chess.com account on the Home screen.
-              </>
-            )}
-          </Empty>
+          {games.length ? (
+            <EmptyState title="No games match">Try another filter.</EmptyState>
+          ) : (
+            <EmptyState title="No games yet">
+              Connect your chess.com account on Home, or import a single game.
+              <button className="btn btn-primary" onClick={() => setShowImport(true)}>
+                Import a game
+              </button>
+            </EmptyState>
+          )}
         </div>
       ) : (
         <>

@@ -13,12 +13,12 @@ export function CoachReport({ items: all, strengths, analysed, limit }: { items:
       {items.map((it, i) => (
         <div key={it.id} className="rounded-lg border border-[var(--border)] p-3">
           <div className="flex items-start gap-3">
-            <span className="shrink-0 w-7 h-7 rounded-full bg-accent text-white font-bold flex items-center justify-center text-sm">{i + 1}</span>
+            <span className="shrink-0 w-7 h-7 rounded-full bg-primary text-white font-bold flex items-center justify-center text-sm">{i + 1}</span>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-bold">{it.title}</span>
-                {it.trend === 'improving' && <span className="chip" style={{ color: '#6a9e36' }}>↓ improving</span>}
-                {it.trend === 'worsening' && <span className="chip" style={{ color: '#e02828' }}>↑ getting worse</span>}
+                {it.trend === 'improving' && <span className="chip" style={{ color: 'var(--felt-ink)' }}>↓ improving</span>}
+                {it.trend === 'worsening' && <span className="chip" style={{ color: 'var(--loss-ink)' }}>↑ getting worse</span>}
               </div>
               <p className="text-sm muted mt-1">{it.evidence}</p>
               <p className="text-sm mt-2 flex gap-1.5">

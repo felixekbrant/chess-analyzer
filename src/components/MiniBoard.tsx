@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { defaultPieces } from 'react-chessboard';
 import { useSettings } from '../hooks/useStores';
-import { BOARD_THEMES } from '../lib/boardThemes';
+import { BOARD_THEMES, pieceUrl } from '../lib/boardThemes';
 
 const FILES = 'abcdefgh';
 
@@ -20,7 +20,9 @@ export const MiniBoard = memo(function MiniBoard({
   highlight?: string[];
   size?: number;
 }) {
-  const theme = BOARD_THEMES[useSettings().boardTheme] ?? BOARD_THEMES.green;
+  const settings = useSettings();
+  const theme = BOARD_THEMES[settings.boardTheme] ?? BOARD_THEMES.green;
+  const set = settings.pieceSet ?? 'classic';
   const rows = fen.split(' ')[0].split('/');
   const cells: { sq: string; piece?: string }[] = [];
   rows.forEach((row, r) => {
@@ -37,7 +39,7 @@ export const MiniBoard = memo(function MiniBoard({
   const ordered = orientation === 'white' ? cells : [...cells].reverse();
   return (
     <div
-      className="grid grid-cols-8 rounded-md overflow-hidden aspect-square select-none"
+      className="grid grid-cols-8 rounded-lg overflow-hidden aspect-square select-none shadow-[0_0_0_2px_var(--board-frame)]"
       style={size ? { width: size } : undefined}
       role="img"
       aria-label={`Chess position ${fen}`}
@@ -47,7 +49,12 @@ export const MiniBoard = memo(function MiniBoard({
         const hl = highlight.includes(sq);
         return (
           <div key={sq} className="aspect-square" style={{ background: hl ? (light ? '#f5f682' : '#b9ca43') : light ? theme.light : theme.dark }}>
-            {piece && defaultPieces[piece]?.({ svgStyle: { width: '100%', height: '100%' } })}
+            {piece &&
+              (set === 'classic' ? (
+                defaultPieces[piece]?.({ svgStyle: { width: '100%', height: '100%' } })
+              ) : (
+                <img src={pieceUrl(set, piece)} alt="" draggable={false} className="w-full h-full block" />
+              ))}
           </div>
         );
       })}

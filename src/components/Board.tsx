@@ -4,7 +4,9 @@ import { Chessboard, type ChessboardOptions } from 'react-chessboard';
 import type { Classification } from '../lib/types';
 import { ClassificationBadge } from './ClassificationBadge';
 import { CLASS_META } from '../lib/classificationMeta';
-import { BOARD_THEMES } from '../lib/boardThemes';
+import { BOARD_THEMES, pieceRenderers } from '../lib/boardThemes';
+
+const BOARD_RADIUS = 8;
 import { useSettings } from '../hooks/useStores';
 import { playSound, setSoundEnabled, soundForSan } from '../lib/sound';
 
@@ -92,8 +94,14 @@ function BoardImpl({ fen, orientation = 'white', arrows = [], lastMove, badge, m
     if (selected) s[selected] = { backgroundColor: 'rgba(255, 255, 80, 0.5)' };
     for (const t of targets)
       s[t] = { ...s[t], backgroundImage: 'radial-gradient(circle, rgba(0,0,0,.22) 22%, transparent 24%)' };
+    // Rounded board corners: round the four corner squares (badges may hang over the edge, so the
+    // board itself can't clip its contents).
+    const corners = orientation === 'white' ? ['a8', 'h8', 'a1', 'h1'] : ['h1', 'a1', 'h8', 'a8'];
+    const radius = ['borderTopLeftRadius', 'borderTopRightRadius', 'borderBottomLeftRadius', 'borderBottomRightRadius'] as const;
+    corners.forEach((sq, i) => (s[sq] = { ...s[sq], [radius[i]]: BOARD_RADIUS }));
     return s;
-  }, [lastMove, badge, highlight, selected, targets]);
+  }, [lastMove, badge, highlight, selected, targets, orientation]);
+  const pieces = useMemo(() => pieceRenderers(settings.pieceSet ?? 'classic'), [settings.pieceSet]);
 
   const overlay = badge || marker;
   const options: ChessboardOptions = {
@@ -107,6 +115,11 @@ function BoardImpl({ fen, orientation = 'white', arrows = [], lastMove, badge, m
     clearArrowsOnPositionChange: true,
     animationDurationInMs: 200,
     showNotation: settings.showCoordinates,
+    pieces,
+    boardStyle: { borderRadius: BOARD_RADIUS, boxShadow: '0 0 0 3px var(--board-frame), 0 10px 24px rgba(0,0,0,.28)' },
+    // Coordinates in the opposite square colour, like a printed board.
+    darkSquareNotationStyle: { color: theme.light },
+    lightSquareNotationStyle: { color: theme.dark },
     // Small, bold and tucked into the corners (like chess.com), so they don't collide with pieces or badges.
     alphaNotationStyle: { fontSize: 'clamp(8px, 2.2vw, 11px)', fontWeight: 700, bottom: 0, right: 2, lineHeight: 1 },
     numericNotationStyle: { fontSize: 'clamp(8px, 2.2vw, 11px)', fontWeight: 700, top: 1, left: 2, lineHeight: 1 },
@@ -133,7 +146,7 @@ function BoardImpl({ fen, orientation = 'white', arrows = [], lastMove, badge, m
               <div key={marker.square + marker.kind} className="pop" style={{ position: 'absolute', top: -6, right: -6, zIndex: 20, pointerEvents: 'none' }}>
                 <span
                   className="inline-flex items-center justify-center rounded-full text-white font-bold"
-                  style={{ width: 22, height: 22, fontSize: 13, background: marker.kind === 'correct' ? '#81b64c' : '#e02828', boxShadow: '0 1px 2px rgba(0,0,0,.35)' }}
+                  style={{ width: 22, height: 22, fontSize: 13, background: marker.kind === 'correct' ? 'var(--win)' : 'var(--loss)', boxShadow: '0 1px 2px rgba(0,0,0,.35)' }}
                 >
                   {marker.kind === 'correct' ? '✓' : '✗'}
                 </span>
@@ -145,7 +158,7 @@ function BoardImpl({ fen, orientation = 'white', arrows = [], lastMove, badge, m
   };
 
   return (
-    <div className="w-full aspect-square select-none rounded-md overflow-visible touch-manipulation">
+    <div className="w-full aspect-square select-none overflow-visible touch-manipulation">
       <Chessboard options={options} />
     </div>
   );
