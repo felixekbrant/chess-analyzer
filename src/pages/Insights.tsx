@@ -15,6 +15,7 @@ import {
   repeatedErrors,
   sessionStats,
   terminationStats,
+  clockLosses,
   timeStats,
   trend,
   ratingSeries,
@@ -68,6 +69,7 @@ export default function Insights() {
       rating: ratingDiffStats(games),
       colors: colorStats(games),
       term: terminationStats(games),
+      clock: clockLosses(games),
       report: coachReport(ag, games, summaries, pre),
       mixesDailyAndLive: games.some((g) => g.timeClass === 'daily') && games.some((g) => g.timeClass !== 'daily'),
     };
@@ -75,6 +77,15 @@ export default function Insights() {
 
   // Filtered data must not move the weekly focus; Home manages that.
   const skills = useSkills(games, ag, false);
+
+  // "You convert 93%" and a weak "Converting advantages" are both true: you win them, but give a lot
+  // away on the way. Say so where they meet.
+  const conv = skills.ranked.find((r) => r.area === 'converting');
+  const convertingSub =
+    `You saved ${data.conv.saved} of ${data.conv.hadLosing} lost positions.` +
+    (conv?.verdict === 'worse' && conv.typical !== undefined
+      ? ` You do win them, but give away ${conv.cost.toFixed(1)}% win chance per game on the way (typical ${conv.typical.toFixed(1)}%): see Skills.`
+      : '');
 
   const dateFmt = (t: number) => new Date(t).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 
@@ -220,7 +231,7 @@ export default function Insights() {
           {tab === 'time' && (
           <>
           {data.time.gamesWithClock > 0 && (
-            <Headline sub={`${data.time.lostOnTime} of ${data.time.lossesTotal} losses were on time`}>
+            <Headline sub={`${data.clock.onTime} of your ${data.clock.losses} losses (${fmtPct((100 * data.clock.onTime) / Math.max(1, data.clock.losses))}) were on time`}>
               You get into time trouble in {fmtPct(data.time.timeTroubleGamesPct)} of your games.
             </Headline>
           )}
@@ -236,8 +247,8 @@ export default function Insights() {
                     <MiniStat label="Rushed errors" value={String(data.time.rushedErrors)} hint="under 2 s" />
                     <MiniStat
                       label="Lost on time"
-                      value={`${data.time.lostOnTime}`}
-                      hint={data.time.lostOnTimeWinning ? `${data.time.lostOnTimeWinning} while better` : `of ${data.time.lossesTotal} losses`}
+                      value={`${data.clock.onTime}`}
+                      hint={`of ${data.clock.losses} losses`}
                     />
                   </div>
                   <details className="mb-4 text-sm">
@@ -292,7 +303,7 @@ export default function Insights() {
           {tab === 'results' && (
           <>
           {data.conv.hadWinning > 0 && (
-            <Headline sub={`You saved ${data.conv.saved} of ${data.conv.hadLosing} lost positions`}>
+            <Headline sub={convertingSub}>
               You convert {fmtPct(data.conv.conversionRate)} of your winning positions.
             </Headline>
           )}
@@ -361,13 +372,13 @@ export default function Insights() {
             </Section>
             <Section title="Score vs opponent rating">
               <HBarList
-                data={data.rating.filter((r) => r.games).map((r) => ({ label: r.label, value: r.score, sub: `(${r.games})` }))}
+                data={data.rating.filter((r) => r.games).map((r) => ({ label: r.label, value: r.score, sub: `(${r.games})`, n: r.games }))}
                 format={(v) => `${v.toFixed(0)}%`}
                 max={100}
               />
               <div className="mt-4 font-semibold text-sm mb-2">By colour</div>
               <HBarList
-                data={data.colors.filter((c) => c.games).map((c) => ({ label: c.color === 'w' ? 'White' : 'Black', value: c.score, sub: `(${c.games})` }))}
+                data={data.colors.filter((c) => c.games).map((c) => ({ label: c.color === 'w' ? 'White' : 'Black', value: c.score, sub: `(${c.games})`, n: c.games }))}
                 format={(v) => `${v.toFixed(0)}%`}
                 max={100}
               />
@@ -389,11 +400,11 @@ export default function Insights() {
                     </div>
                     <div>
                       <div className="font-semibold text-sm mb-2">By game # in a session</div>
-                      <HBarList data={data.sessions.byIndex.map((b) => ({ label: b.label, value: b.score, sub: `(${b.games})` }))} format={(v) => `${v.toFixed(0)}%`} max={100} />
+                      <HBarList data={data.sessions.byIndex.map((b) => ({ label: b.label, value: b.score, sub: `(${b.games})`, n: b.games }))} format={(v) => `${v.toFixed(0)}%`} max={100} />
                     </div>
                     <div>
                       <div className="font-semibold text-sm mb-2">By time of day</div>
-                      <HBarList data={data.sessions.byHour.map((b) => ({ label: b.label, value: b.score, sub: `(${b.games})` }))} format={(v) => `${v.toFixed(0)}%`} max={100} />
+                      <HBarList data={data.sessions.byHour.map((b) => ({ label: b.label, value: b.score, sub: `(${b.games})`, n: b.games }))} format={(v) => `${v.toFixed(0)}%`} max={100} />
                     </div>
                   </div>
                 </Section>

@@ -125,7 +125,8 @@ export function HBarList({
   max,
   color = 'var(--felt)',
 }: {
-  data: { label: string; value: number; sub?: string }[];
+  /** `n`: how many games the value rests on; under 5 the row is faded and marked, as too few to tell. */
+  data: { label: string; value: number; sub?: string; n?: number }[];
   format?: (v: number) => string;
   max?: number;
   color?: string;
@@ -134,12 +135,17 @@ export function HBarList({
   return (
     <div className="space-y-2">
       {data.map((d) => (
-        <div key={d.label} className="text-sm" title={`${d.label}: ${format(d.value)}`}>
+        <div
+          key={d.label}
+          className={`text-sm ${d.n !== undefined && d.n < 5 ? 'opacity-45' : ''}`}
+          title={`${d.label}: ${format(d.value)}${d.n !== undefined && d.n < 5 ? ' (too few games to tell)' : ''}`}
+        >
           <div className="flex justify-between gap-2">
             <span>{d.label}</span>
             <span className="font-semibold tabular-nums">
               {format(d.value)}
               {d.sub && <span className="muted font-normal"> {d.sub}</span>}
+              {d.n !== undefined && d.n < 5 && <span className="muted font-normal"> · few games</span>}
             </span>
           </div>
           <div className="h-2 mt-1 rounded-full bg-[var(--panel-2)] overflow-hidden">

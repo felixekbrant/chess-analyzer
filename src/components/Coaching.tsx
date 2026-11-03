@@ -205,6 +205,14 @@ export function FocusCard({
   if (!f) return null;
   const meta = SKILL_META[f.area];
   const r = ranked.find((x) => x.area === f.area);
+  // Insights leads with the area that costs the most; when that isn't the focus, say why.
+  const biggest = ranked.filter((x) => x.verdict === 'worse').sort((a, b) => b.excess - a.excess)[0];
+  const why =
+    biggest && biggest.area !== f.area
+      ? SKILL_META[biggest.area].trainable < meta.trainable
+        ? `${SKILL_META[biggest.area].label} costs you more, but puzzles train it less well, so this week is about ${meta.label.toLowerCase()}. Its tip still applies in every game.`
+        : `${SKILL_META[biggest.area].label} costs you more right now. A focus runs for a week, so it may well be the next one.`
+      : undefined;
 
   return (
     <section className="panel p-4">
@@ -269,6 +277,7 @@ export function FocusCard({
           </button>
         </div>
       </div>
+      {why && <p className="muted text-xs mt-2.5">{why}</p>}
       {showTip && <p className="text-sm mt-3">{meta.tip}</p>}
       <Sheet open={picking} onClose={() => setPicking(false)} title="Choose your focus">
         <div className="grid gap-1">

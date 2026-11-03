@@ -443,6 +443,15 @@ export function ratingDiffStats(all: StoredGame[]) {
   });
 }
 
+/**
+ * Losses on time over all live games, analysed or not: how a game ended doesn't need the engine,
+ * so this isn't limited to the analysed games like the rest of the clock statistics.
+ */
+export function clockLosses(all: StoredGame[]) {
+  const losses = all.filter((g) => g.userResult === 'loss' && g.timeClass !== 'daily');
+  return { onTime: losses.filter((g) => g.endReason === 'timeout').length, losses: losses.length };
+}
+
 export function terminationStats(all: StoredGame[]) {
   const labels: Record<string, string> = {
     checkmated: 'Checkmate',
