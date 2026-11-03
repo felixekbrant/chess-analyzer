@@ -60,7 +60,10 @@ export function ReviewSummary({
       {/* The result first: what happened, on a proper board (half the width on phones). */}
       <div className="grid grid-cols-[minmax(0,44%)_1fr] lg:grid-cols-1 gap-4 items-center lg:items-start">
         <MiniBoard fen={finalFen} orientation={me === 'b' ? 'black' : 'white'} />
-        <GameHeading game={game} moves={Math.ceil(parsed.plies.length / 2)} />
+        {/* On large screens the header above says this; under the board it only left a gap. */}
+        <div className="lg:hidden">
+          <GameHeading game={game} moves={Math.ceil(parsed.plies.length / 2)} />
+        </div>
       </div>
 
       <div className="space-y-4 min-w-0">

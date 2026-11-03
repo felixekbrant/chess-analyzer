@@ -9,6 +9,7 @@ import { Empty, EmptyState, LoadingShape } from '../../components/ui';
 import type { GameAnalysis, StoredGame } from '../../lib/types';
 import { ReviewSummary, type StartOptions } from './ReviewSummary';
 import { Walkthrough } from './Walkthrough';
+import { formatDate } from '../../components/ui';
 
 /**
  * Game review, chess.com style: a summary with the coach's verdict first, then a guided
@@ -72,8 +73,17 @@ function ReviewInner({ game, analysis, initialPly, keyMoments }: { game: StoredG
 
   if (pgn === undefined) return <LoadingShape kind="board" />;
   if (!parsed) return <Empty>This game's moves are missing. Try importing it again.</Empty>;
-  if (view.kind === 'summary') return <ReviewSummary game={game} analysis={analysis} parsed={parsed} onStart={(opts) => setView({ kind: 'walk', opts })} />;
+  const header = <DesktopHeader game={game} inReview={view.kind === 'walk'} onSummary={() => setView({ kind: 'summary' })} />;
+  if (view.kind === 'summary')
+    return (
+      <>
+        {header}
+        <ReviewSummary game={game} analysis={analysis} parsed={parsed} onStart={(opts) => setView({ kind: 'walk', opts })} />
+      </>
+    );
   return (
+    <>
+    {header}
     <Walkthrough
       key={JSON.stringify(view.opts)}
       game={game}
@@ -84,5 +94,37 @@ function ReviewInner({ game, analysis, initialPly, keyMoments }: { game: StoredG
       retryAll={!!view.opts.retry}
       onSummary={() => setView({ kind: 'summary' })}
     />
+    </>
+  );
+}
+
+/**
+ * Desktop: where you are and the way back (phones have the app's top bar with a back arrow). The
+ * result, opponent and date, and from the review a link to the summary.
+ */
+function DesktopHeader({ game, inReview, onSummary }: { game: StoredGame; inReview: boolean; onSummary: () => void }) {
+  const r = game.userResult;
+  const word = r === 'win' ? 'Won' : r === 'loss' ? 'Lost' : r === 'draw' ? 'Draw' : game.result;
+  const ink = r === 'win' ? 'var(--felt-ink)' : r === 'loss' ? 'var(--loss-ink)' : 'var(--muted)';
+  const opponent = game.userColor === 'w' ? game.black : game.userColor === 'b' ? game.white : `${game.white} – ${game.black}`;
+  return (
+    <div className="hidden md:flex items-center gap-3 mb-4 text-sm min-w-0">
+      <Link to="/games" className="btn !py-1.5 !px-3 !text-sm shrink-0">
+        ← Games
+      </Link>
+      {inReview && (
+        <button className="btn !py-1.5 !px-3 !text-sm shrink-0" onClick={onSummary}>
+          Summary
+        </button>
+      )}
+      <span className="font-extrabold text-base shrink-0" style={{ color: ink }}>
+        {word}
+      </span>
+      <span className="font-bold truncate">vs {opponent}</span>
+      <span className="muted shrink-0">
+        {game.timeClass} · {formatDate(game.endTime)}
+      </span>
+      {game.openingName && <span className="muted truncate">· {game.openingName}</span>}
+    </div>
   );
 }

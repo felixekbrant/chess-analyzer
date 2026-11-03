@@ -353,13 +353,26 @@ function PuzzleView({
   const engineFen = useMemo(() => (engine ? (playUci(engine.base, engine.moves).fens.at(-1) ?? engine.base) : undefined), [engine]);
   const live = useLiveEngine(engineFen, !!engine, 20, 3);
   const game = useLiveQuery(async () => (puzzle.gameIds.length ? db.games.get(puzzle.gameIds[puzzle.gameIds.length - 1]) : undefined), [puzzle.id]);
-  const pgn = usePgn(puzzle.phase === 'opening' ? game?.id : undefined);
+  // The game's moves: for the opening's lead-up, and the moves before the position on large screens.
+  const pgn = usePgn(game?.id);
   const leadUp = useMemo(() => {
     if (!pgn || puzzle.phase !== 'opening') return [];
     try {
       const parsed = parsePgn(pgn);
       const ply = puzzle.plies[puzzle.plies.length - 1];
       return parsed.plies.slice(0, ply).map((p) => (p.color === 'w' ? `${p.moveNumber}. ${p.san}` : p.san));
+    } catch {
+      return [];
+    }
+  }, [pgn, puzzle]);
+
+  // The few moves that led to the position (shown beside the board on large screens).
+  const lastMoves = useMemo(() => {
+    if (!pgn) return [];
+    try {
+      const parsed = parsePgn(pgn);
+      const ply = puzzle.plies[puzzle.plies.length - 1];
+      return parsed.plies.slice(Math.max(0, ply - 6), ply).map((p, i) => (p.color === 'w' ? `${p.moveNumber}. ${p.san}` : i === 0 ? `${p.moveNumber}… ${p.san}` : p.san));
     } catch {
       return [];
     }
@@ -725,6 +738,13 @@ function PuzzleView({
           )}
         </div>
 
+        {/* Large screens have room for the moves that led here. */}
+        {lastMoves.length > 0 && !engine && (
+          <div className="hidden lg:block panel p-3 text-sm">
+            <div className="muted text-xs font-extrabold uppercase tracking-wider mb-1.5">The moves before</div>
+            <p className="font-mono leading-relaxed">{lastMoves.join(' ')}</p>
+          </div>
+        )}
         {/* One card: what happened in your game, then (once done) the lines and links. */}
         {puzzle.lichess ? (
           <LichessInfoPanel info={puzzle.lichess} />
@@ -783,8 +803,9 @@ function PuzzleView({
                   </Link>
                 )}
                 {leadUp.length > 0 && (
-                  <details className="w-full">
-                    <summary className="cursor-pointer muted underline">How the game got here</summary>
+                  // Open from the start on large screens, where there's room beside the board.
+                  <details className="w-full" open={typeof matchMedia !== 'undefined' && matchMedia('(min-width: 1024px)').matches}>
+                    <summary className="cursor-pointer muted underline py-1">How the game got here</summary>
                     <p className="font-mono leading-relaxed mt-1.5">{leadUp.join(' ')}</p>
                   </details>
                 )}
