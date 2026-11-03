@@ -48,6 +48,15 @@ async function getJson<T>(url: string, fetcher: Fetcher, attempt = 0): Promise<T
   return res.json() as Promise<T>;
 }
 
+/** A plain-language message for a failed chess.com request (no "Failed to fetch"). */
+export function friendlyError(e: unknown): string {
+  const status = (e as { status?: number }).status;
+  if (status === 429) return 'chess.com is busy right now. Try again in a minute.';
+  if (status && status >= 500) return 'chess.com is having problems right now. Try again later.';
+  if (e instanceof ChessComError) return e.message;
+  return 'No connection to chess.com. Check your internet and try again.';
+}
+
 const defaultFetcher: Fetcher = (url) => fetch(url);
 
 export async function fetchArchives(username: string, fetcher: Fetcher = defaultFetcher): Promise<string[]> {

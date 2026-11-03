@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/schema';
 import { usePgn } from '../../hooks/useStores';
@@ -18,12 +18,22 @@ export default function ReviewPage() {
   const { id = '' } = useParams();
   const gameId = decodeURIComponent(id);
   const [search] = useSearchParams();
-  const game = useLiveQuery(() => db.games.get(gameId), [gameId]);
+  // null = no such game; undefined = still loading.
+  const game = useLiveQuery(async () => (await db.games.get(gameId)) ?? null, [gameId]);
   // null = no analysis yet; undefined = still loading (so the first view is chosen with both known).
   const analysis = useLiveQuery(async () => (await db.analyses.get(gameId)) ?? null, [gameId]);
 
   if (game === undefined || analysis === undefined) return <Empty>Loading…</Empty>;
-  if (!game) return <Empty>Game not found.</Empty>;
+  if (!game)
+    return (
+      <Empty>
+        Game not found.
+        <br />
+        <Link className="btn mt-3" to="/games">
+          Your games
+        </Link>
+      </Empty>
+    );
   const plyParam = search.get('ply');
   return (
     <ReviewInner

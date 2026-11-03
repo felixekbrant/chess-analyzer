@@ -87,7 +87,8 @@ function BoardImpl({ fen, orientation = 'white', arrows = [], lastMove, badge, m
       s[lastMove.to] = { backgroundColor: hexAlpha(tint, 0.55) };
     }
     // Only longhand properties, so the legal-move dots (backgroundImage) can be layered on top.
-    for (const [sq, color] of Object.entries(highlight ?? {})) s[sq] = { backgroundColor: color };
+    // Hints: a strong fill plus a ring, so the square stands out on every board theme.
+    for (const [sq, color] of Object.entries(highlight ?? {})) s[sq] = { ...s[sq], backgroundColor: color, boxShadow: 'inset 0 0 0 4px rgba(255,255,255,0.75)' };
     if (selected) s[selected] = { backgroundColor: 'rgba(255, 255, 80, 0.5)' };
     for (const t of targets)
       s[t] = { ...s[t], backgroundImage: 'radial-gradient(circle, rgba(0,0,0,.22) 22%, transparent 24%)' };

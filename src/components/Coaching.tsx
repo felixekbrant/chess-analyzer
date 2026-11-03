@@ -260,8 +260,11 @@ export function FocusCard({
 /** Two bars: your cost and the typical cost at your rating, on a shared scale. */
 export function CostBars({ cost, typical, max, verdict }: { cost: number; typical?: number; max: number; verdict?: AreaRank['verdict'] }) {
   const w = (v: number) => `${Math.max(2, Math.min(100, (100 * v) / Math.max(max, 0.01)))}%`;
-  const worse = verdict === 'worse';
-  const better = verdict === 'better';
+  // One rule for the colour, so it matches what the numbers say: clearly more than typical is orange,
+  // clearly less is green (15% either way; the statistical verdict still decides the coach's wording).
+  void verdict;
+  const worse = typical !== undefined && cost > typical * 1.15;
+  const better = typical !== undefined && cost < typical * 0.85;
   return (
     <div className="space-y-1 text-[11px] muted tabular-nums">
       <div className="flex items-center gap-2">
@@ -286,7 +289,8 @@ export function CostBars({ cost, typical, max, verdict }: { cost: number; typica
 
 export function TrendChip({ trend }: { trend?: SkillStat['trend'] }) {
   if (trend === 'improving') return <span className="chip whitespace-nowrap" style={{ color: '#81b64c' }}>↓ improving</span>;
-  if (trend === 'worsening') return <span className="chip whitespace-nowrap" style={{ color: '#e5713f' }}>↑ worse</span>;
+  // "Slipping", not "worse": the bar colour already says how you compare with others; this is about you lately.
+  if (trend === 'worsening') return <span className="chip whitespace-nowrap" style={{ color: '#e5713f' }}>↑ slipping</span>;
   return null;
 }
 

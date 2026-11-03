@@ -28,7 +28,7 @@ import { useSkills } from '../hooks/useSkills';
 import { Filters, loadFilters, storeFilters } from '../components/Filters';
 import { HBarList, LineTrend } from '../components/charts';
 import { MiniBoard } from '../components/MiniBoard';
-import { Empty, PageHeader, Section, Stat, fmtPct } from '../components/ui';
+import { Empty, PageHeader, Section, fmtPct } from '../components/ui';
 
 export default function Insights() {
   const [filters, setFiltersState] = useState<InsightFilters>(() => loadFilters() ?? DEFAULT_FILTERS);
@@ -44,6 +44,7 @@ export default function Insights() {
     window.scrollTo({ top: 0 });
   };
 
+  const [showAllMotifs, setShowAllMotifs] = useState(false);
   // Lost after being +3 or better, newest first.
   const thrown = useMemo(() => games.filter(isThrown), [games]);
 
@@ -86,62 +87,22 @@ export default function Insights() {
       {games.length > 0 && (
         <>
           <TabBar tab={tab} onChange={setTab} />
-          {tab === 'skills' && <SkillsTab data={skills} />}
-          {tab === 'overview' && (
-          <>
-          <div id="overview" className="grid grid-cols-2 lg:grid-cols-5 gap-3 scroll-mt-16">
-            <Stat label="Score" value={fmtPct(data.ov.score)} sub={`${data.ov.wins}W ${data.ov.draws}D ${data.ov.losses}L`} />
-            <Stat label="Accuracy" value={fmtPct(data.ov.accuracy, 1)} />
-            <Stat label="Blunders / game" value={data.ov.blundersPerGame.toFixed(2)} />
-            <Stat label="Mistakes / game" value={data.ov.mistakesPerGame.toFixed(2)} />
-            <Stat label="Inaccuracies / game" value={data.ov.inaccuraciesPerGame.toFixed(2)} />
-          </div>
-
-          {data.report.strengths.length > 0 && (
-            <Section title="Your strengths">
-              <ul className="text-sm space-y-1">
-                {data.report.strengths.map((s) => (
-                  <li key={s} className="flex gap-1.5">
-                  <Icon name="check" size={16} className="text-accent shrink-0 mt-0.5" /> {s}
-                </li>
-                ))}
-              </ul>
-              <button className="text-sm underline muted mt-3" onClick={() => setTab('skills')}>
-                Where you lose the most points: see Skills
-              </button>
-            </Section>
+          {tab === 'skills' && (
+            <>
+              <SkillsTab data={skills} />
+            {data.report.strengths.length > 0 && (
+              <Section title="Your strengths">
+                <ul className="text-sm space-y-1">
+                  {data.report.strengths.map((s) => (
+                    <li key={s} className="flex gap-1.5">
+                    <Icon name="check" size={16} className="text-accent shrink-0 mt-0.5" /> {s}
+                  </li>
+                  ))}
+                </ul>
+              </Section>
+            )}
+            </>
           )}
-
-          <div id="trends" className="grid lg:grid-cols-2 gap-4 scroll-mt-16">
-            <Section title="Rating">
-              <LineTrend
-                data={data.ratings.data}
-                x="t"
-                lines={data.ratings.classes.map((c) => ({ key: c, name: c[0].toUpperCase() + c.slice(1), color: TIME_CLASS_COLOR[c] }))}
-                xFormat={dateFmt}
-              />
-            </Section>
-            <Section title="Accuracy & blunders" right={<span className="muted text-xs">10-game average</span>}>
-              <LineTrend
-                data={data.tr.filter((p) => p.accuracyAvg !== undefined)}
-                x="t"
-                lines={[{ key: 'accuracyAvg', name: 'Accuracy %', color: 'var(--series-1)' }]}
-                xFormat={dateFmt}
-                height={140}
-              />
-              <LineTrend
-                data={data.tr.filter((p) => p.blundersAvg !== undefined)}
-                x="t"
-                lines={[{ key: 'blundersAvg', name: 'Blunders per game', color: 'var(--series-2)' }]}
-                xFormat={dateFmt}
-                height={110}
-              />
-            </Section>
-          </div>
-
-          </>
-          )}
-
           {tab === 'mistakes' && (
           <>
           <div className="grid lg:grid-cols-2 gap-4">
@@ -172,20 +133,38 @@ export default function Insights() {
                 <Empty>No errors detected yet.</Empty>
               ) : (
                 <div className="space-y-2">
-                  {data.motifs.map((m) => (
-                    <details key={m.motif} className="rounded-lg border border-[var(--border)] px-3 py-2">
-                      <summary className="cursor-pointer flex items-center gap-2 text-sm">
-                        <span className="font-semibold flex-1">{MOTIF_LABEL[m.motif]}</span>
-                        <span className="muted tabular-nums">{m.count}×</span>
-                        <span className="tabular-nums w-28 text-right">−{m.costPerGame.toFixed(1)}% / game</span>
-                        <TrendArrow earlier={m.earlierRate} recent={m.recentRate} />
-                      </summary>
-                      <ExampleList refs={m.examples} />
-                      <Link className="text-xs underline" to={`/training?motif=${m.motif}`}>
-                        Train these →
-                      </Link>
-                    </details>
-                  ))}
+                  {/* The five that cost the most; the rest one tap away. */}
+                  {(showAllMotifs ? data.motifs : data.motifs.slice(0, 5)).map((m) => {
+                    const main = m.byPhase[0];
+                    // Where it mostly happens, so a vague type like "positional error" says what to work on.
+                    const where = main && main.share >= 50 ? main.phase : undefined;
+                    return (
+                      <details key={m.motif} className="rounded-lg bg-[var(--panel-2)] px-3 py-2">
+                        <summary className="cursor-pointer flex items-center gap-2 text-sm list-none">
+                          <span className="flex-1 min-w-0">
+                            <span className="font-semibold block">{MOTIF_LABEL[m.motif]}</span>
+                            <span className="muted text-xs tabular-nums">
+                              {m.count}× · −{m.costPerGame.toFixed(1)}% / game{where ? ` · mostly ${where} (${main.share.toFixed(0)}%)` : ''}
+                            </span>
+                          </span>
+                          <TrendArrow earlier={m.earlierRate} recent={m.recentRate} />
+                          <Link
+                            className="btn !py-1 !px-3 !text-xs shrink-0"
+                            to={`/training?motif=${m.motif}${where ? `&phase=${where}` : ''}`}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            Train
+                          </Link>
+                        </summary>
+                        <ExampleList refs={m.examples} />
+                      </details>
+                    );
+                  })}
+                  {data.motifs.length > 5 && (
+                    <button className="text-sm underline muted" onClick={() => setShowAllMotifs((v) => !v)}>
+                      {showAllMotifs ? 'Show fewer' : `Show all ${data.motifs.length}`}
+                    </button>
+                  )}
                 </div>
               )}
             </Section>
@@ -287,6 +266,40 @@ export default function Insights() {
 
           )}
           {tab === 'results' && (
+          <>
+          <div id="trends" className="grid lg:grid-cols-2 gap-4 scroll-mt-16">
+            <Section title="Rating">
+              <LineTrend
+                data={data.ratings.data}
+                x="t"
+                lines={data.ratings.classes.map((c) => ({ key: c, name: c[0].toUpperCase() + c.slice(1), color: TIME_CLASS_COLOR[c] }))}
+                xFormat={dateFmt}
+              />
+            </Section>
+            <Section
+              title="Accuracy & blunders"
+              right={
+                <span className="muted text-xs tabular-nums" title="Per game; the charts are 10-game averages">
+                  {data.ov.blundersPerGame.toFixed(2)} blunders · {data.ov.mistakesPerGame.toFixed(2)} mistakes / game
+                </span>
+              }
+            >
+              <LineTrend
+                data={data.tr.filter((p) => p.accuracyAvg !== undefined)}
+                x="t"
+                lines={[{ key: 'accuracyAvg', name: 'Accuracy %', color: 'var(--series-1)' }]}
+                xFormat={dateFmt}
+                height={140}
+              />
+              <LineTrend
+                data={data.tr.filter((p) => p.blundersAvg !== undefined)}
+                x="t"
+                lines={[{ key: 'blundersAvg', name: 'Blunders per game', color: 'var(--series-2)' }]}
+                xFormat={dateFmt}
+                height={110}
+              />
+            </Section>
+          </div>
           <div id="results" className="grid lg:grid-cols-3 gap-4 scroll-mt-16">
             <Section title="Winning & losing positions">
               <div className="space-y-3 text-sm">
@@ -362,8 +375,8 @@ export default function Insights() {
               </div>
             )}
           </div>
+          </>
           )}
-
         </>
       )}
     </div>
@@ -405,11 +418,10 @@ function ExampleList({ refs }: { refs: MoveRef[] }) {
   );
 }
 
-type Tab = 'skills' | 'overview' | 'mistakes' | 'time' | 'results';
+type Tab = 'skills' | 'mistakes' | 'time' | 'results';
 
 const TABS: [Tab, string][] = [
   ['skills', 'Skills'],
-  ['overview', 'Overview'],
   ['mistakes', 'Mistakes'],
   ['time', 'Time'],
   ['results', 'Results'],

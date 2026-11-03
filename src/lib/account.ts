@@ -1,5 +1,5 @@
 import { saveSettings } from '../db/schema';
-import { fetchProfile } from './chesscom/api';
+import { fetchProfile, friendlyError } from './chesscom/api';
 import { syncManager } from './syncManager';
 
 /**
@@ -14,7 +14,7 @@ export async function connectAccount(username: string, historyMonths?: number): 
     canonical = profile.username ?? u;
   } catch (e) {
     const status = (e as { status?: number }).status;
-    throw new Error(status === 404 ? `There's no chess.com player called "${u}".` : `Couldn't reach chess.com (${(e as Error).message}).`);
+    throw new Error(status === 404 ? `There's no chess.com player called "${u}".` : friendlyError(e));
   }
   await saveSettings({ username: canonical, ...(historyMonths !== undefined ? { historyMonths } : {}) });
   void syncManager.syncNow();

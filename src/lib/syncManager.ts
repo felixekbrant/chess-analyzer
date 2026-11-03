@@ -1,5 +1,6 @@
 import { db, getSettings } from '../db/schema';
 import { syncChessCom, type SyncProgress } from './chesscom/sync';
+import { friendlyError } from './chesscom/api';
 import { analysisQueue } from './engine/queue';
 import { toast } from './toast';
 
@@ -77,10 +78,10 @@ class SyncManager {
       this.set({ syncing: false, lastSync: Date.now(), lastNew: added, progress: undefined });
       if (added > 0) toast(`${added} new game${added === 1 ? '' : 's'} imported from chess.com`, 'success');
     } catch (e) {
-      const message = (e as Error).message;
+      const message = friendlyError(e);
       this.set({ syncing: false, error: message, progress: undefined });
       // Don't repeat the same error every 10 minutes while offline.
-      if (this.failedInARow++ === 0) toast(`Couldn't sync with chess.com: ${message}`, 'error', { label: 'Retry', run: () => void this.syncNow() });
+      if (this.failedInARow++ === 0) toast(message, 'error', { label: 'Retry', run: () => void this.syncNow() });
     }
     void analysisQueue.kick();
   }

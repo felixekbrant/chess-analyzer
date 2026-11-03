@@ -248,6 +248,8 @@ export interface MotifStat {
   earlierRate: number;
   recentRate: number;
   examples: MoveRef[];
+  /** Share of this motif's cost by game phase (0-100), largest first. */
+  byPhase: { phase: Phase; share: number }[];
 }
 
 export function motifStats(ag: AnalyzedGame[]): MotifStat[] {
@@ -268,6 +270,13 @@ export function motifStats(ag: AnalyzedGame[]): MotifStat[] {
         costPerGame: hits.reduce((s, h) => s + h.m.winLoss, 0) / n,
         earlierRate: half ? earlier / half : 0,
         recentRate: ag.length - half ? recent / (ag.length - half) : 0,
+        byPhase: (['opening', 'middlegame', 'endgame'] as Phase[])
+          .map((phase) => {
+            const total = hits.reduce((s, h) => s + h.m.winLoss, 0) || 1;
+            return { phase, share: (100 * hits.filter((h) => h.m.phase === phase).reduce((s, h) => s + h.m.winLoss, 0)) / total };
+          })
+          .filter((p) => p.share > 0)
+          .sort((a, b) => b.share - a.share),
         examples: hits
           .slice(-12)
           .reverse()

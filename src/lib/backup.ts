@@ -1,7 +1,11 @@
 import { ANALYSIS_MODEL_KEY, backfillPeakEval, upgradeStoredAnalyses } from './analysis/upgrade';
 import { db, withoutPgn } from '../db/schema';
 import { buildSummary } from './insights/summary';
-import type { GameAnalysis, NewGame, StoredGame } from './types';
+import type { GameAnalysis, NewGame, Settings, StoredGame } from './types';
+import type { KV } from '../db/schema';
+
+/** Per-device display preferences, never overwritten by restoring a backup. */
+const DEVICE_PREFS: (keyof Settings)[] = ['theme', 'boardTheme', 'showCoordinates', 'sounds', 'showEvalBar', 'showSuggestions', 'autoNextPuzzle', 'analysisSpeed'];
 
 export async function exportBackup() {
   const data = {
@@ -47,7 +51,15 @@ export async function importBackup(file: File): Promise<number> {
     await db.puzzles.bulkPut(data.puzzles ?? []);
     await db.extPuzzles.bulkPut(data.extPuzzles ?? []);
     await db.sync.bulkPut(data.sync ?? []);
-    await db.kv.bulkPut(data.kv ?? []);
+    // How this device looks and behaves stays as it is: a backup (possibly old) brings the
+    // account and analysis settings, not the display preferences chosen here.
+    const current = (await db.kv.get('settings'))?.value as Partial<Settings> | undefined;
+    const kv = ((data.kv ?? []) as KV[]).map((row) => {
+      if (row.key !== 'settings' || !current) return row;
+      const keep = Object.fromEntries(DEVICE_PREFS.filter((k) => k in current).map((k) => [k, current[k]]));
+      return { ...row, value: { ...(row.value as object), ...keep } };
+    });
+    await db.kv.bulkPut(kv);
     // The backup may hold analyses from an older model: check them all again.
     await db.kv.delete(ANALYSIS_MODEL_KEY);
   });

@@ -365,7 +365,7 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
     [retry],
   );
   const highlight = useMemo(
-    () => (retry?.hint && retry.move.bestUci ? { [retry.move.bestUci.slice(0, 2)]: 'rgba(129,182,76,0.6)' } : undefined),
+    () => (retry?.hint && retry.move.bestUci ? { [retry.move.bestUci.slice(0, 2)]: 'rgba(247,198,49,0.9)' } : undefined),
     [retry],
   );
 
@@ -455,13 +455,12 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
         disabled={!canRetryCurrent}
         title="Try to find a better move (r)"
       />
-      <ActionButton
-        icon={<Icon name="next" />}
-        label={keyOnly ? 'Next key' : 'Next'}
-        onClick={next}
-        disabled={keyOnly ? nextKey === undefined : ply >= n}
-        primary
-      />
+      {/* At the end of the game (or after the last key moment), Next becomes the way to the summary. */}
+      {(keyOnly ? nextKey === undefined : ply >= n) ? (
+        <ActionButton icon={<Icon name="chart" />} label="Summary" onClick={onSummary} primary />
+      ) : (
+        <ActionButton icon={<Icon name="next" />} label={keyOnly ? 'Next key' : 'Next'} onClick={next} primary />
+      )}
       <button className="icon-btn !min-w-11" onClick={() => setMenuOpen(true)} aria-label="More options">
         <Icon name="more" />
       </button>
@@ -715,7 +714,13 @@ function Coach({
   // Short, like a coach talking: "c6 is excellent", "Bf7 is a blunder", "e4 is a book move".
   const label = meta.label.toLowerCase();
   const noun = isError || current.classification === 'book';
-  const verdict = `${who}${current.san} is ${noun ? `${article(label)} ${label}${current.classification === 'book' ? ' move' : ''}` : label}`;
+  // The last move ends the game: say how it ended rather than grading a mate.
+  const last = ply === analysis.moves.length;
+  const mate = last && current.san.endsWith('#');
+  const verdict = mate
+    ? `Checkmate. ${current.color === 'w' ? game.white : game.black} won.`
+    : `${who}${current.san} is ${noun ? `${article(label)} ${label}${current.classification === 'book' ? ' move' : ''}` : label}`;
+  const ending = last && !mate && game.termination ? `${game.termination[0].toUpperCase()}${game.termination.slice(1)}.` : undefined;
   const showBest = current.bestSan && current.bestUci !== current.uci && !['book', 'forced', 'best'].includes(current.classification);
   const explanation = !yours && isError ? `Your chance${current.replyLineSan[0] ? `: ${current.replyLineSan[0]} punishes it` : ''}.` : isError || special ? current.explanation : undefined;
   // Chips only when there's no sentence saying the same thing.
@@ -735,7 +740,8 @@ function Coach({
         <span className="tabular-nums font-bold text-xs rounded px-1.5 py-0.5 bg-[var(--panel-2)]">{formatScore(analysis.evals[ply])}</span>
       </div>
       {explanation && <p className="mt-1.5">{explanation}</p>}
-      {showBest && !isError && (
+      {ending && <p className="mt-1.5 font-semibold">{ending}</p>}
+      {showBest && !isError && !mate && (
         <p className="mt-1 muted">
           Best: <b className="text-[var(--text)]">{current.bestSan}</b>
         </p>

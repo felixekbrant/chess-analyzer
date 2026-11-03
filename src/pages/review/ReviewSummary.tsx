@@ -1,4 +1,8 @@
 import { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '../../db/schema';
+import { opponentName } from '../../lib/games/build';
 import type { ParsedGame } from '../../lib/pgn/parse';
 import type { Color, GameAnalysis, Phase, StoredGame } from '../../lib/types';
 import { coachSummary, GRADE_META } from '../../lib/review/coachSummary';
@@ -36,6 +40,17 @@ export function ReviewSummary({
   const keyCount = analysis?.moves.filter((m) => m.color === me && KEY_CLASSES.includes(m.classification)).length ?? 0;
   const errorCount = analysis?.moves.filter((m) => m.color === me && ERROR_CLASSES.includes(m.classification) && m.bestUci).length ?? 0;
   const finalFen = parsed.plies.at(-1)?.fenAfter ?? parsed.startFen;
+  const navigate = useNavigate();
+  // The newest analysed game you haven't opened yet, so several can be reviewed in a row.
+  const nextGame = useLiveQuery(
+    () =>
+      db.games
+        .orderBy('endTime')
+        .reverse()
+        .filter((g) => g.id !== game.id && g.analysisStatus === 'done' && !!g.userColor && !g.reviewedAt)
+        .first(),
+    [game.id],
+  );
 
   return (
     <div className="grid lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)] gap-5 max-w-5xl mx-auto">
@@ -100,6 +115,11 @@ export function ReviewSummary({
                   <Icon name="retry" size={16} /> Retry mistakes ({errorCount})
                 </button>
               </div>
+              {nextGame && (
+                <button className="btn justify-center !py-2.5" onClick={() => navigate(`/game/${encodeURIComponent(nextGame.id)}`)}>
+                  Next game · {opponentName(nextGame)} <Icon name="next" size={16} />
+                </button>
+              )}
             </div>
 
             <div className="panel p-3">

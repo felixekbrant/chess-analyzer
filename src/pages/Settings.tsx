@@ -90,9 +90,12 @@ export default function SettingsPage() {
             onChange={(e) => setUsername(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && saveUsername()}
           />
-          <button className="btn btn-primary" onClick={saveUsername} disabled={busy || !username.trim() || username.trim() === settings.username}>
-            {settings.username ? 'Change' : 'Connect'}
-          </button>
+          {/* Only offered once there's something to save. */}
+          {!!username.trim() && username.trim() !== settings.username && (
+            <button className="btn btn-primary" onClick={saveUsername} disabled={busy}>
+              {settings.username ? 'Change' : 'Connect'}
+            </button>
+          )}
         </div>
         {settings.username && (
           <>

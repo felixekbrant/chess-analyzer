@@ -107,7 +107,7 @@ export default function Training() {
   const focusLabel = area
     ? SKILL_META[area].label
     : motif
-      ? MOTIF_LABEL[motif]
+      ? `${MOTIF_LABEL[motif]}${phase ? ` · ${phase}` : ''}`
       : phase
         ? phase[0].toUpperCase() + phase.slice(1)
         : opening
@@ -545,7 +545,7 @@ function PuzzleView({
     return () => window.removeEventListener('keydown', h);
   }, [onKey]);
 
-  const highlight = useMemo(() => (hint && expected ? { [expected.slice(0, 2)]: 'rgba(129,182,76,0.6)' } : undefined), [hint, expected]);
+  const highlight = useMemo(() => (hint && expected ? { [expected.slice(0, 2)]: 'rgba(247,198,49,0.9)' } : undefined), [hint, expected]);
   const total = doneCount + remaining;
 
   const status =
@@ -561,7 +561,7 @@ function PuzzleView({
       </span>
     ) : (
       <span className="inline-flex items-center gap-2">
-        <span className="inline-block w-3.5 h-3.5 rounded-sm ring-1 ring-black/30" style={{ background: toMove === 'white' ? '#f4f4f4' : '#403d39' }} />
+        <KingIcon white={toMove === 'white'} />
         <span>{toMove === 'white' ? 'White' : 'Black'} to move</span>
         <span className="muted font-normal">· {puzzle.solutionUci.length > 1 ? 'find the winning line' : 'find the best move'}</span>
       </span>
@@ -571,7 +571,7 @@ function PuzzleView({
     <div className="grid lg:grid-cols-[minmax(0,560px)_minmax(0,1fr)] gap-3 lg:gap-5">
       <div className="space-y-2">
         {/* Progress only means something in today's session (a fixed number of puzzles). */}
-        {showProgress && (
+        {showProgress && doneCount > 0 && (
           <div className="h-1 rounded bg-[var(--panel-2)]" title={`${doneCount + 1} of ${total}`}>
             <div className="h-1 rounded bg-accent transition-all" style={{ width: `${(100 * doneCount) / Math.max(1, total)}%` }} />
           </div>
@@ -722,6 +722,21 @@ function PuzzleView({
         )}
       </div>
     </div>
+  );
+}
+
+/** A small king in the colour to move (a plain square looked like a checkbox). */
+function KingIcon({ white }: { white: boolean }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" className="shrink-0">
+      <path
+        d="M11 2h2v2h2v2h-2v2.2a4 4 0 012.9 6.3L18 19H6l2.1-4.5A4 4 0 0111 8.2V6H9V4h2zM5 20h14v2H5z"
+        fill={white ? '#f4f4f4' : '#2b2926'}
+        stroke={white ? '#1d1d1b' : '#a7a6a2'}
+        strokeWidth="1"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 

@@ -202,7 +202,7 @@ test('insights: skills tab and game filters', async ({ page }) => {
     await pick(page, 'Which games', option);
     await expect(page.getByText(/last \d+ rapid games/)).toBeVisible();
   }
-  for (const name of ['Overview', 'Mistakes', 'Time', 'Results', 'Skills']) {
+  for (const name of ['Mistakes', 'Time', 'Results', 'Skills']) {
     await tabs.getByRole('tab', { name }).click();
     await expect(tabs.getByRole('tab', { name })).toHaveAttribute('aria-selected', 'true');
   }
@@ -396,4 +396,31 @@ test('thrown games: lost from +3 or better, as a filter, in Insights and as puzz
   await page.getByRole('dialog').getByRole('button', { name: /Thrown games/ }).click();
   await expect(page.getByRole('button', { name: /Thrown games/ })).toBeVisible();
   await expect(page.getByText(/to move$/)).toBeVisible();
+});
+
+test('review edges: missing game, end of game, next game, offline message', async ({ page, context }) => {
+  await seed(page);
+  // A link to a game that doesn't exist says so (it used to load forever).
+  await page.goto('./#/game/does-not-exist');
+  await expect(page.getByText('Game not found.')).toBeVisible();
+
+  // At the end of a game Next becomes Summary; the summary offers the next game to review.
+  await page.goto('./#/games');
+  await page.locator('[data-game-id]').first().click();
+  await expect(page.getByRole('button', { name: /^Next game · / })).toBeVisible();
+  await page.getByRole('button', { name: 'Start review' }).click();
+  await page.keyboard.press('ArrowDown');
+  await page.getByRole('button', { name: 'Summary', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Start review' })).toBeVisible();
+
+  // Restoring a backup keeps this device's display choices (the seed backup says theme "system").
+  await expect(page.locator('html')).toHaveClass(/dark/);
+
+  // No network: a plain message, not "Failed to fetch".
+  await context.unroute('https://api.chess.com/**');
+  await context.route('https://api.chess.com/**', (r) => r.abort());
+  await page.goto('./#/settings');
+  await page.getByLabel('chess.com username').fill('someone-else');
+  await page.getByRole('button', { name: 'Change' }).click();
+  await expect(page.getByText('No connection to chess.com. Check your internet and try again.')).toBeVisible();
 });
