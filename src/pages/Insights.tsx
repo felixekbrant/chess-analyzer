@@ -1,3 +1,6 @@
+import type { StoredGame } from '../lib/types';
+import type { GameSummary } from '../lib/insights/summary';
+import type { AnalyzedGame } from '../lib/insights/compute';
 import { Icon } from '../components/Icon';
 import { opponentName } from '../lib/games/build';
 import { formatPeak, isThrown } from '../lib/games/thrown';
@@ -33,6 +36,34 @@ import { HBarList, LineTrend } from '../components/charts';
 import { MiniBoard } from '../components/MiniBoard';
 import { Empty, EmptyState, Headline, PageHeader, Section, fmtPct } from '../components/ui';
 
+/** Every number on the Insights page, from the (filtered) games. */
+function computeInsights(games: StoredGame[], summaries: Map<string, GameSummary>, ag: AnalyzedGame[]) {
+  const tr = trend(games, summaries);
+  const pre = {
+    phases: phaseStats(ag),
+    motifs: motifStats(ag),
+    time: timeStats(ag),
+    repeated: repeatedErrors(ag),
+    conv: conversionStats(ag),
+    sessions: sessionStats(games),
+  };
+  return {
+    ...pre,
+    ov: overview(games, ag),
+    tr,
+    ratings: ratingSeries(tr),
+    rating: ratingDiffStats(games),
+    colors: colorStats(games),
+    term: terminationStats(games),
+    clock: clockLosses(games),
+    report: coachReport(ag, games, summaries, pre),
+    mixesDailyAndLive: games.some((g) => g.timeClass === 'daily') && games.some((g) => g.timeClass !== 'daily'),
+  };
+}
+
+/** The last computed numbers, for an instant return to the page (one entry: the current filters). */
+let insightsCache: { key: string; data: ReturnType<typeof computeInsights> } | undefined;
+
 export default function Insights() {
   const [filters, setFiltersState] = useState<InsightFilters>(() => loadFilters() ?? DEFAULT_FILTERS);
   const setFilters = (f: InsightFilters) => {
@@ -52,28 +83,13 @@ export default function Insights() {
   const thrown = useMemo(() => games.filter(isThrown), [games]);
 
   const data = useMemo(() => {
-    const tr = trend(games, summaries);
-    const pre = {
-      phases: phaseStats(ag),
-      motifs: motifStats(ag),
-      time: timeStats(ag),
-      repeated: repeatedErrors(ag),
-      conv: conversionStats(ag),
-      sessions: sessionStats(games),
-    };
-    return {
-      ...pre,
-      ov: overview(games, ag),
-      tr,
-      ratings: ratingSeries(tr),
-      rating: ratingDiffStats(games),
-      colors: colorStats(games),
-      term: terminationStats(games),
-      clock: clockLosses(games),
-      report: coachReport(ag, games, summaries, pre),
-      mixesDailyAndLive: games.some((g) => g.timeClass === 'daily') && games.some((g) => g.timeClass !== 'daily'),
-    };
-  }, [games, summaries, ag]);
+    // Kept between visits while the games are the same, so coming back to Insights is instant.
+    const key = `${JSON.stringify(filters)}|${games.length}|${games[0]?.id ?? ''}|${ag.length}|${ag.at(-1)?.game.id ?? ''}`;
+    if (insightsCache?.key === key) return insightsCache.data;
+    const result = computeInsights(games, summaries, ag);
+    insightsCache = { key, data: result };
+    return result;
+  }, [games, summaries, ag, filters]);
 
   // Filtered data must not move the weekly focus; Home manages that.
   const skills = useSkills(games, ag, false);

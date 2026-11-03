@@ -21,6 +21,8 @@ export interface QueueStatus {
   avgSeconds?: number;
   /** Estimated seconds until the queue is empty. */
   etaSeconds?: number;
+  /** Estimated seconds left for each game being analysed (once there is enough to go on). */
+  activeEta?: Record<string, number>;
   error?: string;
 }
 
@@ -71,6 +73,8 @@ class AnalysisQueue {
   private emitTimer?: ReturnType<typeof setTimeout>;
   private interactive = 0;
   private yieldWaiters: (() => void)[] = [];
+  /** The game the user is waiting for, shared by every worker (positions are handed out one by one). */
+  private urgent?: Job;
 
   /** For useSyncExternalStore: `subscribe` returns an unsubscribe function, `getSnapshot` the published status. */
   subscribe = (fn: Listener) => {
@@ -103,12 +107,15 @@ class AnalysisQueue {
     else this.emitTimer ??= setTimeout(() => this.emit(), 400);
   }
 
-  private setProgress(gameId: string, p: number | undefined) {
+  private setProgress(gameId: string, p: number | undefined, eta?: number) {
     const active = { ...this.status.active };
+    const activeEta = { ...this.status.activeEta };
     const started = !(gameId in active);
     if (p === undefined) delete active[gameId];
     else active[gameId] = p;
-    this.set({ active, running: Object.keys(active).length > 0 }, started || p === undefined);
+    if (eta === undefined) delete activeEta[gameId];
+    else activeEta[gameId] = eta;
+    this.set({ active, activeEta, running: Object.keys(active).length > 0 }, started || p === undefined);
   }
 
   /**
@@ -161,7 +168,8 @@ class AnalysisQueue {
   /** Puts a game at the front of the queue (e.g. when the user opens it). */
   prioritize(gameId: string) {
     this.priority = [gameId, ...this.priority.filter((id) => id !== gameId)];
-    void this.kick();
+    // The user is waiting: extra engines (up to the Max setting) help with this game only.
+    void this.kick(true);
   }
 
   async refreshCount() {
@@ -204,22 +212,38 @@ class AnalysisQueue {
   }
 
   /** Starts worker loops up to the configured pool size. Safe to call repeatedly. */
-  async kick() {
+  async kick(helpers = false) {
     const settings = await getSettings();
     const n = workerCount(settings.analysisSpeed);
     this.set({ workers: n });
-    while (this.loops < n) {
+    const target = helpers ? Math.max(n, workerCount('max')) : n;
+    while (this.loops < target) {
       const idx = this.loops++;
       void this.workerLoop(idx);
     }
   }
 
   private async workerLoop(idx: number) {
+    let waited = 0;
     try {
       for (;;) {
         const settings = await getSettings();
         // Shrink the pool if the speed setting was lowered.
-        if (idx >= workerCount(settings.analysisSpeed)) break;
+        // Help with the game the user is waiting for before taking anything else.
+        const help = this.urgent;
+        if (help && help.next < help.total) {
+          await this.work(help, this.getEngine(idx)).catch(() => {});
+          continue;
+        }
+        // Engines beyond the speed setting only help with an opened game: they wait for it to start
+        // (it may still be loading), then stop.
+        if (idx >= workerCount(settings.analysisSpeed)) {
+          if (this.priority.length && waited++ < 40) {
+            await new Promise((r) => setTimeout(r, 250));
+            continue;
+          }
+          break;
+        }
         const game = await this.claimNext(settings);
         if (!game) break;
         const started = performance.now();
@@ -262,25 +286,33 @@ class AnalysisQueue {
     engine.newGame();
     this.setProgress(game.id, 0);
     const fens = [parsed.startFen, ...parsed.plies.map((p) => p.fenAfter)];
-    const evals: PositionEval[] = [];
+    // What each position needs, decided up front. The move played from a book position is
+    // classified "book" and a forced move "forced" regardless of the engine, so a shallow
+    // single-line search is enough for those.
     let inBook = true;
-    for (let i = 0; i < fens.length; i++) {
-      if (this.status.paused && !this.priority.includes(game.id)) throw new Error('paused');
-      if (this.shouldMakeWay(game.id, i / fens.length)) throw new Error('preempted');
-      await this.yieldPoint();
-      const over = terminalScore(fens[i]);
-      if (over) {
-        evals.push({ fen: fens[i], depth: 0, lines: [{ score: over, pv: [] }] });
-      } else {
-        // The move played from a book position is classified "book" and a forced move "forced"
-        // regardless of the engine, so a shallow single-line search is enough for those.
-        const next = parsed.plies[i];
-        inBook = inBook && !!next && isBookPosition(next.fenAfter);
-        const cheap = inBook || legalMoveCount(fens[i]) === 1;
-        evals.push(await engine.analyze(fens[i], cheap ? { depth: Math.min(10, depth), multiPv: 1 } : { depth, multiPv: 2, movetime: 4000 }));
+    const searches = fens.map((fen, i) => {
+      if (terminalScore(fen)) return undefined;
+      const next = parsed.plies[i];
+      inBook = inBook && !!next && isBookPosition(next.fenAfter);
+      const cheap = inBook || legalMoveCount(fen) === 1;
+      return cheap ? { depth: Math.min(10, depth), multiPv: 1 } : { depth, multiPv: 2, movetime: 4000 };
+    });
+    let finish!: () => void;
+    const job: Job = { gameId: game.id, fens, searches, evals: [], next: 0, filled: 0, total: fens.length, started: performance.now(), done: new Promise((r) => (finish = r)), finish: () => finish(), retry: [] };
+    // The game the user opened: every worker helps (the others pause their games for it).
+    const shared = this.priority.includes(game.id) && workerCount('max') > 1;
+    if (shared) this.urgent = job;
+    try {
+      await this.work(job, engine);
+      // Helpers may still be on their last positions; pick up any a helper had to give back.
+      while (job.filled < job.total) {
+        if (job.retry.length) await this.work(job, engine);
+        else await Promise.race([job.done, new Promise((r) => setTimeout(r, 250))]);
       }
-      this.setProgress(game.id, (i + 1) / fens.length);
+    } finally {
+      if (this.urgent === job) this.urgent = undefined;
     }
+    const evals = job.evals as PositionEval[];
     const analysis = buildAnalysis(game.id, parsed, evals, depth);
     const userColor = game.userColor ?? 'w';
     await db.transaction('rw', [db.analyses, db.summaries, db.games, db.puzzles], async () => {
@@ -298,11 +330,46 @@ class AnalysisQueue {
   }
 
   /**
+   * Analyses positions of `job` until none are left to hand out. Several workers can work on the
+   * same job at once (the game the user is waiting for); each takes the next position in turn.
+   */
+  private async work(job: Job, engine: Engine) {
+    while (job.retry.length || job.next < job.total) {
+      const mine = this.priority.includes(job.gameId);
+      // Opened while it was already being analysed in the background: share it from here on.
+      if (mine && !this.urgent && workerCount('max') > 1) {
+        this.urgent = job;
+        void this.kick(true);
+      }
+      if (!mine) {
+        if (this.status.paused) throw new Error('paused');
+        if (this.shouldMakeWay(job.gameId, job.filled / job.total)) throw new Error('preempted');
+      }
+      await this.yieldPoint();
+      const i = job.retry.length ? job.retry.shift()! : job.next++;
+      try {
+        const over = terminalScore(job.fens[i]);
+        job.evals[i] = over ? { fen: job.fens[i], depth: 0, lines: [{ score: over, pv: [] }] } : await engine.analyze(job.fens[i], job.searches[i]!);
+      } catch (e) {
+        // Someone else picks this position up.
+        job.retry.push(i);
+        throw e;
+      }
+      job.filled++;
+      const elapsed = (performance.now() - job.started) / 1000;
+      const eta = job.filled >= 6 ? ((job.total - job.filled) * elapsed) / job.filled : undefined;
+      this.setProgress(job.gameId, job.filled / job.total, eta);
+      if (job.filled === job.total) job.finish();
+    }
+  }
+
+  /**
    * A background game makes way when the user is waiting for a game nobody has started (every
-   * worker is busy), unless it is nearly done anyway.
+   * worker is busy), or for help with the game they opened, unless it is nearly done anyway.
    */
   private shouldMakeWay(gameId: string, progress: number): boolean {
     if (progress > 0.75 || this.priority.includes(gameId)) return false;
+    if (this.urgent && this.urgent.gameId !== gameId && this.urgent.next < this.urgent.total) return true;
     if (this.claimed.size < (this.status.workers || 1)) return false; // a free worker will take it
     return this.priority.some((id) => !this.claimed.has(id));
   }
@@ -314,6 +381,23 @@ class AnalysisQueue {
     if (depth !== settings.depth) this.depthOverride.set(gameId, depth);
     this.prioritize(gameId);
   }
+}
+
+/** One game's analysis: positions are handed out one by one, so several workers can share it. */
+interface Job {
+  gameId: string;
+  fens: string[];
+  searches: ({ depth: number; multiPv: number; movetime?: number } | undefined)[];
+  evals: (PositionEval | undefined)[];
+  /** Next position to hand out. */
+  next: number;
+  filled: number;
+  total: number;
+  started: number;
+  done: Promise<void>;
+  finish: () => void;
+  /** Positions a worker gave up on (it was stopped), for another to take. */
+  retry: number[];
 }
 
 export const analysisQueue = new AnalysisQueue();

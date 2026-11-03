@@ -6,7 +6,7 @@ import { opponentName } from '../../lib/games/build';
 import type { ParsedGame } from '../../lib/pgn/parse';
 import type { Color, GameAnalysis, Phase, StoredGame } from '../../lib/types';
 import { coachSummary } from '../../lib/review/coachSummary';
-import { useQueueProgress, useSettings } from '../../hooks/useStores';
+import { useQueueEta, useQueueProgress, useSettings } from '../../hooks/useStores';
 import { analysisQueue } from '../../lib/engine/queue';
 import { ClassificationBadge } from '../../components/ClassificationBadge';
 import { MiniBoard } from '../../components/MiniBoard';
@@ -171,6 +171,7 @@ function GameHeading({ game, moves }: { game: StoredGame; moves: number }) {
 
 function Analysing({ gameId, failed, onBrowse }: { gameId: string; failed: boolean; onBrowse: () => void }) {
   const progress = useQueueProgress(gameId);
+  const eta = useQueueEta(gameId);
   const depth = useSettings().depth;
   return (
     <CoachBubble>
@@ -180,7 +181,11 @@ function Analysing({ gameId, failed, onBrowse }: { gameId: string; failed: boole
           <div className="h-2 mt-2 rounded bg-[var(--panel-2)]">
             <div className="h-2 rounded bg-accent transition-all" style={{ width: `${(progress ?? 0) * 100}%` }} />
           </div>
-          <p className="muted text-xs mt-2 tabular-nums">{progress === undefined ? 'Waiting for the engine…' : `${Math.round(progress * 100)}%`}</p>
+          <p className="muted text-xs mt-2 tabular-nums">
+            {progress === undefined
+              ? 'Waiting for the engine…'
+              : `${Math.round(progress * 100)}%${eta !== undefined ? ` · about ${eta < 60 ? `${Math.max(5, Math.round(eta / 5) * 5)} s` : `${Math.round(eta / 60)} min`} left` : ''}`}
+          </p>
         </>
       )}
       <div className="flex flex-wrap gap-2 mt-3">

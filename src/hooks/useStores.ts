@@ -39,6 +39,11 @@ export function useQueueProgress(gameId: string): number | undefined {
   return useQueue((s) => s.active[gameId]);
 }
 
+/** Estimated seconds left for a game being analysed, once there is enough to go on. */
+export function useQueueEta(gameId: string): number | undefined {
+  return useQueue((s) => s.activeEta?.[gameId]);
+}
+
 export function useGames() {
   return useLiveQuery(() => db.games.orderBy('endTime').reverse().toArray(), [], undefined);
 }
