@@ -22,6 +22,9 @@
  *  (4.5:1 on the surfaces they sit on; checked by src/lib/__tests__/contrast.test.ts).
  */
 :root {
+  /* Captured pieces beside the players: a hairline halo on the pieces that match the background. */
+  --captured-w-halo: drop-shadow(0 0 0.6px rgba(34, 33, 31, 0.55)) drop-shadow(0 0.5px 0.8px rgba(34, 33, 31, 0.25));
+  --captured-b-halo: none;
   --bg: #f4f3f0;
   --panel: #ffffff;
   --panel-2: #ebe9e4;
@@ -58,6 +61,8 @@
 
 /* The default look: chess.com-like warm dark greys. */
 .dark {
+  --captured-w-halo: none;
+  --captured-b-halo: drop-shadow(0 0 0.6px rgba(244, 242, 238, 0.7)) drop-shadow(0 0 1.2px rgba(244, 242, 238, 0.3));
   --bg: #262421;
   --panel: #302e2b;
   --panel-2: #3c3a37;

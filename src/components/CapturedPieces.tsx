@@ -19,6 +19,8 @@ export const CapturedPieces = memo(function CapturedPieces({ fen, side, size = 1
   const label = `${captured.length ? `Captured: ${captured.map((t) => NAME[t]).join(', ')}` : ''}${advantage ? `${captured.length ? '. ' : ''}Up ${advantage}` : ''}`;
   return (
     <span className="inline-flex items-center shrink-0" aria-label={label} title={label} data-testid={`captured-${side}`}>
+      {/* A hairline halo where the pieces match the background (black on dark, white on light). */}
+      <span className="inline-flex items-center" style={{ filter: `var(--captured-${color}-halo)` }}>
       {captured.map((t, i) => {
         const code = `${color}${t.toUpperCase()}`;
         // Pieces of the same kind overlap; a new kind starts with a small gap.
@@ -29,6 +31,7 @@ export const CapturedPieces = memo(function CapturedPieces({ fen, side, size = 1
           </span>
         );
       })}
+      </span>
       {advantage > 0 && <span className="muted text-xs font-bold tabular-nums ml-1">+{advantage}</span>}
     </span>
   );
