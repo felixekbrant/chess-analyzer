@@ -346,6 +346,13 @@ test('engine controls: open the engine and toggle eval bar and suggestions in re
   await controls.getByRole('button', { name: 'Engine' }).click();
   await expect(evalBar).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByText(/Stockfish 19 lite · depth \d+/).filter({ visible: true })).toBeVisible();
+  // It opens just before the move, with that move played; the arrow keys step back and forward again.
+  const reviewStart = page.locator('button.btn').filter({ hasText: /^\s*Start\s*$/ }).filter({ visible: true });
+  await expect(reviewStart).toBeVisible();
+  await page.keyboard.press('ArrowLeft');
+  await expect(reviewStart).toHaveCount(0);
+  await page.keyboard.press('ArrowRight');
+  await expect(reviewStart).toBeVisible();
   await suggestions.click();
   await expect(suggestions).toHaveAttribute('aria-pressed', 'false');
   await expect(page.getByText(/Stockfish 19 lite · depth/)).toHaveCount(0);
@@ -368,9 +375,17 @@ test('engine controls: open the engine and toggle eval bar and suggestions in re
   // The engine starts at the puzzle position; your game move can be played there and taken back.
   await page.getByRole('button', { name: /Your move / }).click();
   await expect(page.getByRole('button', { name: 'Start' })).toBeVisible();
+  // Back and forward, with the keys and the buttons; Esc goes back to the puzzle.
+  await page.keyboard.press('ArrowLeft');
+  await expect(page.getByRole('button', { name: 'Start' })).toHaveCount(0);
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByRole('button', { name: 'Start' })).toBeVisible();
+  await page.getByRole('button', { name: 'Back', exact: true }).click();
+  await page.getByRole('button', { name: 'Forward' }).click();
+  await expect(page.getByRole('button', { name: 'Start' })).toBeVisible();
   await page.getByRole('button', { name: 'Start' }).click();
   await expect(page.getByRole('button', { name: 'Start' })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Back to puzzle' }).click();
+  await page.keyboard.press('Escape');
   await expect(page.getByRole('button', { name: /Solution/ })).toBeVisible();
 });
 

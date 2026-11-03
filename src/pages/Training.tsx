@@ -8,6 +8,7 @@ import { evaluateOnce, useLiveEngine } from '../hooks/useLiveEngine';
 import { EngineControls } from '../components/EngineControls';
 import { EngineLines } from '../components/EngineLines';
 import { EngineShortcuts } from '../components/EngineShortcuts';
+import { playMove, stepBack, stepForward, stepKey, toEnd, toStart, type MoveSteps } from '../lib/moveSteps';
 import { EvalBar } from '../components/EvalBar';
 import { usePgn, useSettings } from '../hooks/useStores';
 import { useStableCallback } from '../hooks/useStableCallback';
@@ -337,7 +338,7 @@ function PuzzleView({
   const settings = useSettings();
   // The engine: free moves from the position on the board, with live analysis. Opening it before the
   // puzzle is solved gives the answer away, so the puzzle then counts as missed.
-  const [engine, setEngine] = useState<{ base: string; moves: string[] } | null>(null);
+  const [engine, setEngine] = useState<({ base: string } & MoveSteps) | null>(null);
   const [peeked, setPeeked] = useState(false);
   const engineFen = useMemo(() => (engine ? (playUci(engine.base, engine.moves).fens.at(-1) ?? engine.base) : undefined), [engine]);
   const live = useLiveEngine(engineFen, !!engine, 20, 3);
@@ -491,7 +492,7 @@ function PuzzleView({
     } catch {
       return false;
     }
-    setEngine({ ...engine, moves: [...engine.moves, uci] });
+    setEngine(playMove(engine, uci));
     return true;
   };
   const engineArrows = useMemo(() => {
@@ -523,7 +524,21 @@ function PuzzleView({
 
   const onKey = useStableCallback((e: KeyboardEvent) => {
     if ((e.target as HTMLElement).tagName === 'INPUT') return;
-    if (engine) return;
+    const step = stepKey(e);
+    if (engine) {
+      // The engine board steps like an analysis board; Esc goes back to the puzzle.
+      if (step) setEngine(step === 'back' ? stepBack(engine) : step === 'forward' ? stepForward(engine) : step === 'start' ? toStart(engine) : toEnd(engine));
+      else if (e.key === 'Escape') setEngine(null);
+      else return;
+      e.preventDefault();
+      return;
+    }
+    // After the puzzle, → starts stepping through the full line (the line viewer then takes the keys).
+    if (step === 'forward' && done && !lineView && lines?.best) {
+      setLineView({ kind: 'best', index: 1 });
+      e.preventDefault();
+      return;
+    }
     const k = e.key.toLowerCase();
     if (!done && k === 'h') setHint(true);
     else if (!done && k === 's') setState('revealed');
@@ -636,10 +651,14 @@ function PuzzleView({
             <>
               <button
                 className="btn flex-1 justify-center !py-3"
-                onClick={() => setEngine({ ...engine, moves: engine.moves.slice(0, -1) })}
+                onClick={() => setEngine(stepBack(engine))}
                 disabled={!engine.moves.length}
+                title="Back (←)"
               >
                 <Icon name="prev" size={18} /> Back
+              </button>
+              <button className="btn !py-3 !px-4" onClick={() => setEngine(stepForward(engine))} disabled={!engine.future?.length} title="Forward (→)" aria-label="Forward">
+                <Icon name="next" size={18} />
               </button>
               <button className="btn flex-1 justify-center !py-3" onClick={() => setEngine(null)}>
                 <Icon name="close" size={18} /> Back to puzzle

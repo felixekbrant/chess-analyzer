@@ -5,6 +5,7 @@ import { useQueueProgress, useSettings } from '../../hooks/useStores';
 import { EngineControls, pill } from '../../components/EngineControls';
 import { hideBestMove } from '../../lib/review/hideBest';
 import { saveSettings } from '../../db/schema';
+import { playMove, stepBack, stepForward, stepKey, toEnd, toStart } from '../../lib/moveSteps';
 import { EngineShortcuts } from '../../components/EngineShortcuts';
 import { useStableCallback } from '../../hooks/useStableCallback';
 import { analysisQueue } from '../../lib/engine/queue';
@@ -46,6 +47,8 @@ interface ExploreState {
   /** Position index the exploration starts from. */
   base: number;
   moves: string[];
+  /** Moves stepped back over while exploring freely, so → plays them again. */
+  future?: string[];
   /** An engine line to step through: the best line, or how a mistake gets punished. */
   line?: string[];
   title?: string;
@@ -185,9 +188,11 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
       return go(retry.move.ply + 1);
     }
     if (explore) {
-      if (explore.line && explore.moves.length < explore.line.length)
-        setExplore({ ...explore, moves: [...explore.moves, explore.line[explore.moves.length]] });
-      return;
+      if (explore.line) {
+        if (explore.moves.length < explore.line.length) setExplore({ ...explore, moves: [...explore.moves, explore.line[explore.moves.length]] });
+        return;
+      }
+      return setExplore(stepForward(explore));
     }
     if (keyOnly) return nextKey !== undefined ? go(nextKey) : undefined;
     go(ply + 1);
@@ -198,7 +203,7 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
     if (explore) {
       if (explore.line) return explore.moves.length ? setExplore({ ...explore, moves: explore.moves.slice(0, -1) }) : exitExplore();
       if (!explore.moves.length) return exitExplore();
-      return setExplore({ ...explore, moves: explore.moves.slice(0, -1) });
+      return setExplore(stepBack(explore));
     }
     if (keyOnly) return prevKey !== undefined ? go(prevKey) : go(0);
     go(ply - 1);
@@ -289,7 +294,7 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
       return true;
     }
     if (explore) {
-      setExplore({ ...explore, moves: [...explore.moves, uci], line: undefined });
+      setExplore(explore.line ? { ...explore, moves: [...explore.moves, uci], line: undefined, future: [] } : playMove(explore, uci));
       return true;
     }
     // Playing the game move just steps forward.
@@ -315,10 +320,13 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
   const onKey = useStableCallback((e: KeyboardEvent) => {
     const tag = (e.target as HTMLElement).tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-    if (e.key === 'ArrowRight') next();
-    else if (e.key === 'ArrowLeft') prev();
-    else if (e.key === 'ArrowUp') go(0);
-    else if (e.key === 'ArrowDown') go(n);
+    const step = stepKey(e);
+    if (step) setLinePlaying(false);
+    if (step === 'forward') next();
+    else if (step === 'back') prev();
+    // ↑ ↓ jump to the start or end of what is on the board: the line, the exploration, or the game.
+    else if (step === 'start') explore ? setExplore(explore.line ? { ...explore, moves: [] } : toStart(explore)) : go(retry ? retry.move.ply : 0);
+    else if (step === 'end') explore ? setExplore(explore.line ? { ...explore, moves: explore.line } : toEnd(explore)) : retry ? undefined : go(n);
     else if (e.key === 'f') setOrientation((o) => (o === 'white' ? 'black' : 'white'));
     else if (e.key === 'n' && nextKey !== undefined) go(nextKey);
     else if (e.key === 'p' && prevKey !== undefined) go(prevKey);
@@ -455,10 +463,10 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
       <ActionButton icon={<Icon name="close" />} label="Back to game" onClick={exitExplore} />
       <ActionButton
         icon={<Icon name="next" />}
-        label={explore.line ? 'Next' : undefined}
-        title="Continue the line"
+        label={explore.line || explore.future?.length ? 'Next' : undefined}
+        title="Forward (→)"
         onClick={next}
-        disabled={!explore.line || explore.moves.length >= explore.line.length}
+        disabled={explore.line ? explore.moves.length >= explore.line.length : !explore.future?.length}
       />
     </>
   ) : (
