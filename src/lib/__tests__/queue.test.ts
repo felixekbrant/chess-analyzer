@@ -33,7 +33,7 @@ describe('analysis queue updates', () => {
 
 describe('sharing a game between engines', () => {
   it('hands each position to exactly one engine and finishes when all are in', async () => {
-    const q = analysisQueue as unknown as { work(job: unknown, engine: unknown): Promise<void>; priority: string[] };
+    const q = analysisQueue as unknown as { work(job: unknown, engine: unknown): Promise<void>; priority: string[]; urgent?: unknown };
     const start = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
     const n = 12;
     let finished = false;
@@ -59,8 +59,11 @@ describe('sharing a game between engines', () => {
       },
     });
     q.priority = ['shared'];
+    // Already the shared job, so the queue doesn't start real engine workers (there are none in tests).
+    q.urgent = job;
     await Promise.all([q.work(job, fake('a', 3)), q.work(job, fake('b', 5))]);
     q.priority = [];
+    q.urgent = undefined;
     expect(job.filled).toBe(n);
     expect(job.evals.filter(Boolean)).toHaveLength(n);
     expect(used.a.length + used.b.length).toBe(n);
