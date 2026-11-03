@@ -25,6 +25,23 @@ export function profileFacts(all: StoredGame[], summaries: Map<string, GameSumma
   const elo = rating ? userElo(rating) : undefined;
   const skills = skillProfile(recent, window);
   const time = timeStats(recent);
+  // Each area against what's typical at this rating, already judged, so the wording can't flip it.
+  const areas = skills.stats.map((s) => {
+    const typical = elo ? typicalCost(s.area, timeClass, elo) : undefined;
+    const gap = typical === undefined ? undefined : s.cost - typical;
+    return {
+      area: SKILL_META[s.area].label,
+      about: SKILL_META[s.area].about,
+      costPerGame: r1(s.cost),
+      typicalAtYourRating: r1(typical),
+      comparedWithTypical: gap === undefined ? 'unknown' : Math.abs(gap) < 1 ? 'about typical' : gap > 0 ? `worse than typical by ${r1(gap)}` : `better than typical by ${r1(-gap)}`,
+      tip: SKILL_META[s.area].tip,
+      trend: s.trend,
+      gap: gap ?? 0,
+    };
+  });
+  const byGap = [...areas].sort((a, b) => b.gap - a.gap);
+  const strip = ({ gap: _gap, ...rest }: (typeof areas)[number]) => rest;
   return {
     games: o.games,
     results: { wins: o.wins, draws: o.draws, losses: o.losses, scorePct: Math.round(o.score) },
@@ -32,17 +49,9 @@ export function profileFacts(all: StoredGame[], summaries: Map<string, GameSumma
     rating: elo,
     accuracy: r1(o.accuracy),
     perGame: { blunders: r1(o.blundersPerGame), mistakes: r1(o.mistakesPerGame), inaccuracies: r1(o.inaccuraciesPerGame) },
-    // Where the points go: each skill area's cost per game next to what is typical at this rating.
-    skillAreas: skills.stats
-      .map((s) => ({
-        area: SKILL_META[s.area].label,
-        about: SKILL_META[s.area].about,
-        costPerGame: r1(s.cost),
-        typicalAtYourRating: elo ? r1(typicalCost(s.area, timeClass, elo)) : undefined,
-        sharePct: Math.round(s.share),
-        trend: s.trend,
-      }))
-      .sort((a, b) => (b.costPerGame ?? 0) - (b.typicalAtYourRating ?? 0) - ((a.costPerGame ?? 0) - (a.typicalAtYourRating ?? 0))),
+    // The areas to work on (worse than typical, worst first) and the ones going well.
+    weakestAreas: byGap.filter((a) => a.gap >= 1).slice(0, 3).map(strip),
+    strongestAreas: byGap.filter((a) => a.gap <= -1).reverse().slice(0, 2).map(strip).map(({ tip: _tip, ...a }) => a),
     phases: phaseStats(recent).map((p) => ({ phase: p.phase, accuracy: r1(p.accuracy), errorsPer100Moves: r1(p.errorsPer100), shareOfLossPct: Math.round(p.shareOfLoss) })),
     mistakeTypes: motifStats(recent)
       .filter((m) => m.count > 0)
@@ -62,8 +71,8 @@ export function profileFacts(all: StoredGame[], summaries: Map<string, GameSumma
 
 export const PROFILE_PROMPT = `You are a friendly, honest chess coach. You get STATS about the player's recent games, worked out by the app; they are correct. "cost" is the average winning chance (in %) lost per game in an area; compare it with typicalAtYourRating.
 
-Write the player a short assessment (at most about 150 words, speaking to them as "you"):
-1. One or two sentences on the overall picture.
-2. The two or three areas that cost the most compared with what's typical, each with one concrete thing to practise.
-3. One thing that is going well.
-Use only numbers from the STATS. Don't name chess moves. No headings; short paragraphs or a short list are fine.`;
+Write the player a short assessment (at most about 120 words, speaking to them as "you"):
+1. One sentence on the overall picture.
+2. The areas in weakestAreas (and only those), each with one concrete thing to practise, based on its tip.
+3. One thing from strongestAreas that is going well.
+Use each area's comparedWithTypical wording as it is; never call an area weak or strong otherwise. Use only numbers from the STATS. Don't name chess moves. No headings; short paragraphs or a short list are fine.`;

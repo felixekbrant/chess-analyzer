@@ -17,6 +17,9 @@ import { nodeEngine } from './engine';
  */
 
 const DIR = 'scripts/coach-trial/data';
+/** Which trial: results and report get this suffix, so earlier runs are kept. */
+const RUN = process.env.COACH_RUN ?? '1';
+const ONLY = process.env.COACH_SETUPS?.split(',');
 // The key comes from GROQ_API_KEY, or (better) from a network secret that the environment's proxy adds to requests for api.groq.com.
 const KEY = process.env.GROQ_API_KEY ?? '';
 const BASE = process.env.COACH_BASE_URL ?? 'https://api.groq.com/openai/v1';
@@ -122,8 +125,9 @@ function pacer(limit = Number(process.env.COACH_TPM) || 7000) {
 test('coach trial', async () => {
   if (!existsSync(`${DIR}/backup.json`)) throw new Error('No games yet: run the collector first (see README.md)');
   const { games, analyses, summaries } = loadBackup();
-  const items = pickItems(games, analyses);
-  writeFileSync(`${DIR}/items.json`, JSON.stringify(items, null, 1));
+  // The same questions in every run, so runs compare directly.
+  const items: Item[] = existsSync(`${DIR}/items.json`) ? JSON.parse(readFileSync(`${DIR}/items.json`, 'utf8')) : pickItems(games, analyses);
+  if (!existsSync(`${DIR}/items.json`)) writeFileSync(`${DIR}/items.json`, JSON.stringify(items, null, 1));
   console.log(`${items.length} questions from ${new Set(items.map((i) => i.gameId)).size} games`);
 
   // Which models this key can use.
@@ -133,13 +137,14 @@ test('coach trial', async () => {
   const available = new Set<string>((models.data ?? []).map((m: { id: string }) => m.id));
   console.log('models:', [...available].join(', '));
 
-  const resultsFile = `${DIR}/results.json`;
+  const resultsFile = RUN === '1' ? `${DIR}/results.json` : `${DIR}/results-${RUN}.json`;
   const results: Result[] = existsSync(resultsFile) ? JSON.parse(readFileSync(resultsFile, 'utf8')) : [];
   const done = new Set(results.filter((r) => !r.error).map((r) => `${r.setup}|${r.item}`));
   const save = () => writeFileSync(resultsFile, JSON.stringify(results, null, 1));
   const analyse = await nodeEngine();
 
   for (const s of SETUPS) {
+    if (ONLY && !ONLY.includes(s.id)) continue;
     if (!available.has(s.model)) {
       console.log(`skip ${s.id}: ${s.model} not available`);
       continue;
@@ -184,7 +189,7 @@ test('coach trial', async () => {
   // Coach's view, once per model.
   const profile = profileFacts(games, summaries, joinAnalyzed(games, summaries));
   writeFileSync(`${DIR}/profile-facts.json`, JSON.stringify(profile, null, 1));
-  for (const s of SETUPS.filter((x) => !x.bare && available.has(x.model))) {
+  for (const s of SETUPS.filter((x) => !x.bare && available.has(x.model) && (!ONLY || ONLY.includes(x.id)))) {
     if (done.has(`${s.id}|profile`)) continue;
     try {
       const r = await askProfile({ baseUrl: BASE, apiKey: KEY, model: s.model, extra: s.extra }, profile, PROFILE_PROMPT);
@@ -194,20 +199,21 @@ test('coach trial', async () => {
     }
     save();
   }
-  writeFileSync(`${DIR}/report.md`, report(items, results, analyses, games));
-  console.log(`written ${DIR}/report.md`);
+  const reportFile = RUN === '1' ? `${DIR}/report.md` : `${DIR}/report-${RUN}.md`;
+  writeFileSync(reportFile, report(items, results, analyses, games));
+  console.log(`written ${reportFile}`);
 });
 
 /** A readable summary: automatic checks per set-up, then every answer next to the facts. */
 function report(items: Item[], results: Result[], analyses: GameAnalysis[], games: StoredGame[]): string {
   const out: string[] = ['# Coach trial: raw report', ''];
-  out.push('| Set-up | Answers | Errors | Invented moves | Unchecked moves | Unknown evals | Hint leaks | Rewritten | Avg tokens | Avg seconds |', '|---|---|---|---|---|---|---|---|---|---|');
+  out.push('| Set-up | Answers | Errors | Invented moves | Unchecked moves | Unknown evals | Hint leaks | Rewritten | Avg tokens | Avg seconds | Avg words |', '|---|---|---|---|---|---|---|---|---|---|---|');
   for (const s of SETUPS) {
     const rs = results.filter((r) => r.setup === s.id && r.item !== 'profile');
     const ok = rs.filter((r) => !r.error);
     const n = (f: (r: Result) => number) => ok.reduce((x, r) => x + f(r), 0);
     out.push(
-      `| ${s.label} | ${ok.length} | ${rs.length - ok.length} | ${ok.filter((r) => r.verdict?.invented.length).length} | ${ok.filter((r) => r.verdict?.unchecked.length).length} | ${ok.filter((r) => r.verdict?.unknownEvals.length).length} | ${ok.filter((r) => r.verdict?.leaked.length).length} | ${ok.filter((r) => r.rejected).length} | ${ok.length ? Math.round(n((r) => (r.usage?.promptTokens ?? 0) + (r.usage?.completionTokens ?? 0)) / ok.length) : '-'} | ${ok.length ? (n((r) => r.ms ?? 0) / ok.length / 1000).toFixed(1) : '-'} |`,
+      `| ${s.label} | ${ok.length} | ${rs.length - ok.length} | ${ok.filter((r) => r.verdict?.invented.length).length} | ${ok.filter((r) => r.verdict?.unchecked.length).length} | ${ok.filter((r) => r.verdict?.unknownEvals.length).length} | ${ok.filter((r) => r.verdict?.leaked.length).length} | ${ok.filter((r) => r.rejected).length} | ${ok.length ? Math.round(n((r) => (r.usage?.promptTokens ?? 0) + (r.usage?.completionTokens ?? 0)) / ok.length) : '-'} | ${ok.length ? (n((r) => r.ms ?? 0) / ok.length / 1000).toFixed(1) : '-'} | ${ok.length ? Math.round(n((r) => (r.answer ?? '').split(/\s+/).length) / ok.length) : '-'} |`,
     );
   }
   out.push('', 'Counts are answers with at least one problem of that kind, after the one rewrite.', '');

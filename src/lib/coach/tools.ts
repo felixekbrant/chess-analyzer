@@ -2,6 +2,7 @@ import { Chess, type Square } from 'chess.js';
 import { PIECE_NAME } from '../analysis/board';
 import type { Color, MoveAnalysis, Score } from '../types';
 import { scoreFor } from './facts';
+import { describeLine } from './describe';
 
 /** Runs the engine on a position: best lines first, scores from white's point of view. */
 export type Analyse = (fen: string, opts: { depth: number; multiPv: number }) => Promise<{ score: Score; pv: string[] }[]>;
@@ -60,11 +61,13 @@ export async function runTool(name: string, args: Record<string, unknown>, m: Mo
     if (c.isDraw() || c.isStalemate()) return { legal: true, result: 'draw' };
     const fen = c.fen();
     const lines = await analyse(fen, { depth: 14, multiPv: 3 });
+    const opp = you === 'w' ? 'Black' : 'White';
     return {
       legal: true,
-      sideToMove: c.turn() === you ? 'you' : 'your opponent',
+      movesPlayed: moves.length ? describeLine(start, moves, you, opp, moves.length).steps : [],
+      sideToMove: c.turn() === you ? 'you' : opp,
       eval: scoreFor(lines[0]?.score, you),
-      engineLines: lines.map((l) => ({ eval: scoreFor(l.score, you), moves: sanLine(fen, l.pv.slice(0, 6)) })),
+      engineLines: lines.map((l) => ({ eval: scoreFor(l.score, you), ...describeLine(fen, l.pv, you, opp) })),
     };
   }
   if (name === 'square') {

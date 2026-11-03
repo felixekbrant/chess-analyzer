@@ -38,15 +38,17 @@ describe('facts', () => {
     const { moves, m, you } = aMistake();
     const shown = moveFacts(moves, m.ply + 1, you);
     expect(shown.playedBy).toBe('you');
+    expect(shown.move).toMatch(/^You: \w+ [a-h][1-8]-[a-h][1-8] \(/);
     expect(shown.verdict).toBe('mistake');
-    expect(shown.bestMove).toBe(m.bestSan);
+    expect(shown.bestInstead?.move).toBe(m.bestSan);
+    expect(shown.bestInstead?.line.steps[0]).toContain(`(${m.bestSan})`);
     expect(shown.yourWinChanceAfter).toBeLessThan(shown.yourWinChanceBefore);
 
     const hidden = moveFacts(moves, m.ply + 1, you, { hideBest: true });
-    expect(hidden.bestMove).toBeUndefined();
-    expect(hidden.bestLine).toBeUndefined();
-    expect(hidden.doNotReveal?.bestMove).toBe(m.bestSan);
-    expect(JSON.stringify({ ...hidden, doNotReveal: undefined })).not.toContain(`"${m.bestSan}"`);
+    expect(hidden.bestInstead).toBeUndefined();
+    expect(hidden.doNotReveal?.moves).toEqual([m.bestSan]);
+    expect(hidden.hint?.piece).toMatch(/^your /);
+    expect(JSON.stringify({ ...hidden, doNotReveal: undefined })).not.toContain(`(${m.bestSan})`);
     expect(secretsOf(hidden)).toContain(m.bestSan);
   });
 });
@@ -134,5 +136,24 @@ describe('askCoach', () => {
     expect(r.rejected?.verdict.leaked).toEqual([m.bestSan]);
     expect(r.answer).toBe('Look at which of your pieces is doing nothing.');
     expect(r.verdict.leaked).toEqual([]);
+  });
+});
+
+describe('describe', () => {
+  // Black to move: Bb4 hits the queen on c3, which guards e1 (trial 1's first position).
+  const fen = '4rrk1/pp3ppp/2pb4/1q6/3n2BB/2Q4P/PP3PP1/R3R1K1 b - - 1 20';
+
+  it('says who moves which piece, and what it attacks or takes', async () => {
+    const { describeLine } = await import('./describe');
+    const line = describeLine(fen, ['Bb4', 'Qxd4', 'Rxe1+', 'Rxe1', 'Bxe1', 'Be2'], 'b', 'White');
+    expect(line.steps[0]).toBe("You: bishop d6-b4 (Bb4), attacking White's queen on c3.");
+    expect(line.steps[1]).toBe("White: queen c3-d4 (Qxd4), takes your knight on d4.");
+    expect(line.steps[2]).toBe("You: rook e8-e1 (Rxe1+), takes White's rook on e1, check.");
+    expect(line.outcome).toBe('In this line White loses: rook, rook. You lose: knight, rook. Net material: you are 2 points up.');
+  });
+
+  it('builds a hint from the best move', async () => {
+    const { hintTarget } = await import('./describe');
+    expect(hintTarget(fen, 'Bb4', 'b', 'White')).toEqual({ kind: 'a quiet move', targets: ["White's queen on c3"], piece: 'your bishop on d6' });
   });
 });

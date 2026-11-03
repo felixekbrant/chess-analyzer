@@ -143,9 +143,7 @@ export async function askCoach(o: AskOptions): Promise<CoachAnswer> {
 
 /** The moves a hint must not name: the best move, and for the opponent's mistakes your best reply. */
 export function secretsOf(f: MoveFacts): string[] {
-  const d = f.doNotReveal;
-  if (!d) return [];
-  return [d.bestMove, d.replyLine?.[0]].filter((x): x is string => !!x);
+  return f.doNotReveal?.moves ?? [];
 }
 
 /** "Coach's view": one request with the player's statistics, no tools. */
