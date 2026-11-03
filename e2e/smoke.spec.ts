@@ -617,3 +617,40 @@ test('AI coach: a weekly note on Home, written once a week', async ({ page, cont
   await expect(page.getByText('A busy week: your score went up.')).toBeVisible();
   expect(asked).toHaveLength(1);
 });
+
+test('AI coach: ask about your games, answered from looked-up statistics', async ({ page, context }) => {
+  // A fake Groq that does what the model does: asks for the "results" tool, then answers from it.
+  // The second question gets a made-up number, which the app must flag.
+  let round = 0;
+  await context.route('https://api.groq.com/**', async (route) => {
+    const body = JSON.parse(route.request().postData() ?? '{}');
+    const last = body.messages.at(-1);
+    let message: object;
+    if (last.role === 'user' && body.tools && !last.content.startsWith('These numbers')) {
+      message = { content: null, tool_calls: [{ id: `t${++round}`, type: 'function', function: { name: 'results', arguments: '{"color":"white"}' } }] };
+    } else if (last.role === 'tool') {
+      const r = JSON.parse(last.content);
+      message = { content: body.messages[1].content.includes('Black') ? 'You scored 99% as Black.' : `As White you played ${r.games} games and scored ${r.scorePct}%.` };
+    } else {
+      message = { content: 'You scored 99% as Black.' };
+    }
+    await route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ choices: [{ message }], usage: { prompt_tokens: 500, completion_tokens: 30 } }) });
+  });
+  await seed(page);
+  await page.evaluate(() => localStorage.setItem('coach-groq-key', 'gsk_test'));
+  await openTab(page, 'Insights');
+
+  await page.getByLabel('Your question').fill('How do I do with White?');
+  await page.getByRole('button', { name: 'Ask', exact: true }).click();
+  await expect(page.getByText(/^As White you played \d+ games and scored \d+%\.$/)).toBeVisible();
+  await expect(page.getByText("couldn't be checked")).toHaveCount(0);
+
+  await page.getByLabel('Your question').fill('And with Black?');
+  await page.getByRole('button', { name: 'Ask', exact: true }).click();
+  await expect(page.getByText('Some numbers (99) couldn\'t be checked against your statistics.')).toBeVisible();
+  // Kept after a reload, newest first.
+  await page.reload();
+  await expect(page.getByText('And with Black?')).toBeVisible();
+  await expect(page.getByText('How do I do with White?')).toBeVisible();
+  if (process.env.E2E_SHOTS) await page.locator('section', { hasText: 'Ask about your games' }).last().screenshot({ path: `${process.env.E2E_SHOTS}/ask.png` });
+});

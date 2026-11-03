@@ -40,7 +40,7 @@ export interface Usage {
   completionTokens: number;
 }
 
-async function chat(p: Provider, messages: Message[], useTools: boolean, usage: Usage, signal?: AbortSignal) {
+async function chat(p: Provider, messages: Message[], tools: readonly unknown[] | undefined, usage: Usage, signal?: AbortSignal) {
   const res = await fetch(`${p.baseUrl}/chat/completions`, {
     method: 'POST',
     // No key: something in between adds it (the cloud environment's network secret, in the trial).
@@ -50,7 +50,7 @@ async function chat(p: Provider, messages: Message[], useTools: boolean, usage: 
       messages,
       temperature: 0.3,
       max_completion_tokens: 1200,
-      ...(useTools ? { tools: TOOL_DEFS, tool_choice: 'auto' } : {}),
+      ...(tools ? { tools, tool_choice: 'auto' } : {}),
       ...p.extra,
     }),
     signal,
@@ -103,7 +103,7 @@ export async function askCoach(o: AskOptions): Promise<CoachAnswer> {
   async function run(): Promise<string> {
     for (let round = 0; round < 4; round++) {
       const last = round === 3 || o.bare;
-      const msg = await chat(o.provider, messages, !last, usage, o.signal);
+      const msg = await chat(o.provider, messages, last ? undefined : TOOL_DEFS, usage, o.signal);
       if (!msg.tool_calls?.length) return (msg.content ?? '').trim();
       messages.push({ role: 'assistant', content: msg.content ?? null, tool_calls: msg.tool_calls });
       for (const call of msg.tool_calls) {
@@ -149,6 +149,66 @@ export function secretsOf(f: MoveFacts): string[] {
 /** "Coach's view": one request with the player's statistics, no tools. */
 export async function askProfile(provider: Provider, stats: object, system: string, signal?: AbortSignal): Promise<{ answer: string; usage: Usage }> {
   const usage: Usage = { requests: 0, promptTokens: 0, completionTokens: 0 };
-  const msg = await chat(provider, [{ role: 'system', content: system }, { role: 'user', content: `STATS:\n${JSON.stringify(stats)}` }], false, usage, signal);
+  const msg = await chat(provider, [{ role: 'system', content: system }, { role: 'user', content: `STATS:\n${JSON.stringify(stats)}` }], undefined, usage, signal);
   return { answer: (msg.content ?? '').trim(), usage };
+}
+
+export interface StatsAnswer {
+  answer: string;
+  toolCalls: { name: string; args: Record<string, unknown>; result: Record<string, unknown> }[];
+  usage: Usage;
+  /** Numbers in the answer that no tool returned (after one rewrite); shown as a warning. */
+  unchecked: string[];
+}
+
+/**
+ * "Ask about your games": the model looks things up with `tools` (run by `run`), then answers; an
+ * answer with numbers the tools never returned is rewritten once.
+ */
+export async function askWithTools(
+  provider: Provider,
+  system: string,
+  question: string,
+  tools: readonly unknown[],
+  run: (name: string, args: Record<string, unknown>) => Record<string, unknown>,
+  check: (answer: string, known: string) => string[],
+  signal?: AbortSignal,
+): Promise<StatsAnswer> {
+  const usage: Usage = { requests: 0, promptTokens: 0, completionTokens: 0 };
+  const toolCalls: StatsAnswer['toolCalls'] = [];
+  const messages: Message[] = [
+    { role: 'system', content: system },
+    { role: 'user', content: question },
+  ];
+  const loop = async () => {
+    for (let round = 0; round < 5; round++) {
+      const msg = await chat(provider, messages, round === 4 ? undefined : tools, usage, signal);
+      if (!msg.tool_calls?.length) return (msg.content ?? '').trim();
+      messages.push({ role: 'assistant', content: msg.content ?? null, tool_calls: msg.tool_calls });
+      for (const call of msg.tool_calls) {
+        let args: Record<string, unknown> = {};
+        try {
+          args = JSON.parse(call.function.arguments || '{}');
+        } catch {
+          // An empty filter: all games.
+        }
+        const result = run(call.function.name, args);
+        toolCalls.push({ name: call.function.name, args, result });
+        messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify(result) });
+      }
+    }
+    return '';
+  };
+  const known = () => question + JSON.stringify(toolCalls);
+  let answer = await loop();
+  let unchecked = check(answer, known());
+  if (unchecked.length) {
+    messages.push(
+      { role: 'assistant', content: answer },
+      { role: 'user', content: `These numbers don't appear in any tool result: ${unchecked.join(', ')}. Rewrite the answer using only numbers from the tool results (call a tool if you need another number).` },
+    );
+    answer = await loop();
+    unchecked = check(answer, known());
+  }
+  return { answer, toolCalls, usage, unchecked };
 }
