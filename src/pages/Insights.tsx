@@ -24,6 +24,7 @@ import {
 import { coachReport } from '../lib/insights/coach';
 import { formatDuration } from '../lib/pgn/parse';
 import { SkillsTab } from '../components/SkillsTab';
+import { CoachViewCard } from '../components/CoachViewCard';
 import { useSkills } from '../hooks/useSkills';
 import { Filters, loadFilters, storeFilters } from '../components/Filters';
 import { HBarList, LineTrend } from '../components/charts';
@@ -92,6 +93,14 @@ export default function Insights() {
           {tab === 'skills' && (
             <>
               <SkillsTab data={skills} />
+              {skills.ready && (
+                <CoachViewCard
+                  games={games}
+                  summaries={summaries}
+                  ag={skills.ag}
+                  basis={`${JSON.stringify(filters)}|${skills.ag.length}|${skills.ag.at(-1)?.game.id ?? ''}`}
+                />
+              )}
             {data.report.strengths.length > 0 && (
               <Section title="Your strengths">
                 <ul className="text-sm space-y-1">

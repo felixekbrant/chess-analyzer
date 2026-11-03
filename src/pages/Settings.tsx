@@ -18,6 +18,7 @@ import { defaultPieces } from 'react-chessboard';
 import { Icon, type IconName } from '../components/Icon';
 import { playSound, setSoundEnabled } from '../lib/sound';
 import { isIos, isStandalone, useInstallPrompt } from '../pwa/install';
+import { setCoachKey, testCoachKey, useCoachKey } from '../lib/coach/key';
 import type { BoardTheme, PieceSet } from '../lib/types';
 
 export default function SettingsPage() {
@@ -179,6 +180,8 @@ export default function SettingsPage() {
         {switchRow('Move on after a correct answer', settings.autoNextPuzzle, (v) => void saveSettings({ autoNextPuzzle: v }))}
       </Group>
 
+      <CoachSettings />
+
       <Group title="Board">
         {/* Previews with real pieces, in the chosen piece set. */}
         <div className="grid grid-cols-4 gap-2 px-4 py-3">
@@ -326,7 +329,81 @@ export default function SettingsPage() {
 }
 
 /** A group of settings rows under a small heading (like a phone's settings app). */
-const GROUP_ICON: Record<string, IconName> = { 'chess.com': 'sync', Analysis: 'engine', Training: 'puzzle', Board: 'games', App: 'install', Data: 'book' };
+const GROUP_ICON: Record<string, IconName> = { 'chess.com': 'sync', Analysis: 'engine', Training: 'puzzle', 'AI coach': 'bulb', Board: 'games', App: 'install', Data: 'book' };
+
+/** The player's own free Groq key for the AI coach: kept in this browser only, never in backups. */
+function CoachSettings() {
+  const key = useCoachKey();
+  const [draft, setDraft] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string>();
+
+  const save = async () => {
+    setBusy(true);
+    setError(undefined);
+    const problem = await testCoachKey(draft);
+    setBusy(false);
+    if (problem) return setError(problem);
+    setCoachKey(draft);
+    setDraft('');
+    toast('Key saved. Coach\'s view is on the Insights page.', 'success');
+  };
+  const test = async () => {
+    setBusy(true);
+    const problem = await testCoachKey(key);
+    setBusy(false);
+    if (problem) setError(problem);
+    else toast('The key works', 'success');
+  };
+
+  return (
+    <div id="ai-coach">
+      <Group title="AI coach">
+        {key ? (
+          <Row label="Groq key" hint={`Saved in this browser · …${key.slice(-4)}`}>
+            <div className="flex gap-1.5">
+              <button className="btn !py-1.5 !px-3" onClick={() => void test()} disabled={busy}>
+                Test
+              </button>
+              <button className="btn !py-1.5 !px-3" onClick={() => setCoachKey('')}>
+                Remove
+              </button>
+            </div>
+          </Row>
+        ) : (
+          <div className="px-4 py-3 space-y-2">
+            <div className="font-semibold text-sm">Groq key (optional)</div>
+            <p className="muted text-xs">
+              A free key from{' '}
+              <a className="underline" href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer">
+                console.groq.com/keys
+              </a>{' '}
+              turns on Coach's view on the Insights page. Nothing is paid: when the free daily limit is reached, it waits until the next day. The key stays in this browser and
+              isn't included in backups.
+            </p>
+            <form
+              className="flex gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (draft.trim()) void save();
+              }}
+            >
+              <input className="input flex-1 min-w-0" type="password" autoComplete="off" placeholder="gsk_…" value={draft} onChange={(e) => setDraft(e.target.value)} aria-label="Groq key" />
+              <button className="btn btn-primary !py-1.5 !px-3" type="submit" disabled={busy || !draft.trim()}>
+                {busy ? 'Checking…' : 'Save'}
+              </button>
+            </form>
+          </div>
+        )}
+        {error && (
+          <p className="px-4 py-2 text-sm font-semibold" style={{ color: 'var(--attention-ink)' }}>
+            {error}
+          </p>
+        )}
+      </Group>
+    </div>
+  );
+}
 
 function Group({ title, children }: { title: string; children: ReactNode }) {
   return (

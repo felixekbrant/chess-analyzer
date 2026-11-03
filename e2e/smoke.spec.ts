@@ -540,3 +540,49 @@ test('dragging pieces: own pieces only, centred under the pointer, snaps back fr
   await clickSquare(page, move.slice(2, 4));
   await expect(page.getByText(/^✔ /)).toBeVisible();
 });
+
+test("AI coach: a Groq key in Settings turns on Coach's view, which is saved", async ({ page, context }) => {
+  // Groq answered by a fake: the key is checked, and the coach writes from the statistics only.
+  const asked: string[] = [];
+  await context.route('https://api.groq.com/**', async (route) => {
+    const req = route.request();
+    const ok = req.headers()['authorization'] === 'Bearer gsk_test';
+    if (!ok) return route.fulfill({ status: 401, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: '{"error":{"message":"Invalid API Key"}}' });
+    if (req.url().endsWith('/models')) return route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: '{"data":[]}' });
+    asked.push(req.postData() ?? '');
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      headers: { 'access-control-allow-origin': '*' },
+      body: JSON.stringify({ choices: [{ message: { content: 'You score well.\n- **Time management**: keep half your clock by move 20.' } }], usage: { prompt_tokens: 900, completion_tokens: 60 } }),
+    });
+  });
+  await seed(page);
+  await openTab(page, 'Insights');
+  await expect(page.getByText('It needs a free Groq key')).toBeVisible();
+
+  await page.goto('./#/settings');
+  await page.getByLabel('Groq key').fill('gsk_wrong');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByText("Groq didn't accept this key")).toBeVisible();
+  await page.getByLabel('Groq key').fill('gsk_test');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByText('Saved in this browser · …test')).toBeVisible();
+  if (process.env.E2E_SHOTS) await page.locator('#ai-coach').screenshot({ path: `${process.env.E2E_SHOTS}/coach-settings.png` });
+
+  await openTab(page, 'Insights');
+  await page.getByRole('button', { name: "Write my coach's view" }).click();
+  await expect(page.getByText('keep half your clock by move 20.')).toBeVisible();
+  await expect(page.getByText('AI · may be wrong')).toBeVisible();
+  if (process.env.E2E_SHOTS) await page.getByText('AI · may be wrong').screenshot({ path: `${process.env.E2E_SHOTS}/coach-view-chip.png` });
+  if (process.env.E2E_SHOTS) await page.locator('section', { hasText: "Coach's view" }).last().screenshot({ path: `${process.env.E2E_SHOTS}/coach-view.png` });
+  // Statistics only: no names are sent.
+  expect(asked).toHaveLength(1);
+  expect(asked[0]).toContain('STATS');
+  expect(asked[0]).not.toContain(USERNAME);
+  // Saved: shown again without asking, and no new one until the games change or a day passes.
+  await page.reload();
+  await expect(page.getByText('keep half your clock by move 20.')).toBeVisible();
+  await expect(page.getByRole('button', { name: /Write/ })).toHaveCount(0);
+  expect(asked).toHaveLength(1);
+});
