@@ -43,7 +43,8 @@ export interface Usage {
 async function chat(p: Provider, messages: Message[], useTools: boolean, usage: Usage, signal?: AbortSignal) {
   const res = await fetch(`${p.baseUrl}/chat/completions`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', authorization: `Bearer ${p.apiKey}` },
+    // No key: something in between adds it (the cloud environment's network secret, in the trial).
+    headers: { 'content-type': 'application/json', ...(p.apiKey ? { authorization: `Bearer ${p.apiKey}` } : {}) },
     body: JSON.stringify({
       model: p.model,
       messages,

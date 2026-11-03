@@ -5,8 +5,10 @@ anything is built into the app. Uses Groq's free tier only.
 
 ## Needs
 
-- `GROQ_API_KEY`: a free Groq key, set as an environment secret of the cloud environment (never in
-  the repo or the chat).
+- A free Groq key, never in the repo or the chat. Best as a **network secret** on the cloud
+  environment (allowed website `api.groq.com`, header `Authorization`, prefix `Bearer`): the proxy
+  adds it to requests, so it never enters the session. An environment variable `GROQ_API_KEY` also
+  works, but anyone using the environment can read it.
 - The player's chess.com username.
 
 ## Run

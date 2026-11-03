@@ -17,7 +17,8 @@ import { nodeEngine } from './engine';
  */
 
 const DIR = 'scripts/coach-trial/data';
-const KEY = process.env.GROQ_API_KEY;
+// The key comes from GROQ_API_KEY, or (better) from a network secret that the environment's proxy adds to requests for api.groq.com.
+const KEY = process.env.GROQ_API_KEY ?? '';
 const BASE = process.env.COACH_BASE_URL ?? 'https://api.groq.com/openai/v1';
 
 interface Setup {
@@ -119,7 +120,6 @@ function pacer(limit = Number(process.env.COACH_TPM) || 7000) {
 }
 
 test('coach trial', async () => {
-  if (!KEY) throw new Error('Set GROQ_API_KEY (see README.md)');
   if (!existsSync(`${DIR}/backup.json`)) throw new Error('No games yet: run the collector first (see README.md)');
   const { games, analyses, summaries } = loadBackup();
   const items = pickItems(games, analyses);
@@ -127,7 +127,9 @@ test('coach trial', async () => {
   console.log(`${items.length} questions from ${new Set(items.map((i) => i.gameId)).size} games`);
 
   // Which models this key can use.
-  const models = await (await fetch(`${BASE}/models`, { headers: { authorization: `Bearer ${KEY}` } })).json();
+  const res = await fetch(`${BASE}/models`, { headers: KEY ? { authorization: `Bearer ${KEY}` } : {} });
+  if (!res.ok) throw new Error(`Groq answered ${res.status}: add the key as a network secret for api.groq.com or set GROQ_API_KEY (see README.md)`);
+  const models = await res.json();
   const available = new Set<string>((models.data ?? []).map((m: { id: string }) => m.id));
   console.log('models:', [...available].join(', '));
 
