@@ -84,7 +84,7 @@ export function AskGamesCard() {
       {!history?.length && !busy && (
         <div className="flex flex-wrap gap-1.5 mt-2.5">
           {EXAMPLES.map((q) => (
-            <button key={q} className="chip hover:brightness-110" onClick={() => void ask(q)}>
+            <button key={q} className="chip !py-1.5 hover:brightness-110" onClick={() => void ask(q)}>
               {q}
             </button>
           ))}

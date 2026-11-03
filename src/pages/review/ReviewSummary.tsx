@@ -25,6 +25,8 @@ export interface StartOptions {
 const PHASES: Phase[] = ['opening', 'middlegame', 'endgame'];
 
 /** The first screen of a game review: the coach's verdict, accuracies and where to start. */
+const PHASE_LABEL = { opening: 'Opening', middlegame: 'Middle', endgame: 'End' } as const;
+
 export function ReviewSummary({
   game,
   analysis,
@@ -99,7 +101,7 @@ export function ReviewSummary({
                       const v = analysis.phaseAccuracy[c][ph];
                       return (
                         <div key={ph} className="flex items-center gap-1.5 text-[10px] font-bold tabular-nums">
-                          <span className="w-3 opacity-60 uppercase">{ph[0]}</span>
+                          <span className="w-[3.25rem] opacity-60 text-left">{PHASE_LABEL[ph]}</span>
                           <span className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: c === 'w' ? '#dcdad5' : '#2b2926' }}>
                             {v !== undefined && <span className="block h-full rounded-full" style={{ width: `${v}%`, background: v >= 80 ? 'var(--win)' : v >= 65 ? 'var(--brass)' : 'var(--attention)' }} />}
                           </span>

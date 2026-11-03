@@ -71,9 +71,12 @@ export default function SettingsPage() {
   }
 
   const switchRow = (label: string, checked: boolean, onChange: (v: boolean) => void) => (
-    <Row label={label}>
-      <input type="checkbox" role="switch" aria-label={label} className="switch" checked={checked} onChange={(e) => onChange(e.target.checked)} />
-    </Row>
+    // The whole row toggles the switch, not just the small switch itself.
+    <label className="block cursor-pointer">
+      <Row label={label}>
+        <input type="checkbox" role="switch" aria-label={label} className="switch" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      </Row>
+    </label>
   );
 
   return (
@@ -442,7 +445,7 @@ function Segmented<T extends string | number>({ value, options, onChange, label 
           key={String(v)}
           role="radio"
           aria-checked={value === v}
-          className={`rounded-full px-3 py-1 text-xs font-bold transition-colors duration-200 ${value === v ? 'bg-primary text-white shadow' : 'muted hover:text-[var(--text)]'}`}
+          className={`rounded-full px-3 py-2 text-xs font-bold transition-colors duration-200 ${value === v ? 'bg-primary text-white shadow' : 'muted hover:text-[var(--text)]'}`}
           onClick={() => onChange(v)}
         >
           {label}

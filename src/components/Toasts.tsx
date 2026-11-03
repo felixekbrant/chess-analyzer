@@ -8,8 +8,9 @@ export function Toasts() {
   const [list, setList] = useState<Toast[]>([]);
   useEffect(() => subscribeToasts(setList), []);
   return (
-    // Phones: a slim bar under the top bar, clear of the board and the tab bar. Desktop: bottom right.
-    <div className="fixed top-[calc(3.25rem+env(safe-area-inset-top))] md:top-auto md:bottom-4 right-3 left-3 md:left-auto z-50 flex flex-col gap-2 items-center md:items-end pointer-events-none" aria-live="polite">
+    // Phones: just above the bottom bars (the tab bar, or the review's action bar), so nothing at the top
+    // of the page (titles, search, the Today card) gets covered. Desktop: bottom right.
+    <div className="fixed bottom-[calc(6.75rem+env(safe-area-inset-bottom))] md:bottom-4 right-3 left-3 md:left-auto z-50 flex flex-col gap-2 items-center md:items-end pointer-events-none" aria-live="polite">
       {list.map((t) => (
         <div
           key={t.id}
@@ -29,7 +30,7 @@ export function Toasts() {
               {t.action.label}
             </button>
           )}
-          <button className="muted" aria-label="Dismiss" onClick={() => dismissToast(t.id)}>
+          <button className="muted -my-1.5 -mr-2 w-8 h-8 grid place-items-center rounded-full hover:bg-[var(--panel-2)]" aria-label="Dismiss" onClick={() => dismissToast(t.id)}>
             ✕
           </button>
         </div>

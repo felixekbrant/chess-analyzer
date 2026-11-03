@@ -272,7 +272,7 @@ export function FocusCard({
               Train
             </Link>
           )}
-          <button className="btn !py-1 !px-3 !text-xs justify-center" onClick={() => setShowTip((v) => !v)} aria-expanded={showTip}>
+          <button className="btn !py-2 !px-3 !text-xs justify-center" onClick={() => setShowTip((v) => !v)} aria-expanded={showTip}>
             <Icon name="bulb" size={12} /> Tip
           </button>
         </div>

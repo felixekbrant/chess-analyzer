@@ -26,11 +26,11 @@ export function dismissToast(id: number) {
   emit();
 }
 
-/** Shows a short message in the corner. Errors and messages with an action stay until dismissed; others disappear after 5 s. */
+/** Shows a short message. Errors and messages with an action stay until dismissed; others fade after 3.5 s. */
 export function toast(message: string, kind: Toast['kind'] = 'info', action?: Toast['action']) {
   const id = nextId++;
   toasts = [...toasts.slice(-3), { id, message, kind, action }];
   emit();
-  if (kind !== 'error' && !action) setTimeout(() => dismissToast(id), 5000);
+  if (kind !== 'error' && !action) setTimeout(() => dismissToast(id), 3500);
   return id;
 }

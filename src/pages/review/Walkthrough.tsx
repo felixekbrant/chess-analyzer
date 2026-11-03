@@ -750,10 +750,22 @@ function Coach({
   }
 
   if (!current) {
+    // Before the first move: the game at a glance, and how to step through it.
+    const result = game.userResult === 'win' ? 'You won' : game.userResult === 'loss' ? 'You lost' : game.userResult === 'draw' ? 'A draw' : 'The game';
+    const acc = game.userColor ? analysis.accuracy[game.userColor] : undefined;
     return (
       <CoachBubble>
         <p className="font-semibold">
-          {keyOnly ? `Your ${keyCount} key moments against ${opponent}.` : `Your game against ${opponent}.`}
+          {result} against {opponent}
+          {acc !== undefined ? `, with ${acc.toFixed(1)}% accuracy` : ''}.
+        </p>
+        {game.openingName && <p className="muted text-sm mt-0.5">{game.openingName}</p>}
+        <p className="text-sm mt-1.5">
+          {keyOnly
+            ? `${keyCount} key moments: tap Next key to jump between them.`
+            : keyCount
+              ? `${keyCount} key moments. Step through with Next, or open the menu to see only those.`
+              : 'Step through with Next.'}
         </p>
       </CoachBubble>
     );

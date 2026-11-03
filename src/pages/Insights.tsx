@@ -190,7 +190,7 @@ export default function Insights() {
                     );
                   })}
                   {data.motifs.length > 5 && (
-                    <button className="text-sm underline muted" onClick={() => setShowAllMotifs((v) => !v)}>
+                    <button className="text-sm underline muted py-2.5 -my-1" onClick={() => setShowAllMotifs((v) => !v)}>
                       {showAllMotifs ? 'Show fewer' : `Show all ${data.motifs.length}`}
                     </button>
                   )}

@@ -90,7 +90,7 @@ export function LineViewer({
               setPlaying(false);
               onIndex(i + 1);
             }}
-            className={`rounded-md px-1.5 py-0.5 text-sm tabular-nums ${
+            className={`rounded-md px-2 py-1.5 md:px-1.5 md:py-0.5 text-sm tabular-nums ${
               i + 1 === index ? 'bg-primary text-white font-semibold' : i < index ? 'bg-[var(--panel-2)]' : 'bg-[var(--panel-2)] muted'
             }`}
           >
