@@ -16,7 +16,7 @@ anything is built into the app. Uses Groq's free tier only.
 ```sh
 # 1. Collect and analyse recent games with the app itself (up to ~1 hour, automatic).
 npm run build
-COACH_USER=<chess.com name> COACH_MONTHS=1 npx playwright test --project=coach-trial
+COACH_USER=<chess.com name> COACH_MONTHS=1 COACH_GAMES=25 npx playwright test --project=coach-trial
 
 # 2. Ask the questions (paced to stay under the free per-minute limit; resumable).
 npx vitest run --config scripts/coach-trial/vitest.config.ts

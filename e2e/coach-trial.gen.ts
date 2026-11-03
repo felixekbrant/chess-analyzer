@@ -9,6 +9,8 @@ import { pick } from './helpers';
 // COACH_USER=<chess.com name> [COACH_MONTHS=1] npx playwright test --project=coach-trial
 const user = process.env.COACH_USER;
 const months = process.env.COACH_MONTHS ?? '1';
+/** Enough analysed games for the trial; the rest wait (the app analyses newest first). */
+const enough = Number(process.env.COACH_GAMES ?? 25);
 const out = fileURLToPath(new URL('../scripts/coach-trial/data/backup.json', import.meta.url));
 
 test('collect games for the coach trial', async ({ page }) => {
@@ -32,10 +34,21 @@ test('collect games for the coach trial', async ({ page }) => {
         }),
       store,
     );
-  await expect.poll(() => count('games'), { timeout: 120_000 }).toBeGreaterThan(0);
-  const total = await count('games');
-  // The app analyses up to its auto-analysis limit; wait for all of those.
-  await expect.poll(() => count('analyses'), { timeout: 55 * 60_000, intervals: [10_000] }).toBe(Math.min(total, 150));
+  // Months arrive one by one: wait until the number of games stops growing.
+  let total = 0;
+  await expect
+    .poll(
+      async () => {
+        const n = await count('games');
+        const settled = n > 0 && n === total;
+        total = n;
+        return settled;
+      },
+      { timeout: 180_000, intervals: [5000] },
+    )
+    .toBe(true);
+  console.log(`${total} games imported`);
+  await expect.poll(() => count('analyses'), { timeout: 55 * 60_000, intervals: [10_000] }).toBeGreaterThanOrEqual(Math.min(total, enough));
 
   const download = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export backup' }).click();
