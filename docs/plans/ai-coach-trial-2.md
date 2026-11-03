@@ -49,3 +49,35 @@ e-file", when it was closed). "Good move" answers lack context: a recapture was 
   2. Try gpt-oss with more reasoning ("medium"). It costs more tokens but is still within the free
      tier.
   3. Run it again on the 26 explanation questions.
+
+## Trial 3: explanations only, with more reasoning (same day)
+
+The same 26 explanation questions, two changes: the facts include the opponent's previous move
+(and a good move's line is "how it continues", not "how it is punished"), and gpt-oss-120b runs
+with `reasoning_effort: medium`. About 1,550 tokens, 1.7 s and 78 words per answer.
+
+| | Fully correct | Small slip | Wrong |
+|---|---|---|---|
+| Trial 2 | 9 (35%) | 10 (38%) | 7 (27%) |
+| Trial 3 | 12 (46%) | 7 (27%) | 7 (27%) |
+
+**What helped.** The previous move fixed the recapture case ("you take back the queen White just
+took"). Several lines that trial 2 misread are now right ("Qd1+ and you win the bishop").
+
+**What didn't.** Which piece a capture takes is still mixed up ("lose the knight" when it retreats).
+"Good move" answers still add made-up positional colour ("the open e-file") and overstate captures
+("wins a piece outright" for an even trade). A move that takes a rook was called "trading a
+queen for a rook".
+
+## Decision
+
+**No-go for free explanations of moves**, since about a quarter would mislead the player. What's built
+instead:
+
+- **Coach's view** (Insights > Skills) with the player's own free Groq key. It passed in trial 2.
+- **Hints written by the app itself** (puzzles and Retry): first what kind of move to look for and
+  what it goes after, then the piece is highlighted. No AI involved.
+- The app's own explanations of each move stay as they are.
+
+Worth revisiting when a stronger free open model is available on Groq: the trial set-up
+(`scripts/coach-trial`) runs again with one command.
