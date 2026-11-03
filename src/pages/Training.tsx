@@ -40,6 +40,7 @@ import { ClassificationBadge } from '../components/ClassificationBadge';
 import { Icon } from '../components/Icon';
 import { Sheet } from '../components/Sheet';
 import { hintText } from '../lib/training/hint';
+import { CapturedPieces } from '../components/CapturedPieces';
 import { EMPTY_FENS, EmptyState, PageHeader, Section } from '../components/ui';
 
 type State = 'solving' | 'checking' | 'wrong' | 'solved' | 'revealed';
@@ -592,6 +593,8 @@ function PuzzleView({
         <div className="flex gap-1.5">
           {engine && settings.showEvalBar && <EvalBar score={live.result?.lines[0]?.score} orientation={toMove} thinking={!live.settled} />}
           <div className="flex-1 min-w-0">
+            {/* Material, like chess.com: the opponent's captures above the board, yours below. */}
+            <MaterialRow fen={(engine && engineFen) || lineFen || fen} side={toMove === 'white' ? 'b' : 'w'} />
             {engine && engineFen ? (
               <Board
                 id="puzzle"
@@ -612,6 +615,7 @@ function PuzzleView({
                 highlight={highlight}
               />
             )}
+            <MaterialRow fen={(engine && engineFen) || lineFen || fen} side={toMove === 'white' ? 'w' : 'b'} />
           </div>
         </div>
       </div>
@@ -858,4 +862,13 @@ function useTodaySession(puzzles: Puzzle[] | undefined, ext: Puzzle[] | undefine
     const stage: 'due' | 'drill' | 'done' = progress.puzzles < targets.puzzles ? 'due' : progress.drill < targets.drill ? 'drill' : 'done';
     return { progress, targets, focus, stage };
   }, [stored, focusStore, puzzles, ext, minutes]);
+}
+
+/** A slim row with one side's captured pieces and material lead (kept the same height when empty). */
+function MaterialRow({ fen, side }: { fen: string; side: 'w' | 'b' }) {
+  return (
+    <div className="h-6 px-1 flex items-center">
+      <CapturedPieces fen={fen} side={side} />
+    </div>
+  );
 }

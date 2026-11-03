@@ -523,7 +523,7 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
           {/* Always part of the review; the engine's eval bar can be switched off while exploring. */}
           {(!engineOpen || settings.showEvalBar) && <EvalBar score={evalScore} orientation={orientation} thinking={evalThinking} />}
           <div className="flex-1 min-w-0">
-            <PlayerStrip {...top} />
+            <PlayerStrip {...top} fen={fen} />
             <Board
               id="review"
               fen={fen}
@@ -535,7 +535,7 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
               highlight={highlight}
               onMove={onBoardMove}
             />
-            <PlayerStrip {...bottom} />
+            <PlayerStrip {...bottom} fen={fen} />
           </div>
         </div>
 

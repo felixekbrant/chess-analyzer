@@ -4,6 +4,7 @@ import { formatClock, formatDuration, type ParsedGame } from '../../lib/pgn/pars
 import type { Color, GameAnalysis, MoveAnalysis, StoredGame } from '../../lib/types';
 import { ClassificationBadge } from '../../components/ClassificationBadge';
 import { BrandMark } from '../../components/BrandMark';
+import { CapturedPieces } from '../../components/CapturedPieces';
 
 export const KEY_CLASSES = ['blunder', 'mistake', 'miss', 'brilliant', 'great'];
 export const ERROR_CLASSES = ['blunder', 'mistake', 'miss'];
@@ -26,7 +27,10 @@ export function PlayerStrip({
   isUser,
   active,
   side,
+  fen,
 }: {
+  /** The position on the board, for the captured pieces and material lead beside the name. */
+  fen?: string;
   name: string;
   elo?: number;
   clock?: number;
@@ -47,6 +51,7 @@ export function PlayerStrip({
         </span>
         <span className="font-bold truncate">{name}</span>
         {elo && <span className="muted text-xs font-semibold tabular-nums">{elo}</span>}
+        {fen && <CapturedPieces fen={fen} side={side} />}
       </span>
       {clock !== undefined && (
         // The clock of the side to move is lit, like a real clock.
