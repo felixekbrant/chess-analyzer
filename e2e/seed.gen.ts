@@ -35,7 +35,7 @@ test('generate seed backup', async ({ page, context }) => {
     .toBe(total);
 
   const download = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Export backup' }).click();
+  await page.getByRole('button', { name: 'Export', exact: true }).click();
   const file = await (await download).path();
   const bytes = readFileSync(file);
   const data = JSON.parse((bytes[0] === 0x1f && bytes[1] === 0x8b ? gunzipSync(bytes) : bytes).toString('utf8'));

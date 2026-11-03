@@ -63,7 +63,7 @@ test('collect games for the coach trial', async ({ page }) => {
     .toBeGreaterThanOrEqual(Math.min(total, enough));
 
   const download = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Export backup' }).click();
+  await page.getByRole('button', { name: 'Export', exact: true }).click();
   const bytes = readFileSync(await (await download).path());
   mkdirSync(fileURLToPath(new URL('../scripts/coach-trial/data/', import.meta.url)), { recursive: true });
   writeFileSync(out, (bytes[0] === 0x1f && bytes[1] === 0x8b ? gunzipSync(bytes) : bytes).toString('utf8'));
