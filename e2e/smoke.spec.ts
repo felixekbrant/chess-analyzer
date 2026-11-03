@@ -580,8 +580,7 @@ test("AI coach: a Groq key in Settings turns on Coach's view, which is saved", a
   await openTab(page, 'Insights');
   await page.getByRole('button', { name: "Write my coach's view" }).click();
   await expect(page.getByText('keep half your clock by move 20.')).toBeVisible();
-  await expect(page.getByText('AI · may be wrong')).toBeVisible();
-  if (process.env.E2E_SHOTS) await page.getByText('AI · may be wrong').screenshot({ path: `${process.env.E2E_SHOTS}/coach-view-chip.png` });
+  await expect(page.locator('section', { hasText: "Coach's view" }).last().getByText('AI · may be wrong')).toBeVisible();
   if (process.env.E2E_SHOTS) await page.locator('section', { hasText: "Coach's view" }).last().screenshot({ path: `${process.env.E2E_SHOTS}/coach-view.png` });
   // Statistics only: no names are sent.
   expect(asked).toHaveLength(1);
