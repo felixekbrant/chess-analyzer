@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { saveSettings } from '../db/schema';
 import { useSettings } from '../hooks/useStores';
 import { Icon } from './Icon';
@@ -7,14 +8,12 @@ import { Icon } from './Icon';
  * analysis. Its display options (eval bar, suggested moves) only appear while it is open, since
  * that's the only time they do anything; the choice is remembered across the app.
  */
-export function EngineControls({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+export function EngineControls({ open, onToggle, leading }: { open: boolean; onToggle: () => void; leading?: ReactNode }) {
   const settings = useSettings();
-  const pill = (on: boolean) =>
-    `inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold border transition ${
-      on ? 'bg-primary text-white border-transparent' : 'bg-[var(--panel-2)] border-[var(--border)] muted'
-    }`;
   return (
-    <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Engine">
+    <div className="flex flex-wrap items-center gap-1.5">
+      {leading}
+      <div className="contents" role="group" aria-label="Engine">
       <button className={pill(open)} onClick={onToggle} aria-pressed={open}>
         <Icon name="engine" size={14} /> Engine
       </button>
@@ -32,6 +31,13 @@ export function EngineControls({ open, onToggle }: { open: boolean; onToggle: ()
           </button>
         </>
       )}
+      </div>
     </div>
   );
 }
+
+/** An on/off pill, as in the engine controls. */
+export const pill = (on: boolean) =>
+  `inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold border transition ${
+    on ? 'bg-primary text-white border-transparent' : 'bg-[var(--panel-2)] border-[var(--border)] muted'
+  }`;

@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Chess } from 'chess.js';
 import { useLiveEngine, evaluateOnce } from '../../hooks/useLiveEngine';
 import { useQueueProgress, useSettings } from '../../hooks/useStores';
-import { EngineControls } from '../../components/EngineControls';
+import { EngineControls, pill } from '../../components/EngineControls';
+import { hideBestMove } from '../../lib/review/hideBest';
+import { saveSettings } from '../../db/schema';
 import { EngineShortcuts } from '../../components/EngineShortcuts';
 import { useStableCallback } from '../../hooks/useStableCallback';
 import { analysisQueue } from '../../lib/engine/queue';
@@ -346,10 +348,11 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
       const u = settings.showSuggestions && live.settled ? live.result?.lines[0]?.pv[0] : undefined;
       return u ? [{ from: u.slice(0, 2), to: u.slice(2, 4), color: 'rgba(92,139,176,0.85)' }] : [];
     }
-    // The review's own best-move arrow is part of the review; the engine's suggestions are separate.
-    if (current?.bestUci && canBest) return [{ from: current.bestUci.slice(0, 2), to: current.bestUci.slice(2, 4), color: 'rgba(129,182,76,0.85)' }];
+    // The review's own best-move arrow is part of the review (unless best moves are hidden, to look
+    // for them yourself); the engine's suggestions are separate.
+    if (current?.bestUci && canBest && settings.showBestMoves) return [{ from: current.bestUci.slice(0, 2), to: current.bestUci.slice(2, 4), color: 'rgba(129,182,76,0.85)' }];
     return [];
-  }, [retry, explore, live.settled, live.result, current, canBest, settings.showSuggestions]);
+  }, [retry, explore, live.settled, live.result, current, canBest, settings.showSuggestions, settings.showBestMoves]);
 
   const lastMoveUci = retry ? retry.attemptUci : explore ? explore.moves.at(-1) : parsed.plies[ply - 1]?.uci;
   const lastMove = useMemo(() => (lastMoveUci ? { from: lastMoveUci.slice(0, 2), to: lastMoveUci.slice(2, 4) } : undefined), [lastMoveUci]);
@@ -391,14 +394,28 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
       retry={retry}
       keyOnly={keyOnly}
       keyCount={keyPlies.length}
-      onExitRetry={() => go(retry?.move.ply ?? ply)}
+      onExitRetry={() => go(retry ? retry.move.ply + 1 : ply)}
       onRetryReset={() => retry && setRetry({ ...retry, attemptUci: undefined, state: 'try' })}
       onExitExplore={exitExplore}
       line={explained}
       onLineIndex={(i) => explore?.line && setExplore({ ...explore, moves: explore.line.slice(0, i) })}
       onShowBest={canBest ? showBest : undefined}
       onShowRefutation={refutation ? showRefutation : undefined}
+      hideBest={!settings.showBestMoves}
+      onRetry={canRetryCurrent && current ? () => startRetry(current) : undefined}
     />
+  );
+
+  // Hide the best moves to look for them yourself first; "Best" and the coach's buttons still show them.
+  const bestToggle = (
+    <button
+      className={pill(settings.showBestMoves)}
+      onClick={() => void saveSettings({ showBestMoves: !settings.showBestMoves })}
+      aria-pressed={settings.showBestMoves}
+      title={settings.showBestMoves ? 'Hide the best moves, to look for them yourself' : 'Show the best move for each move'}
+    >
+      <Icon name="star" size={14} /> Best moves
+    </button>
   );
 
   const actions = retry ? (
@@ -513,7 +530,7 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
 
         {/* Phones: coach, engine, graph and the move strip under the board. */}
         <div className="lg:hidden space-y-2">
-          <EngineControls open={engineOpen} onToggle={toggleEngine} />
+          <EngineControls open={engineOpen} onToggle={toggleEngine} leading={bestToggle} />
           {shortcuts}
           {/* Swipe the coach left/right to step through the moves (the board itself is for dragging pieces). */}
           <div onTouchStart={swipe.start} onTouchEnd={swipe.end}>{coach}</div>
@@ -526,7 +543,7 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
 
       {/* Side panel (larger screens) */}
       <div className="hidden lg:flex lg:flex-col gap-3 min-w-0">
-        <EngineControls open={engineOpen} onToggle={toggleEngine} />
+        <EngineControls open={engineOpen} onToggle={toggleEngine} leading={bestToggle} />
         {shortcuts}
         {coach}
         {engineOpen && settings.showSuggestions && (
@@ -627,6 +644,8 @@ function Coach({
   onLineIndex,
   onShowBest,
   onShowRefutation,
+  hideBest,
+  onRetry,
 }: {
   game: StoredGame;
   analysis?: GameAnalysis;
@@ -643,6 +662,10 @@ function Coach({
   onLineIndex: (i: number) => void;
   onShowBest?: () => void;
   onShowRefutation?: () => void;
+  /** Best moves are hidden: the coach says what went wrong but not what to play. */
+  hideBest?: boolean;
+  /** Try to find a better move yourself (your own mistakes). */
+  onRetry?: () => void;
 }) {
   const progress = useQueueProgress(game.id);
   const me = game.userColor ?? 'w';
@@ -732,7 +755,17 @@ function Coach({
     : `${who}${current.san} is ${noun ? `${article(label)} ${label}${current.classification === 'book' ? ' move' : ''}` : label}`;
   const ending = last && !mate && game.termination ? `${game.termination[0].toUpperCase()}${game.termination.slice(1)}.` : undefined;
   const showBest = current.bestSan && current.bestUci !== current.uci && !['book', 'forced', 'best'].includes(current.classification);
-  const explanation = !yours && isError ? `Your chance${current.replyLineSan[0] ? `: ${current.replyLineSan[0]} punishes it` : ''}.` : isError || special ? current.explanation : undefined;
+  const explanation =
+    !yours && isError
+      ? hideBest
+        ? 'Your chance: can you find how to punish it?'
+        : `Your chance${current.replyLineSan[0] ? `: ${current.replyLineSan[0]} punishes it` : ''}.`
+      : isError || special
+        ? hideBest && isError
+          ? hideBestMove(current.explanation, current.bestSan)
+          : current.explanation
+        : undefined;
+  const findIt = hideBest && yours && isError && onRetry;
   // Chips only when there's no sentence saying the same thing.
   const motifs = isError && !explanation
     ? current.motifs.filter((m) => m !== 'long_think' && !(m === 'positional' && current.motifs.includes('threw_advantage'))).slice(0, 2)
@@ -751,7 +784,7 @@ function Coach({
       </div>
       {explanation && <p className="mt-1.5">{explanation}</p>}
       {ending && <p className="mt-1.5 font-semibold">{ending}</p>}
-      {showBest && !isError && !mate && (
+      {showBest && !isError && !mate && !hideBest && (
         <p className="mt-1 muted">
           Best: <b className="text-[var(--text)]">{current.bestSan}</b>
         </p>
@@ -765,8 +798,13 @@ function Coach({
           ))}
         </div>
       )}
-      {(onShowRefutation && isError) || (onShowBest && (isError || special) && (showBest || special)) ? (
+      {findIt || (onShowRefutation && isError) || (onShowBest && (isError || special) && (showBest || special)) ? (
         <div className="flex flex-wrap gap-2 mt-2.5">
+          {findIt && (
+            <button className="btn btn-primary !py-1.5 !text-sm" onClick={onRetry}>
+              <Icon name="retry" size={14} /> Find a better move
+            </button>
+          )}
           {onShowRefutation && isError && (
             <button className="btn !py-1.5 !text-sm" onClick={onShowRefutation}>
               <Icon name="play" size={14} /> {yours ? 'Why it fails' : 'How to punish it'}

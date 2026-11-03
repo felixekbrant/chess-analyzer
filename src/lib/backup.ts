@@ -5,7 +5,7 @@ import type { GameAnalysis, NewGame, Settings, StoredGame } from './types';
 import type { KV } from '../db/schema';
 
 /** Per-device display preferences, never overwritten by restoring a backup. */
-const DEVICE_PREFS: (keyof Settings)[] = ['theme', 'boardTheme', 'showCoordinates', 'sounds', 'showEvalBar', 'showSuggestions', 'autoNextPuzzle', 'analysisSpeed'];
+const DEVICE_PREFS: (keyof Settings)[] = ['theme', 'boardTheme', 'showCoordinates', 'sounds', 'showEvalBar', 'showSuggestions', 'showBestMoves', 'autoNextPuzzle', 'analysisSpeed'];
 
 export async function exportBackup() {
   const data = {

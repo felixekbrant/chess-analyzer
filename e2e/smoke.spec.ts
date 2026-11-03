@@ -124,6 +124,20 @@ test('game review: summary, walkthrough and the line viewer', async ({ page }) =
     expect(i, 'a key moment with "Why it fails"').toBeLessThan(30);
     await page.getByRole('button', { name: 'Next key' }).click();
   }
+  // Best moves can be hidden, to look for them yourself: no arrow, and the coach offers a retry instead.
+  const arrows = page.locator('[id="review-board"] svg polygon');
+  await expect(arrows).not.toHaveCount(0);
+  const bestMoves = page.getByRole('button', { name: 'Best moves' }).filter({ visible: true });
+  await bestMoves.click();
+  await expect(bestMoves).toHaveAttribute('aria-pressed', 'false');
+  await expect(arrows).toHaveCount(0);
+  await page.getByRole('button', { name: 'Find a better move' }).filter({ visible: true }).click();
+  await expect(page.getByText(/^Find a better move than /).filter({ visible: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Stop retrying' }).filter({ visible: true }).click();
+  // Still hidden on the next visit, until switched back on.
+  await expect(arrows).toHaveCount(0);
+  await bestMoves.click();
+  await expect(arrows).not.toHaveCount(0);
   await why.click();
   await expect(page.getByRole('button', { name: 'Close the line' })).toBeVisible();
   // The line is stepped and played from the bottom bar.

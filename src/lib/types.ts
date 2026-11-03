@@ -215,6 +215,8 @@ export interface Settings {
   showEvalBar: boolean;
   /** Engine display: best-move arrows and the engine's top lines. */
   showSuggestions: boolean;
+  /** Game review: show the best move (arrow and coach text) for each move, or hide it to look for it yourself. */
+  showBestMoves: boolean;
 }
 
 export type BoardTheme = 'green' | 'brown' | 'blue' | 'gray';
@@ -238,4 +240,5 @@ export const DEFAULT_SETTINGS: Settings = {
   analysisPaused: false,
   showEvalBar: true,
   showSuggestions: true,
+  showBestMoves: true,
 };
