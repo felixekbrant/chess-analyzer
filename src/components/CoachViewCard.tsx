@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Section } from './ui';
 import { Icon } from './Icon';
+import { useOnline } from '../hooks/useOnline';
 import { useCoachKey } from '../lib/coach/key';
 import { COACH_VIEW, canRefresh, savedText, writeSaved } from '../lib/coach/view';
 import { PROFILE_PROMPT, profileFacts } from '../lib/coach/profile';
@@ -23,7 +24,7 @@ export function CoachViewCard({ games, summaries, ag, basis }: { games: StoredGa
   const [error, setError] = useState<string>();
   // The last one stays readable after new games; a new one can then be written straight away.
   const view = saved;
-  const online = typeof navigator === 'undefined' || navigator.onLine;
+  const online = useOnline();
 
   const write = async () => {
     setBusy(true);
@@ -47,7 +48,8 @@ export function CoachViewCard({ games, summaries, ag, basis }: { games: StoredGa
     return (
       <Section title="Coach's view">
         <p className="muted text-sm">
-          A short written assessment of your recent games by an AI coach. It needs a free Groq key, added once in{' '}
+          An AI coach can write a short assessment of your recent games, a weekly note on Home, and answer questions like "Which openings cost me
+          the most?". It needs a free Groq key, added once in{' '}
           <Link to="/settings" className="underline">
             Settings
           </Link>

@@ -56,6 +56,8 @@ test('screens', async ({ page }) => {
   await shot(page, 'openings');
 
   await page.goto('./#/settings');
+  // "What's new" lists the latest commits, which change with every build.
+  await page.addStyleTag({ content: '#whats-new { display: none !important; }' });
   await page.getByText('Stored in this browser').waitFor();
   await shot(page, 'settings');
 });

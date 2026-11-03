@@ -1,5 +1,6 @@
 /// <reference types="vitest/config" />
 import { createHash } from 'node:crypto';
+import { execSync } from 'node:child_process';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { defineConfig, type Plugin } from 'vite';
@@ -40,7 +41,27 @@ function serviceWorker(): Plugin {
   };
 }
 
+/** This build's version and its latest changes (commit subjects), for "What's new" in the app. */
+function buildInfo() {
+  const git = (cmd: string) => {
+    try {
+      return execSync(`git ${cmd}`, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+    } catch {
+      return '';
+    }
+  };
+  return {
+    version: git('rev-parse --short HEAD') || 'dev',
+    date: new Date().toISOString().slice(0, 10),
+    changes: git('log -8 --format=%s')
+      .split('\n')
+      .filter((s) => s && !/^(Test|Plan|Seed|AI coach: trial|Coach trial)/i.test(s))
+      .slice(0, 5),
+  };
+}
+
 export default defineConfig({
+  define: { __BUILD__: JSON.stringify(buildInfo()) },
   // Relative base so the build also works from a GitHub Pages sub-path.
   base: './',
   plugins: [react(), tailwindcss(), serviceWorker()],

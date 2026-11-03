@@ -19,6 +19,8 @@ import { Icon, type IconName } from '../components/Icon';
 import { playSound, setSoundEnabled } from '../lib/sound';
 import { isIos, isStandalone, useInstallPrompt } from '../pwa/install';
 import { setCoachKey, testCoachKey, useCoachKey } from '../lib/coach/key';
+import { BUILD } from '../pwa/build';
+import { useSearchParams } from 'react-router-dom';
 import type { BoardTheme, PieceSet } from '../lib/types';
 
 export default function SettingsPage() {
@@ -246,6 +248,8 @@ export default function SettingsPage() {
 
       <InstallSection />
 
+      <WhatsNew />
+
       <Group title="Data">
         <Row label="Stored in this browser" hint={`${counts?.games ?? 0} games · ${counts?.analysed ?? 0} analysed · ${counts?.puzzles ?? 0} puzzles`} />
         <Row label="Backup">
@@ -335,7 +339,7 @@ export default function SettingsPage() {
 }
 
 /** A group of settings rows under a small heading (like a phone's settings app). */
-const GROUP_ICON: Record<string, IconName> = { 'chess.com': 'sync', Analysis: 'engine', Training: 'puzzle', 'AI coach': 'bulb', Board: 'games', App: 'install', Data: 'book' };
+const GROUP_ICON: Record<string, IconName> = { 'chess.com': 'sync', Analysis: 'engine', Training: 'puzzle', 'AI coach': 'bulb', Board: 'games', App: 'install', "What's new": 'star', Data: 'book' };
 
 /** The player's own free Groq key for the AI coach: kept in this browser only, never in backups. */
 function CoachSettings() {
@@ -384,7 +388,7 @@ function CoachSettings() {
               <a className="underline" href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer">
                 console.groq.com/keys
               </a>{' '}
-              turns on Coach's view on the Insights page. Nothing is paid: when the free daily limit is reached, it waits until the next day. The key stays in this browser and
+              turns on the AI coach: Coach's view and questions about your games on Insights, and a weekly note on Home. Nothing is paid: when the free daily limit is reached, it waits until the next day. The key stays in this browser and
               isn't included in backups.
             </p>
             <form
@@ -451,6 +455,33 @@ function Segmented<T extends string | number>({ value, options, onChange, label 
           {label}
         </button>
       ))}
+    </div>
+  );
+}
+
+/** This version and its latest changes; opened from the "Updated" notice. */
+function WhatsNew() {
+  const [params] = useSearchParams();
+  const highlight = params.get('whatsnew') === '1';
+  useEffect(() => {
+    if (highlight) document.getElementById('whats-new')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [highlight]);
+  if (!BUILD.changes.length) return null;
+  return (
+    <div id="whats-new">
+      <Group title="What's new">
+        <div className="px-4 py-3 text-sm">
+          <ul className="space-y-1.5 list-disc pl-5">
+            {BUILD.changes.map((c) => (
+              <li key={c}>{c}</li>
+            ))}
+          </ul>
+          <p className="muted text-xs mt-2">
+            Version {BUILD.version}
+            {BUILD.date ? ` · ${BUILD.date}` : ''}
+          </p>
+        </div>
+      </Group>
     </div>
   );
 }

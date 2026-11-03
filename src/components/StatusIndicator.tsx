@@ -7,6 +7,7 @@ import { saveSettings } from '../db/schema';
 import { formatEta, timeAgo } from '../lib/format';
 import { Icon } from './Icon';
 import { Sheet } from './Sheet';
+import { useOnline } from '../hooks/useOnline';
 
 /**
  * Sync + analysis status as one small button (top bar on phones, sidebar on desktop).
@@ -19,10 +20,15 @@ export function StatusIndicator({ variant }: { variant: 'compact' | 'sidebar' })
   const running = useQueue((s) => s.running);
   const paused = useQueue((s) => s.paused);
   const [open, setOpen] = useState(false);
+  const online = useOnline();
   if (!settings.username) return null;
 
   const busy = running && !paused;
-  const label = sync.syncing
+  const label = !online
+    ? busy
+      ? `Offline · analysing · ${pending} left`
+      : 'Offline'
+    : sync.syncing
     ? 'Syncing…'
     : sync.error
       ? 'Sync failed'
@@ -52,9 +58,17 @@ export function StatusIndicator({ variant }: { variant: 'compact' | 'sidebar' })
             size={variant === 'compact' ? 20 : 16}
             className={sync.syncing ? 'spin' : busy ? 'text-accent' : 'muted'}
           />
-          {sync.error && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-loss" />}
+          {sync.error && online && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-loss" />}
         </span>
-        {variant === 'compact' ? (busy || (paused && pending > 0) ? <span className="tabular-nums">{pending}</span> : null) : <span className="truncate">{label}</span>}
+        {variant === 'compact' ? (
+          !online ? (
+            <span className="muted">Offline</span>
+          ) : busy || (paused && pending > 0) ? (
+            <span className="tabular-nums">{pending}</span>
+          ) : null
+        ) : (
+          <span className="truncate">{label}</span>
+        )}
       </button>
       <StatusSheet open={open} onClose={() => setOpen(false)} />
     </>
@@ -74,6 +88,7 @@ function StatusDetails({ onClose }: { onClose: () => void }) {
   const sync = useSyncStatus();
   const queue = useQueue((s) => s);
   const settings = useSettings();
+  const online = useOnline();
   return (
     <div className="space-y-5 text-sm">
       <section>
@@ -81,7 +96,9 @@ function StatusDetails({ onClose }: { onClose: () => void }) {
           <div>
             <div className="font-semibold">chess.com · {settings.username}</div>
             <div className="muted text-xs">
-              {sync.syncing
+              {!online
+                ? "You're offline. Reviews, puzzles and the engine work as usual; new games are fetched when you're back online."
+                : sync.syncing
                 ? sync.progress?.phase === 'months'
                   ? `Importing month ${sync.progress.monthsDone + 1} of ${sync.progress.monthsTotal}…`
                   : 'Checking for new games…'
@@ -92,7 +109,7 @@ function StatusDetails({ onClose }: { onClose: () => void }) {
                     : 'Not synced yet'}
             </div>
           </div>
-          <button className="btn shrink-0" onClick={() => void syncManager.syncNow()} disabled={sync.syncing}>
+          <button className="btn shrink-0" onClick={() => void syncManager.syncNow()} disabled={sync.syncing || !online} title={online ? undefined : 'Offline: syncing resumes when you are back online'}>
             <Icon name="sync" size={16} className={sync.syncing ? 'spin' : ''} /> Sync
           </button>
         </div>

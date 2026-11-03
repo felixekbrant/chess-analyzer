@@ -701,3 +701,26 @@ test("Today: a game review counts once you've reached its end, not when you open
   await page.goto('./#/');
   await expect(today.getByRole('listitem').first().locator('span.block').first()).toHaveClass(/line-through/);
 });
+
+test('offline: the header says so; openings with few games wait behind "Show more"', async ({ page, context }) => {
+  await seed(page);
+  await openTab(page, 'Home');
+  await context.setOffline(true);
+  await page.evaluate(() => window.dispatchEvent(new Event('offline')));
+  await expect(page.getByRole('button', { name: /^Status: Offline/ }).first()).toBeVisible();
+  await page.getByRole('button', { name: /^Status: Offline/ }).first().click();
+  await expect(page.getByText("You're offline.")).toBeVisible();
+  await expect(page.getByRole('dialog').getByRole('button', { name: 'Sync' })).toBeDisabled();
+  await page.keyboard.press('Escape');
+  await context.setOffline(false);
+  await page.evaluate(() => window.dispatchEvent(new Event('online')));
+  await expect(page.getByRole('button', { name: /^Status: Offline/ })).toHaveCount(0);
+
+  await openTab(page, 'Openings');
+  const more = page.getByRole('button', { name: /^Show \d+ more with fewer than 3 games$/ }).first();
+  if (await more.isVisible()) {
+    const before = await page.locator('li').count();
+    await more.click();
+    await expect.poll(() => page.locator('li').count()).toBeGreaterThan(before);
+  }
+});

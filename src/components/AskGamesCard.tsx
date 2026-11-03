@@ -9,6 +9,7 @@ import { useCoachKey, coachProvider } from '../lib/coach/key';
 import { askWithTools } from '../lib/coach/client';
 import { STATS_PROMPT, STATS_TOOLS, runStatsTool, uncheckedNumbers } from '../lib/coach/stats';
 import { coachError } from '../lib/coach/view';
+import { useOnline } from '../hooks/useOnline';
 
 interface QA {
   q: string;
@@ -33,6 +34,7 @@ export function AskGamesCard() {
   const [question, setQuestion] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+  const online = useOnline();
 
   if (!key || !games || !summaries) return null;
 
@@ -77,10 +79,11 @@ export function AskGamesCard() {
           aria-label="Your question"
           maxLength={300}
         />
-        <button className="btn btn-primary !py-1.5 !px-3" type="submit" disabled={busy || !question.trim()}>
+        <button className="btn btn-primary !py-1.5 !px-3" type="submit" disabled={busy || !question.trim() || !online}>
           {busy ? 'Looking…' : 'Ask'}
         </button>
       </form>
+      {!online && <p className="muted text-xs mt-1.5">Offline: questions need a connection. Earlier answers are below.</p>}
       {!history?.length && !busy && (
         <div className="flex flex-wrap gap-1.5 mt-2.5">
           {EXAMPLES.map((q) => (

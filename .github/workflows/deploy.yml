@@ -21,6 +21,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # A few commits of history, for "What's new" in the app.
+          fetch-depth: 10
       - uses: actions/setup-node@v4
         with:
           node-version: 22

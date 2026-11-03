@@ -76,10 +76,16 @@ export default function Openings() {
 /** The rest of your openings: one compact row each; tap for the details. */
 function OpeningCards({ rows }: { rows: OpeningStat[] }) {
   const [open, setOpen] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
   if (!rows.length) return <Empty>No games.</Empty>;
+  // Openings with one or two games say little: they wait behind "Show more".
+  const main = rows.filter((r) => r.games >= 3);
+  const rest = rows.length - main.length;
+  const shown = showAll || !main.length ? rows : main;
   return (
+    <>
     <ul className="divide-y divide-[var(--border)] -mx-1">
-      {rows.map((r) => {
+      {shown.map((r) => {
         const few = r.games < 3;
         const isOpen = open === r.key;
         return (
@@ -127,6 +133,12 @@ function OpeningCards({ rows }: { rows: OpeningStat[] }) {
         );
       })}
     </ul>
+    {rest > 0 && main.length > 0 && (
+      <button className="w-full text-sm muted underline py-3 border-t border-[var(--border)]" onClick={() => setShowAll((v) => !v)}>
+        {showAll ? 'Show fewer' : `Show ${rest} more with fewer than 3 games`}
+      </button>
+    )}
+    </>
   );
 }
 
