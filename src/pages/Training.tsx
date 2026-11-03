@@ -254,7 +254,8 @@ export default function Training() {
         </Section>
       ) : (
         <PuzzleView
-          key={current.id + (practiceAll ? '-p' : '')}
+          // A puzzle starts fresh in each mode (e.g. one already revealed on the Train tab, then met in today's session).
+          key={current.id + (practiceAll ? '-p' : '') + (inSession ? '-s' : '')}
           puzzle={current}
           remaining={inSession ? Math.max(1, sessionPart.target - sessionPart.done) : queue.length}
           done={inSession ? sessionPart.done : session.solved + session.failed}

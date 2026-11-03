@@ -226,7 +226,8 @@ export function coachReport(
   }
   const bestOpening = [...openings].sort((a, b) => b.score - a.score)[0];
   if (bestOpening && bestOpening.score >= 55)
-    strengths.push(`You score ${bestOpening.score.toFixed(0)}% with the ${bestOpening.name} as ${bestOpening.color === 'w' ? 'White' : 'Black'}.`);
+    // "In", not "with": the opening may be the opponent's (the Englund Gambit is Black's, met as White).
+    strengths.push(`You score ${bestOpening.score.toFixed(0)}% as ${bestOpening.color === 'w' ? 'White' : 'Black'} in the ${bestOpening.name}.`);
   if (c.hadLosing >= 4 && c.saveRate >= 35) strengths.push(`Fighter: you saved ${c.saved} of ${c.hadLosing} lost positions (${c.saveRate.toFixed(0)}%).`);
   const improving = items.filter((i) => i.trend === 'improving');
   for (const i of improving.slice(0, 2)) strengths.push(`Improving: "${i.title}" happens less often in your recent games.`);

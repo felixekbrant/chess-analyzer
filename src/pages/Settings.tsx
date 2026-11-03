@@ -262,6 +262,9 @@ export default function SettingsPage() {
                   try {
                     const n = await importBackup(f);
                     toast(`Restored ${n} games from backup`, 'success');
+                    // Games the backup hadn't analysed yet are picked up straight away.
+                    await analysisQueue.refreshCount();
+                    void analysisQueue.kick();
                   } catch (err) {
                     setMsg(`Import failed: ${(err as Error).message}`);
                   }

@@ -676,3 +676,27 @@ test('puzzles: a wrong move shows in red for a moment, then goes back by itself'
   await expect.poll(() => boardPlacement(page, 'puzzle')).toBe(placement);
   await expect(page.getByText("That's the move you played in the game", { exact: false }).first()).toBeVisible();
 });
+
+test("Today: a game review counts once you've reached its end, not when you open it", async ({ page }) => {
+  await seed(page);
+  await openTab(page, 'Home');
+  const today = page.locator('section', { has: page.getByRole('heading', { name: 'Today', exact: true }) });
+  const first = today.getByRole('listitem').first();
+  await expect(first).toContainText('Review your game');
+  const title = first.locator('span.block').first();
+  await expect(title).not.toHaveClass(/line-through/);
+
+  // Open it (it starts at the key moments) and come back: still to do.
+  await first.click();
+  await expect(page.getByRole('button', { name: 'Next key' }).filter({ visible: true }).first()).toBeVisible();
+  await page.goto('./#/');
+  await expect(title).not.toHaveClass(/line-through/);
+
+  // Step through to the end: done.
+  await first.click();
+  await expect(page.getByRole('button', { name: 'Next key' }).filter({ visible: true }).first()).toBeVisible();
+  await page.keyboard.press('ArrowDown');
+  await expect(page.getByRole('button', { name: 'Summary' }).filter({ visible: true }).first()).toBeVisible();
+  await page.goto('./#/');
+  await expect(today.getByRole('listitem').first().locator('span.block').first()).toHaveClass(/line-through/);
+});

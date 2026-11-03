@@ -47,7 +47,11 @@ export default function Openings() {
           .filter((c) => filters.color === 'all' || filters.color === c)
           .map((c) => (
             <section key={c} className="space-y-3">
-              <h2 className="font-extrabold text-[17px] tracking-tight px-1">{c === 'w' ? 'As White' : 'As Black'}</h2>
+              <div className="px-1">
+                <h2 className="font-extrabold text-[17px] tracking-tight">{c === 'w' ? 'As White' : 'As Black'}</h2>
+                {/* Opening names don't say whose they are: a "Defense" or the Englund Gambit is Black's, met here as White. */}
+                <p className="muted text-xs">Your games with {c === 'w' ? 'White' : 'Black'}, by opening: yours or the one you met.</p>
+              </div>
               {/* Your three main openings as cards, with the position where you usually leave book. */}
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {stats

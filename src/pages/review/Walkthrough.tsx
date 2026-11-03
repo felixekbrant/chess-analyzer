@@ -5,7 +5,7 @@ import { useQueueProgress, useSettings } from '../../hooks/useStores';
 import { EngineControls, pill } from '../../components/EngineControls';
 import { hideBestMove } from '../../lib/review/hideBest';
 import { hintText } from '../../lib/training/hint';
-import { saveSettings } from '../../db/schema';
+import { db, saveSettings } from '../../db/schema';
 import { playMove, stepBack, stepForward, stepKey, toEnd, toStart } from '../../lib/moveSteps';
 import { EngineShortcuts } from '../../components/EngineShortcuts';
 import { useStableCallback } from '../../hooks/useStableCallback';
@@ -321,6 +321,13 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
     const t = setTimeout(() => startRetry(mistakes[i + 1], true), 1200);
     return () => clearTimeout(t);
   }, [retry?.state, retry?.move, settings.autoNextPuzzle]);
+
+  // Reaching the end of the review (the last move, or the last key moment) counts as reviewed: for
+  // Today's plan and for "next game to review". Just opening a game doesn't.
+  const reachedEnd = !!analysis && !explore && !retry && n > 0 && (ply >= n || (keyOnly && nextKey === undefined && ply > 0));
+  useEffect(() => {
+    if (reachedEnd) void db.games.update(game.id, { reviewedAt: Date.now() });
+  }, [reachedEnd, game.id]);
 
   // ----- Keyboard -----
   const onKey = useStableCallback((e: KeyboardEvent) => {
