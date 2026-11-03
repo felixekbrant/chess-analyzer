@@ -190,6 +190,23 @@
   .pop {
     animation: pop 0.28s cubic-bezier(0.2, 0.8, 0.3, 1.2) both;
   }
+  /* The same for full-width boxes: a smaller overshoot, so they never poke past the screen edge. */
+  @keyframes pop-wide {
+    0% {
+      transform: scale(0.94);
+      opacity: 0;
+    }
+    70% {
+      transform: scale(1.015);
+      opacity: 1;
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+  .pop-wide {
+    animation: pop-wide 0.28s ease-out both;
+  }
   @keyframes rise {
     from {
       transform: translateY(6px);
@@ -222,6 +239,7 @@
   }
   @media (prefers-reduced-motion: reduce) {
     .pop,
+    .pop-wide,
     .rise,
     .shake {
       animation: none;

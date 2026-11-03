@@ -68,8 +68,25 @@ function BoardImpl({ fen, orientation = 'white', arrows = [], lastMove, badge, m
     }
   }, [fen, selected]);
 
+  // Where the pointer is, so a rejected drop can glide back from the spot it was let go.
+  const pointer = useRef<{ x: number; y: number } | null>(null);
+  useEffect(() => {
+    if (!canMove) return;
+    const track = (e: PointerEvent) => (pointer.current = { x: e.clientX, y: e.clientY });
+    window.addEventListener('pointermove', track, { passive: true });
+    window.addEventListener('pointerdown', track, { passive: true });
+    return () => {
+      window.removeEventListener('pointermove', track);
+      window.removeEventListener('pointerdown', track);
+    };
+  }, [canMove]);
+
+  // The browser sends a click when a drag ends on the square it started from; that isn't a tap.
+  const dragEnded = useRef(0);
+
   function onSquareClick(square: string) {
     if (!onMove) return;
+    if (performance.now() - dragEnded.current < 150) return;
     if (selected && targets.includes(square)) {
       const piece = new Chess(fen).get(selected as Square);
       const promo = piece?.type === 'p' && (square[1] === '8' || square[1] === '1') ? 'q' : '';
@@ -153,16 +170,33 @@ function BoardImpl({ fen, orientation = 'white', arrows = [], lastMove, badge, m
       const p = new Chess(fen).get(square as Square);
       if (p && p.color === fen.split(' ')[1]) setSelected(square);
     },
-    onPieceDragCancel: () => setSelected(null),
-    // A lifted piece: slightly bigger with a soft shadow; the square it left keeps a faint copy.
-    draggingPieceStyle: { transform: 'scale(1.12)', filter: 'drop-shadow(0 6px 8px rgba(0,0,0,.35))' },
-    draggingPieceGhostStyle: { opacity: 0.3 },
-    dropSquareStyle: { boxShadow: 'inset 0 0 0 4px rgba(255,255,255,.7)' },
+    onPieceDragCancel: () => {
+      dragEnded.current = performance.now();
+      setSelected(null);
+    },
+    // Dragging like chess.com: only the side to move can be picked up; the piece sits centred under
+    // the pointer (bigger under a finger, so it shows around it); the square it left is empty and
+    // highlighted; the square under the pointer gets a white frame.
+    canDragPiece: ({ piece }) => piece.pieceType[0] === fen.split(' ')[1],
+    dragActivationDistance: 3,
+    draggingPieceStyle: {
+      transform: `scale(${COARSE_POINTER ? 1.35 : 1.08})`,
+      filter: 'drop-shadow(0 4px 6px rgba(0,0,0,.35))',
+    },
+    draggingPieceGhostStyle: { opacity: 0 },
+    dropSquareStyle: { boxShadow: `inset 0 0 0 ${COARSE_POINTER ? 5 : 4}px rgba(255,255,255,.65)` },
     onPieceDrop: ({ sourceSquare, targetSquare, piece }) => {
-      if (!onMove || !targetSquare) return false;
+      dragEnded.current = performance.now();
+      if (!onMove) return false;
+      // Put back on its own square: nothing happens and it stays picked up, so a tap can finish the move.
+      if (targetSquare === sourceSquare) return false;
       const isPawn = piece.pieceType[1] === 'P';
-      const promo = isPawn && (targetSquare[1] === '8' || targetSquare[1] === '1') ? 'q' : '';
-      return onMove(sourceSquare + targetSquare + promo);
+      const promo = targetSquare && isPawn && (targetSquare[1] === '8' || targetSquare[1] === '1') ? 'q' : '';
+      if (targetSquare && onMove(sourceSquare + targetSquare + promo)) return true;
+      // Off the board or not a legal move: glide back from where it was let go.
+      snapBack(`${id}-piece-${piece.pieceType}-${sourceSquare}`, pointer.current);
+      setSelected(null);
+      return false;
     },
     squareRenderer: overlay
       ? ({ square, children }) => (
@@ -216,6 +250,39 @@ export const Board = memo(
     same(a.marker, b.marker) &&
     same(a.highlight, b.highlight),
 );
+
+/** Touch screens: the dragged piece is drawn bigger so it shows around the finger. */
+const COARSE_POINTER = typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches;
+
+/**
+ * Animates a piece back to its square from where it was dropped (`from`, viewport coordinates of its
+ * centre). Runs after the board has put the piece back.
+ */
+function snapBack(pieceId: string, from: { x: number; y: number } | null) {
+  if (!from || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+  requestAnimationFrame(() => {
+    const el = document.getElementById(pieceId);
+    if (!el?.animate) return;
+    const r = el.getBoundingClientRect();
+    const dx = from.x - (r.left + r.width / 2);
+    const dy = from.y - (r.top + r.height / 2);
+    if (Math.hypot(dx, dy) < 4) return;
+    // Lift it above the other squares while it travels (as the board does for its own move animations).
+    const { position, zIndex } = el.style;
+    el.style.position = 'relative';
+    el.style.zIndex = '30';
+    const done = () => {
+      el.style.position = position;
+      el.style.zIndex = zIndex;
+    };
+    const a = el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'translate(0, 0)' }], {
+      duration: Math.min(260, 140 + Math.hypot(dx, dy) / 4),
+      easing: 'cubic-bezier(0.22, 0.9, 0.32, 1)',
+    });
+    a.onfinish = done;
+    a.oncancel = done;
+  });
+}
 
 const FILES = 'abcdefgh';
 /** a1 is dark; light squares are where file index + rank is even. */

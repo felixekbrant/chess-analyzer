@@ -602,7 +602,7 @@ function PuzzleView({
         {!engine && (
           <div
             key={`${state}-${mistakes}`}
-            className={`rounded-xl px-3.5 py-3 text-sm font-bold ${state === 'wrong' ? 'shake' : state === 'solved' ? 'pop' : ''}`}
+            className={`rounded-xl px-3.5 py-3 text-sm font-bold ${state === 'wrong' ? 'shake' : state === 'solved' ? 'pop-wide' : ''}`}
             style={{
               background:
                 state === 'wrong'

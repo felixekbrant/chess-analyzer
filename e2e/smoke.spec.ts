@@ -426,3 +426,71 @@ test('review edges: missing game, end of game, next game, offline message', asyn
   await page.getByRole('button', { name: 'Change' }).click();
   await expect(page.getByText('No connection to chess.com. Check your internet and try again.')).toBeVisible();
 });
+
+/** Drags with the mouse from one square's centre to another (or to a point), in small steps like a hand. */
+async function drag(page: Page, from: string, to: string | { x: number; y: number }, opts: { hold?: (p: { x: number; y: number }) => Promise<void> } = {}) {
+  const centre = async (sq: string) => {
+    const b = (await page.locator(`[data-square="${sq}"]`).first().boundingBox())!;
+    return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+  };
+  const a = await centre(from);
+  const b = typeof to === 'string' ? await centre(to) : to;
+  await page.mouse.move(a.x, a.y);
+  await page.mouse.down();
+  await page.mouse.move(a.x + 6, a.y + 6, { steps: 3 });
+  await page.mouse.move(b.x, b.y, { steps: 12 });
+  await opts.hold?.(b);
+  await page.mouse.up();
+}
+
+test('dragging pieces: own pieces only, centred under the pointer, snaps back from illegal squares', async ({ page }) => {
+  const { Chess } = await import('chess.js');
+  await seed(page);
+  await openTab(page, 'Train');
+  await expect(page.getByText(/to move$/)).toBeVisible();
+  const puzzles = await readPuzzles(page);
+  const placement = await boardPlacement(page, 'puzzle');
+  const current = puzzles.find((p) => p.fen.split(' ')[0] === placement)!;
+  const chess = new Chess(current.fen);
+  const move = current.solutionUci[0];
+  const from = move.slice(0, 2);
+  const legal = new Set(chess.moves({ square: from as never, verbose: true }).map((m) => m.to as string));
+  const illegal = [...'abcdefgh'].flatMap((f) => [...'12345678'].map((r) => f + r)).find((sq) => sq !== from && !legal.has(sq) && !chess.get(sq as never))!;
+
+  // An opponent's piece can't be picked up.
+  const theirs = chess.board().flat().find((p) => p && p.color !== chess.turn())!;
+  await drag(page, theirs.square, illegal);
+  expect(await boardPlacement(page, 'puzzle')).toBe(placement);
+
+  // Count snap-back animations.
+  await page.evaluate(() => {
+    const animate = Element.prototype.animate;
+    Element.prototype.animate = function (...args: Parameters<typeof animate>) {
+      if (this.hasAttribute('data-piece')) (window as unknown as { __snaps: number }).__snaps = ((window as unknown as { __snaps?: number }).__snaps ?? 0) + 1;
+      return animate.apply(this, args);
+    };
+  });
+
+  // While dragging: the piece sits centred under the pointer, the square it left is empty, the legal squares show.
+  await drag(page, from, illegal, {
+    hold: async (p) => {
+      const pieces = page.locator(`[id="puzzle-piece-${chess.get(from as never)!.color}${chess.get(from as never)!.type.toUpperCase()}-${from}"]`);
+      await expect(pieces).toHaveCount(2); // the one on its square and the one in your hand
+      const box = (await pieces.last().boundingBox())!;
+      expect(Math.abs(box.x + box.width / 2 - p.x)).toBeLessThan(3);
+      expect(Math.abs(box.y + box.height / 2 - p.y)).toBeLessThan(3);
+      expect(await pieces.first().evaluate((e) => getComputedStyle(e).opacity)).toBe('0');
+      if (process.env.E2E_SHOTS) await page.screenshot({ path: `${process.env.E2E_SHOTS}/dragging.png` });
+    },
+  });
+  // Let go on an illegal square: it glides back and nothing is played.
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __snaps?: number }).__snaps ?? 0)).toBe(1);
+  expect(await boardPlacement(page, 'puzzle')).toBe(placement);
+  await expect(page.getByText(/^✔ /)).toHaveCount(0);
+
+  // Put back on its own square: still picked up, so a tap on a target finishes the move.
+  await drag(page, from, from);
+  await page.waitForTimeout(250); // a person's next tap; clicks right after a drag are ignored
+  await clickSquare(page, move.slice(2, 4));
+  await expect(page.getByText(/^✔ /)).toBeVisible();
+});
