@@ -11,6 +11,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     date: '4 Nov 2026',
     items: [
+      'Retrying your mistakes in a review: "See the full line" and "What … allowed" afterwards, as on puzzles, stepping through with the arrows.',
       'Captures look smoother: the taken piece fades as the capturing piece arrives, and stepping back with the arrows brings it back straight away.',
       'Opening a game from a puzzle: "Back to puzzle" takes you back to the same puzzle, exactly where you left it.',
       'Puzzles that matter more: small positional ones (no material or mate at stake) are left out of daily practice, the biggest come first, and each puzzle shows the material at stake ("Worth a rook"). Settings can add the small ones back.',

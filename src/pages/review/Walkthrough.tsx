@@ -56,6 +56,8 @@ interface ExploreState {
   context?: string;
   /** Whose gains and losses the line's summary describes. */
   perspective?: Color;
+  /** Opened from a finished retry: closing the line goes back to it. */
+  fromRetry?: RetryStateFull;
 }
 
 interface RetryStateFull {
@@ -177,8 +179,52 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
     setPly(Math.max(0, Math.min(n, p)));
   }, [n]);
 
-  /** Back to the reviewed move after looking at a line or exploring (`ply` doesn't change meanwhile). */
-  const exitExplore = () => go(ply);
+  /** Back to the reviewed move after looking at a line or exploring (`ply` doesn't change meanwhile), or to the retry the line came from. */
+  const exitExplore = () => {
+    const back = explore?.fromRetry;
+    if (!back) return go(ply);
+    setExplore(null);
+    setLinePlaying(false);
+    setPly(back.move.ply);
+    setRetry(back);
+  };
+
+  /** After a retry, like after a puzzle: step through the best line, or what your game move allowed. */
+  const retryLines = (() => {
+    if (!retry || (retry.state !== 'right' && retry.state !== 'shown')) return undefined;
+    const m = retry.move;
+    const reply = moves?.[m.ply + 1]?.bestLineUci ?? [];
+    return {
+      best: m.bestLineUci.length
+        ? () => {
+            setExplore({
+              base: m.ply,
+              moves: [m.bestLineUci[0]],
+              line: m.bestLineUci,
+              title: `The full line after ${m.bestSan}`,
+              context: `Keeps your winning chances at ~${Math.round(m.winBefore)}%`,
+              perspective: m.color,
+              fromRetry: retry,
+            });
+            setRetry(null);
+          }
+        : undefined,
+      refute: reply.length
+        ? () => {
+            setExplore({
+              base: m.ply + 1,
+              moves: [reply[0]],
+              line: reply,
+              title: `What ${m.san} allowed`,
+              context: `Your winning chances ${Math.round(m.winBefore)}% → ${Math.round(m.winAfter)}%`,
+              perspective: m.color,
+              fromRetry: retry,
+            });
+            setRetry(null);
+          }
+        : undefined,
+    };
+  })();
 
   const nextKey = keyPlies.find((p) => p > ply);
   const prevKey = [...keyPlies].reverse().find((p) => p < ply);
@@ -345,7 +391,7 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
     else if (e.key === 'p' && prevKey !== undefined) go(prevKey);
     else if (e.key === 'b' && canBest) showBest();
     else if (e.key === 'r' && canRetryCurrent && current) startRetry(current);
-    else if (e.key === 'Escape') go(retry ? retry.move.ply : ply);
+    else if (e.key === 'Escape') explore ? exitExplore() : go(retry ? retry.move.ply : ply);
     else return;
     e.preventDefault();
   });
@@ -416,6 +462,8 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
       keyOnly={keyOnly}
       keyCount={keyPlies.length}
       onExitRetry={() => go(retry ? retry.move.ply + 1 : ply)}
+      onRetryBest={retryLines?.best}
+      onRetryRefute={retryLines?.refute}
       onExitExplore={exitExplore}
       line={explained}
       onLineIndex={(i) => explore?.line && setExplore({ ...explore, moves: explore.line.slice(0, i) })}
@@ -667,6 +715,8 @@ function Coach({
   onShowRefutation,
   hideBest,
   onRetry,
+  onRetryBest,
+  onRetryRefute,
 }: {
   game: StoredGame;
   analysis?: GameAnalysis;
@@ -686,6 +736,9 @@ function Coach({
   hideBest?: boolean;
   /** Try to find a better move yourself (your own mistakes). */
   onRetry?: () => void;
+  /** After a retry: step through the best line, or what the game move allowed. */
+  onRetryBest?: () => void;
+  onRetryRefute?: () => void;
 }) {
   const progress = useQueueProgress(game.id);
   const me = game.userColor ?? 'w';
@@ -720,10 +773,20 @@ function Coach({
         {retry.state === 'wrong' && (
           <p className="mt-1">{retry.wrongUci === m.uci ? "That's the move you played in the game. Try another one." : 'Try another move.'}</p>
         )}
-        {(retry.state === 'right' || retry.state === 'shown') && (
-          <p className="mt-1">
-            {m.bestSan && <b>{m.bestSan}</b>} {m.bestLineSan.length > 1 && <span className="muted">({m.bestLineSan.slice(0, 6).join(' ')})</span>}
-          </p>
+        {(retry.state === 'right' || retry.state === 'shown') && (onRetryBest || onRetryRefute) && (
+          // As after a puzzle: the lines to step through, with the arrows or the buttons below the board.
+          <div className="flex flex-wrap gap-2 mt-2.5">
+            {onRetryBest && (
+              <button className="btn !py-1.5 !text-sm" onClick={onRetryBest}>
+                <Icon name="play" size={14} /> See the full line
+              </button>
+            )}
+            {onRetryRefute && (
+              <button className="btn !py-1.5 !text-sm" onClick={onRetryRefute}>
+                <Icon name="play" size={14} /> What {m.san} allowed
+              </button>
+            )}
+          </div>
         )}
       </CoachBubble>
     );

@@ -739,3 +739,19 @@ test('puzzles: open the game, then back to the puzzle where you left it', async 
   await expect(page.getByRole('button', { name: /Next puzzle/ })).toBeVisible();
   await expect(page.locator('#puzzle-line')).toHaveText(line);
 });
+
+test('review: after a retry, step through the lines and come back to it', async ({ page }) => {
+  await seed(page);
+  await openTab(page, 'Train');
+  await expect(page.getByText(/to move$/)).toBeVisible();
+  await page.getByRole('link', { name: /Open game/ }).click();
+  await page.getByRole('button', { name: 'Retry', exact: true }).filter({ visible: true }).click();
+  await page.getByRole('button', { name: 'Show', exact: true }).filter({ visible: true }).click();
+  await page.getByRole('button', { name: 'See the full line' }).filter({ visible: true }).click();
+  await expect(page.getByText(/^The full line after /).filter({ visible: true })).toBeVisible();
+  await page.keyboard.press('ArrowRight');
+  // Closing the line goes back to the finished retry, with its other line.
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('button', { name: /^What .+ allowed$/ }).filter({ visible: true })).toBeVisible();
+  await expect(page.getByText(/^The best move was /).filter({ visible: true })).toBeVisible();
+});
