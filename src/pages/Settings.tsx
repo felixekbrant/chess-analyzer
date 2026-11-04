@@ -20,6 +20,7 @@ import { playSound, setSoundEnabled } from '../lib/sound';
 import { isIos, isStandalone, useInstallPrompt } from '../pwa/install';
 import { setCoachKey, testCoachKey, useCoachKey } from '../lib/coach/key';
 import { BUILD } from '../pwa/build';
+import { CHANGELOG } from '../pwa/changelog';
 import { useSearchParams } from 'react-router-dom';
 import type { BoardTheme, PieceSet } from '../lib/types';
 
@@ -466,17 +467,21 @@ function WhatsNew() {
   useEffect(() => {
     if (highlight) document.getElementById('whats-new')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, [highlight]);
-  if (!BUILD.changes.length) return null;
   return (
     <div id="whats-new">
       <Group title="What's new">
-        <div className="px-4 py-3 text-sm">
-          <ul className="space-y-1.5 list-disc pl-5">
-            {BUILD.changes.map((c) => (
-              <li key={c}>{c}</li>
-            ))}
-          </ul>
-          <p className="muted text-xs mt-2">
+        <div className="px-4 py-3 text-sm space-y-3">
+          {CHANGELOG.slice(0, 3).map((e) => (
+            <div key={e.date}>
+              <div className="muted text-xs font-bold mb-1">{e.date}</div>
+              <ul className="space-y-1.5 list-disc pl-5">
+                {e.items.map((c) => (
+                  <li key={c}>{c}</li>
+                ))}
+              </ul>
+            </div>
+          ))}
+          <p className="muted text-xs">
             Version {BUILD.version}
             {BUILD.date ? ` · ${BUILD.date}` : ''}
           </p>

@@ -1,5 +1,6 @@
 import { toast } from '../lib/toast';
-import { BUILD, justUpdatedFrom } from './build';
+import { justUpdatedFrom } from './build';
+import { CHANGELOG } from './changelog';
 
 /**
  * Registers the service worker (production builds only). When a new version has been deployed,
@@ -8,8 +9,9 @@ import { BUILD, justUpdatedFrom } from './build';
 export async function registerServiceWorker() {
   if (!('serviceWorker' in navigator) || !import.meta.env.PROD) return;
   // Just updated: say so, with the latest change (the full list is under Settings > What's new).
-  if (justUpdatedFrom() && BUILD.changes[0]) {
-    toast(`Updated: ${BUILD.changes[0]}`, 'success', { label: "What's new", run: () => (location.hash = '#/settings?whatsnew=1') });
+  const latest = CHANGELOG[0]?.items[0];
+  if (justUpdatedFrom() && latest) {
+    toast(`Updated: ${latest}`, 'success', { label: "What's new", run: () => (location.hash = '#/settings?whatsnew=1') });
   }
   // Registration can fail or be blocked (some private modes, test browsers); the app works without it.
   const reg = await navigator.serviceWorker.register('./sw.js').catch(() => undefined);

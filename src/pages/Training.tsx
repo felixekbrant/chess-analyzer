@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { isThrown } from '../lib/games/thrown';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -41,6 +42,7 @@ import { Icon } from '../components/Icon';
 import { Sheet } from '../components/Sheet';
 import { hintText } from '../lib/training/hint';
 import { CapturedPieces } from '../components/CapturedPieces';
+import { materialOf } from '../lib/analysis/material';
 import { EMPTY_FENS, EmptyState, PageHeader, Section } from '../components/ui';
 
 type State = 'solving' | 'checking' | 'wrong' | 'solved' | 'revealed';
@@ -170,13 +172,20 @@ export default function Training() {
             </div>
           </div>
         ) : (
-        <button className="btn min-w-0" onClick={() => setFocusOpen(true)} aria-haspopup="dialog">
-          <Icon name="filter" size={16} />
+        // The same pill as the filters on Insights and Openings.
+        <button
+          className="inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-sm font-bold bg-[var(--panel-2)] hover:brightness-110 min-w-0"
+          onClick={() => setFocusOpen(true)}
+          aria-haspopup="dialog"
+        >
+          <Icon name="filter" size={14} className="shrink-0" />
           <span className="truncate">{focusLabel}</span>
-          <span className="muted">▾</span>
+          <Icon name="chevronDown" size={14} className="muted shrink-0" />
         </button>
         )}
         <div className="ml-auto flex items-center gap-3 text-sm tabular-nums">
+          {/* The puzzle puts its Engine switch here (where the filter's tools live). */}
+          <div id="puzzle-tools" className="contents" />
           {session.streak > 1 && (
             <span title="Solved in a row" className="inline-flex items-center gap-0.5 font-bold" style={{ color: 'var(--brass-ink)' }}>
               <Icon name="flame" size={14} /> {session.streak}
@@ -518,6 +527,10 @@ function PuzzleView({
   const done = state === 'solved' || state === 'revealed';
   const clean = state === 'solved' && !mistakes && !hint && !peeked;
 
+  // The Engine switch sits in the page's top row, beside the filter.
+  const [toolsEl, setToolsEl] = useState<HTMLElement | null>(null);
+  useEffect(() => setToolsEl(document.getElementById('puzzle-tools')), []);
+
   const toggleEngine = () => {
     if (engine) return setEngine(null);
     if (!done) setPeeked(true);
@@ -732,10 +745,12 @@ function PuzzleView({
             )}
           </div>
         )}
-        <EngineControls open={!!engine} onToggle={toggleEngine} />
-        {engine && settings.showSuggestions && (
-          <div className="panel p-3">
-            <EngineLines result={live.settled ? live.result : null} fen={engineFen!} onPlayLine={onEngineMove} />
+        {toolsEl && createPortal(<EngineControls open={!!engine} onToggle={toggleEngine} show="toggle" />, toolsEl)}
+        {/* The engine's display options and its lines in one card. */}
+        {engine && (
+          <div className="panel p-3 space-y-2.5">
+            <EngineControls open onToggle={toggleEngine} show="options" />
+            {settings.showSuggestions && <EngineLines result={live.settled ? live.result : null} fen={engineFen!} onPlayLine={onEngineMove} />}
           </div>
         )}
         {engine && (
@@ -766,13 +781,6 @@ function PuzzleView({
           )}
         </div>
 
-        {/* Large screens have room for the moves that led here. */}
-        {lastMoves.length > 0 && !engine && (
-          <div className="hidden lg:block panel p-3 text-sm">
-            <div className="muted text-xs font-extrabold uppercase tracking-wider mb-1.5">The moves before</div>
-            <p className="font-mono leading-relaxed">{lastMoves.join(' ')}</p>
-          </div>
-        )}
         {/* One card: what happened in your game, then (once done) the lines and links. */}
         {puzzle.lichess ? (
           <LichessInfoPanel info={puzzle.lichess} />
@@ -799,6 +807,13 @@ function PuzzleView({
                 ))}
             </p>
             {done && puzzle.explanation && <p>{puzzle.explanation}</p>}
+            {/* Large screens have room for the moves that led here (the opening shows all of them below). */}
+            {lastMoves.length > 0 && !leadUp.length && (
+              <p className="hidden lg:block text-xs">
+                <span className="muted">Before this: </span>
+                <span className="font-mono">{lastMoves.join(' ')}</span>
+              </p>
+            )}
             {(game || leadUp.length > 0) && (
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
                 {game && (
@@ -919,6 +934,9 @@ function useTodaySession(puzzles: Puzzle[] | undefined, ext: Puzzle[] | undefine
 
 /** A slim row with one side's captured pieces and material lead (kept the same height when empty). */
 function MaterialRow({ fen, side }: { fen: string; side: 'w' | 'b' }) {
+  // Nothing captured yet: no empty band around the board.
+  const m = materialOf(fen)[side];
+  if (!m.captured.length && !m.advantage) return null;
   return (
     <div className="h-6 px-1 flex items-center">
       <CapturedPieces fen={fen} side={side} />

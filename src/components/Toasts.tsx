@@ -10,7 +10,7 @@ export function Toasts() {
   return (
     // Phones: over the top bar, so it covers only the page title for a moment, not the page (titles,
     // search, the Today card) or the buttons at the bottom. Desktop: bottom right.
-    <div className="fixed top-[calc(0.375rem+env(safe-area-inset-top))] md:top-auto md:bottom-4 right-3 left-3 md:left-auto z-50 flex flex-col gap-2 items-center md:items-end pointer-events-none" aria-live="polite">
+    <div className="fixed top-[calc(0.375rem+env(safe-area-inset-top))] md:top-auto md:bottom-4 right-14 left-14 md:right-3 md:left-auto z-50 flex flex-col gap-2 items-center md:items-end pointer-events-none" aria-live="polite">
       {list.map((t) => (
         <div
           key={t.id}
