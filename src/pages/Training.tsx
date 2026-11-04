@@ -414,7 +414,7 @@ function PuzzleView({
   // Opening a line (from further down the page) brings the board back into view.
   const lineOpen = !!lineView;
   useEffect(() => {
-    if (lineOpen) document.getElementById('puzzle-board')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    if (lineOpen) requestAnimationFrame(() => scrollBoardIntoView(document.getElementById('puzzle-board')));
   }, [lineOpen]);
 
   const finished = useRef(false);
@@ -630,7 +630,9 @@ function PuzzleView({
     );
 
   return (
-    <div className="grid lg:grid-cols-[minmax(0,560px)_minmax(0,1fr)] gap-3 lg:gap-5">
+    // overflow-anchor: none, or the browser keeps the tapped button in place when a line opens above
+    // it, scrolling the board away.
+    <div className="grid lg:grid-cols-[minmax(0,560px)_minmax(0,1fr)] gap-3 lg:gap-5 [overflow-anchor:none]">
       <div className="space-y-2">
         {/* Progress only means something in today's session (a fixed number of puzzles). */}
         {showProgress && doneCount > 0 && (
@@ -638,7 +640,7 @@ function PuzzleView({
             <div className="h-1 rounded bg-accent transition-all" style={{ width: `${(100 * doneCount) / Math.max(1, total)}%` }} />
           </div>
         )}
-        <div className="flex gap-1.5">
+        <div className="flex gap-1.5" id="puzzle-board">
           {engine && settings.showEvalBar && <EvalBar score={live.result?.lines[0]?.score} orientation={toMove} thinking={!live.settled} />}
           <div className="flex-1 min-w-0">
             {/* Material, like chess.com: the opponent's captures above the board, yours below. */}
@@ -933,6 +935,15 @@ function useTodaySession(puzzles: Puzzle[] | undefined, ext: Puzzle[] | undefine
 }
 
 /** A slim row with one side's captured pieces and material lead (kept the same height when empty). */
+/** Scrolls up just enough that the whole board (with its material rows) sits below the top bar. */
+function scrollBoardIntoView(el: HTMLElement | null) {
+  if (!el) return;
+  const header = document.querySelector('header');
+  const below = header && getComputedStyle(header).display !== 'none' ? header.getBoundingClientRect().bottom : 0;
+  const top = el.getBoundingClientRect().top - below - 8;
+  if (top < 0) window.scrollBy({ top, behavior: 'smooth' });
+}
+
 function MaterialRow({ fen, side }: { fen: string; side: 'w' | 'b' }) {
   // Nothing captured yet: no empty band around the board.
   const m = materialOf(fen)[side];

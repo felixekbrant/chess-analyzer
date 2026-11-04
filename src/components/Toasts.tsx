@@ -15,7 +15,7 @@ export function Toasts() {
         <div
           key={t.id}
           role={t.kind === 'error' ? 'alert' : 'status'}
-          className="rise pointer-events-auto rounded-full shadow-[var(--lift)] px-4 py-2 text-sm font-semibold flex items-center gap-2.5 max-w-sm bg-[var(--overlay)] text-[var(--text)]"
+          className="rise pointer-events-auto rounded-2xl shadow-[var(--lift)] px-4 py-2 text-sm font-semibold flex items-center gap-2.5 max-w-sm bg-[var(--overlay)] text-[var(--text)]"
         >
           <span style={{ color: COLOR[t.kind] }}>{ICON[t.kind]}</span>
           <span className="flex-1">{t.message}</span>
