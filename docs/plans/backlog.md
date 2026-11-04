@@ -31,5 +31,5 @@ best line.
 ## Other ideas
 
 - **Feature ideas from other platforms:** see `feature-ideas-2026-11-03.md`, put on hold on 3 Nov.
-- **A free DeepSeek model through OpenRouter** for explaining moves: run the 26-question trial
-  once you've added an OpenRouter key.
+- ~~A free DeepSeek model through OpenRouter~~: done 4 Nov (`ai-coach-trial-4.md`). No DeepSeek
+  model is free; Nemotron 3 Ultra was no better than the current model, so the app keeps gpt-oss-120b.
