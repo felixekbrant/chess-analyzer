@@ -26,7 +26,8 @@ import { Icon } from './Icon';
 import { levelLabel } from '../lib/insights/baselines';
 import { Sheet } from './Sheet';
 import { useDrillStock } from '../hooks/useDrillStock';
-import { useQueue } from '../hooks/useStores';
+import { useQueue, useSettings } from '../hooks/useStores';
+import { isSmall } from '../lib/training/puzzles';
 
 const fmt = (n: number) => (n >= 10 ? n.toFixed(0) : n.toFixed(1));
 const tcName = (tc: string) => (tc === 'daily' || tc === 'classical' ? 'rapid' : tc);
@@ -41,7 +42,10 @@ function itemLink(i: TodayItem): string {
 /** The daily plan: a checklist that runs as one session. */
 export function TodayCard({ games, focus, minutes }: { games: StoredGame[]; focus?: SkillArea; minutes: SessionMinutes }) {
   const navigate = useNavigate();
-  const puzzles = useLiveQuery(() => db.puzzles.toArray(), []);
+  const settings = useSettings();
+  // The same set as the Train tab: small positional puzzles only when turned on.
+  const allPuzzles = useLiveQuery(() => db.puzzles.toArray(), []);
+  const puzzles = useMemo(() => (settings.smallPuzzles ? allPuzzles : allPuzzles?.filter((p) => !isSmall(p))), [allPuzzles, settings.smallPuzzles]);
   const stored = useLiveQuery(async () => (await db.kv.get(PROGRESS_KEY))?.value as TodayProgress | undefined, []);
   // null = no streak yet; undefined = still loading.
   const streak = useLiveQuery(async () => ((await db.kv.get(STREAK_KEY))?.value as Streak | undefined) ?? null, []);

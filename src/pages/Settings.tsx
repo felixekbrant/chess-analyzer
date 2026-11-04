@@ -73,10 +73,10 @@ export default function SettingsPage() {
     }
   }
 
-  const switchRow = (label: string, checked: boolean, onChange: (v: boolean) => void) => (
+  const switchRow = (label: string, checked: boolean, onChange: (v: boolean) => void, hint?: string) => (
     // The whole row toggles the switch, not just the small switch itself.
     <label className="block cursor-pointer">
-      <Row label={label}>
+      <Row label={label} hint={hint}>
         <input type="checkbox" role="switch" aria-label={label} className="switch" checked={checked} onChange={(e) => onChange(e.target.checked)} />
       </Row>
     </label>
@@ -184,6 +184,12 @@ export default function SettingsPage() {
             label="Daily plan" value={settings.sessionMinutes} options={[[10, '10 min'], [15, '15 min'], [25, '25 min']]} onChange={(m) => saveSettings({ sessionMinutes: m })} />
         </Row>
         {switchRow('Move on after a correct answer', settings.autoNextPuzzle, (v) => void saveSettings({ autoNextPuzzle: v }))}
+        {switchRow(
+          'Small positional puzzles',
+          settings.smallPuzzles,
+          (v) => void saveSettings({ smallPuzzles: v }),
+          'Mistakes with no material or mate at stake. Off: only puzzles with a clear lesson.',
+        )}
       </Group>
 
       <CoachSettings />

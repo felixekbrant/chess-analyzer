@@ -41,6 +41,7 @@ import { ClassificationBadge } from '../components/ClassificationBadge';
 import { Icon } from '../components/Icon';
 import { Sheet } from '../components/Sheet';
 import { hintText } from '../lib/training/hint';
+import { isSmall, stakeLabel, stakeScore } from '../lib/training/puzzles';
 import { CapturedPieces } from '../components/CapturedPieces';
 import { materialOf } from '../lib/analysis/material';
 import { EMPTY_FENS, EmptyState, PageHeader, Section } from '../components/ui';
@@ -57,6 +58,7 @@ export default function Training() {
   const opening = params.get('opening');
   const repeated = params.get('repeated') === '1';
   const thrownOnly = params.get('thrown') === '1';
+  const smallOnly = params.get('small') === '1';
   const area = params.get('area') as SkillArea | null;
   const inSession = params.get('session') === 'today';
   const [practiceAll, setPracticeAll] = useState(false);
@@ -65,7 +67,10 @@ export default function Training() {
   const [focusOpen, setFocusOpen] = useState(false);
   const settings = useSettings();
 
-  const puzzles = useLiveQuery(() => db.puzzles.toArray(), []);
+  const allPuzzles = useLiveQuery(() => db.puzzles.toArray(), []);
+  // Small positional puzzles stay out of practice unless you turn them on (or pick that set).
+  const puzzles = useMemo(() => (settings.smallPuzzles ? allPuzzles : allPuzzles?.filter((p) => !isSmall(p))), [allPuzzles, settings.smallPuzzles]);
+  const smallCount = useMemo(() => allPuzzles?.filter(isSmall).length ?? 0, [allPuzzles]);
   // Games lost after being +3 or better: their mistakes can be drilled on their own.
   const thrownIds = useLiveQuery(async () => new Set(await db.games.filter(isThrown).primaryKeys()), []);
   // Lichess puzzles that top up the focus drill (added from Home's Today plan).
@@ -75,7 +80,7 @@ export default function Training() {
 
   const filtered = useMemo(
     () =>
-      (puzzles ?? []).filter(
+      ((smallOnly ? allPuzzles?.filter(isSmall) : puzzles) ?? []).filter(
         (p) =>
           (!motif || p.motifs.includes(motif)) &&
           (!phase || p.phase === phase) &&
@@ -84,7 +89,7 @@ export default function Training() {
           (!thrownOnly || p.gameIds.some((id) => thrownIds?.has(id))) &&
           (!area || puzzleArea(p) === area),
       ),
-    [puzzles, motif, phase, opening, repeated, area, thrownOnly, thrownIds],
+    [puzzles, allPuzzles, smallOnly, motif, phase, opening, repeated, area, thrownOnly, thrownIds],
   );
   const due = filtered.filter((p) => p.due <= now);
   const queue = useMemo(() => {
@@ -100,12 +105,16 @@ export default function Training() {
       return [];
     }
     const pool = (practiceAll ? filtered : due).filter((p) => !skipped.includes(p.id));
-    // Repeated mistakes first, then concrete tactics, then by due date and size of the mistake.
+    // Repeated mistakes first, then the ones with most at stake.
     return sortQueue(pool);
     // `due` is derived from `filtered` and the clock; recomputing on puzzle changes is enough.
   }, [filtered, practiceAll, skipped, puzzles, ext, inSession, sess]);
 
-  const current = queue[0];
+  // The shown puzzle stays until it's finished or skipped, even if the order changes meanwhile
+  // (new puzzles from a game just analysed, or stakes being measured).
+  const pinned = useRef<string | undefined>(undefined);
+  const current = queue.find((p) => p.id === pinned.current) ?? queue[0];
+  pinned.current = current?.id;
   // In today's session the counter shows progress through the current part of the plan.
   const inDuePart = sess.stage === 'due' && !!current && !current.lichess && current.due <= now;
   const sessionPart = inDuePart ? { done: sess.progress.puzzles, target: sess.targets.puzzles } : { done: sess.progress.drill, target: sess.targets.drill };
@@ -121,7 +130,9 @@ export default function Training() {
             ? 'Repeated mistakes'
             : thrownOnly
               ? 'Thrown games'
-              : 'All puzzles';
+              : smallOnly
+                ? 'Small positional ones'
+                : 'All puzzles';
   const thrownCount = useMemo(() => (puzzles ?? []).filter((p) => p.gameIds.some((id) => thrownIds?.has(id))).length, [puzzles, thrownIds]);
 
   const motifCounts = useMemo(() => {
@@ -195,7 +206,13 @@ export default function Training() {
       </div>
       <Sheet open={focusOpen} onClose={() => setFocusOpen(false)} title="What to practise">
         <div className="grid gap-1">
-          <FocusItem active={!motif && !phase && !opening && !repeated && !area && !thrownOnly} onClick={() => setFocus({})} label="All puzzles" count={puzzles?.length} />
+          <FocusItem
+            active={!motif && !phase && !opening && !repeated && !area && !thrownOnly && !smallOnly}
+            onClick={() => setFocus({})}
+            label="All puzzles"
+            sub={!settings.smallPuzzles && smallCount ? 'The ones with something at stake: material, mate or a big swing' : undefined}
+            count={puzzles?.length}
+          />
           {thrownCount > 0 && (
             <FocusItem active={thrownOnly} onClick={() => setFocus({ thrown: '1' })} label="Thrown games" sub="Lost from +3 or better" count={thrownCount} />
           )}
@@ -217,6 +234,18 @@ export default function Training() {
           {motifCounts.map(([m, n]) => (
             <FocusItem key={m} active={motif === m} onClick={() => setFocus({ motif: m })} label={MOTIF_LABEL[m]} count={n} />
           ))}
+          {!settings.smallPuzzles && smallCount > 0 && (
+            <>
+              <div className="muted text-xs font-semibold uppercase tracking-wide mt-3 mb-1 px-3">Left out</div>
+              <FocusItem
+                active={smallOnly}
+                onClick={() => setFocus({ small: '1' })}
+                label="Small positional ones"
+                sub="Little at stake, so not in daily practice. Settings can add them back."
+                count={smallCount}
+              />
+            </>
+          )}
         </div>
       </Sheet>
 
@@ -268,6 +297,7 @@ export default function Training() {
           autoNext={settings.autoNextPuzzle}
           showProgress={inSession}
           onDone={async (grade) => {
+            pinned.current = undefined;
             const next = schedule(current, grade);
             const lastResult = grade === 'again' ? 'failed' : 'solved';
             if (current.lichess) await db.extPuzzles.update(current.id, { ...next, lastResult, lichess: { ...current.lichess, seenAt: Date.now() } });
@@ -288,7 +318,10 @@ export default function Training() {
             });
             if (practiceAll && !inSession) setSkipped((s) => [...s, current.id]);
           }}
-          onSkip={() => setSkipped((s) => [...s, current.id])}
+          onSkip={() => {
+            pinned.current = undefined;
+            setSkipped((s) => [...s, current.id]);
+          }}
         />
       )}
     </div>
@@ -793,7 +826,14 @@ function PuzzleView({
               <span className="inline-flex items-center gap-1 font-bold">
                 <ClassificationBadge c={puzzle.classification} size={16} /> {puzzle.playedSan}
               </span>
-              <span className="muted tabular-nums">−{puzzle.winLoss.toFixed(0)}%</span>
+              <span className="muted tabular-nums" title="Win chance your move lost">
+                −{puzzle.winLoss.toFixed(0)}%
+              </span>
+              {stakeLabel(puzzle) && (
+                <span className="chip font-bold" style={{ color: 'var(--brass-ink)' }} title="What the best move wins or saves compared with yours">
+                  {stakeLabel(puzzle)}
+                </span>
+              )}
               {puzzle.occurrences > 1 && (
                 <span className="chip" style={{ color: 'var(--attention-ink)' }}>
                   ×{puzzle.occurrences} games
@@ -909,10 +949,10 @@ function LichessInfoPanel({ info }: { info: NonNullable<Puzzle['lichess']> }) {
   );
 }
 
-/** Repeated mistakes first, then concrete tactics, then by due date and size of the mistake. */
+/** Repeated mistakes first, then the ones with most at stake (material, mate, win chance), then by due date. */
 function sortQueue(pool: Puzzle[]): Puzzle[] {
   const quiet = (p: Puzzle) => (p.motifs.every((m) => QUIET.includes(m)) ? 1 : 0);
-  return [...pool].sort((a, b) => b.occurrences - a.occurrences || quiet(a) - quiet(b) || a.due - b.due || b.winLoss - a.winLoss);
+  return [...pool].sort((a, b) => b.occurrences - a.occurrences || stakeScore(b) - stakeScore(a) || quiet(a) - quiet(b) || a.due - b.due);
 }
 
 /** Where today's plan stands: due puzzles first, then the focus drill. */

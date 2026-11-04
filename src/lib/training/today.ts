@@ -2,6 +2,7 @@ import { db } from '../../db/schema';
 import { areaOf, type SkillArea } from '../insights/skills';
 import type { Puzzle, StoredGame } from '../types';
 import { readyExt } from './lichess';
+import { stakeScore } from './puzzles';
 
 export type SessionMinutes = 10 | 15 | 25;
 
@@ -78,11 +79,11 @@ export const puzzleArea = (p: Puzzle): SkillArea | null =>
   areaOf({ classification: p.classification, motifs: p.motifs, phase: p.phase, winBefore: p.bestWin, winLoss: p.winLoss }, false);
 
 /**
- * Puzzles for a focus drill: your own positions first (most costly mistakes first), then Lichess
+ * Puzzles for a focus drill: your own positions first (most at stake first), then Lichess
  * puzzles on the same theme that are new or due again, so the drill doesn't run out.
  */
 export function drillPuzzles(puzzles: Puzzle[], area: SkillArea, ext: Puzzle[] = [], now = Date.now()): Puzzle[] {
-  const own = puzzles.filter((p) => puzzleArea(p) === area).sort((a, b) => b.occurrences - a.occurrences || b.winLoss - a.winLoss);
+  const own = puzzles.filter((p) => puzzleArea(p) === area).sort((a, b) => b.occurrences - a.occurrences || stakeScore(b) - stakeScore(a));
   return [...own, ...readyExt(ext, area, now)];
 }
 

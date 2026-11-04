@@ -171,6 +171,18 @@ export interface Puzzle {
   lastResult?: 'solved' | 'failed';
   /** Set for puzzles from the Lichess database (focus drills), which come from no game of yours. */
   lichess?: LichessInfo;
+  /** What was at stake (see stakeOf); missing on puzzles made before it existed, until backfilled. */
+  stake?: PuzzleStake;
+}
+
+export interface PuzzleStake {
+  /**
+   * Material the best line gains over your move's line, in pawns (a piece is 3): what you won by
+   * finding it, or lost by missing it. Never below 0.
+   */
+  material: number;
+  /** A mate was there for you, or your move allowed one. */
+  mate?: 'missed' | 'allowed';
 }
 
 export interface LichessInfo {
@@ -217,6 +229,8 @@ export interface Settings {
   showSuggestions: boolean;
   /** Game review: show the best move (arrow and coach text) for each move, or hide it to look for it yourself. */
   showBestMoves: boolean;
+  /** Include small positional puzzles (no material or mate at stake) in daily practice. */
+  smallPuzzles: boolean;
 }
 
 export type BoardTheme = 'green' | 'brown' | 'blue' | 'gray';
@@ -241,4 +255,5 @@ export const DEFAULT_SETTINGS: Settings = {
   showEvalBar: true,
   showSuggestions: true,
   showBestMoves: true,
+  smallPuzzles: false,
 };

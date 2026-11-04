@@ -11,6 +11,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     date: '4 Nov 2026',
     items: [
+      'Puzzles that matter more: small positional ones (no material or mate at stake) are left out of daily practice, the biggest come first, and each puzzle shows the material at stake ("Worth a rook"). Settings can add the small ones back.',
       'Opening "See the full line" or "What it allowed" keeps the whole board in view.',
       'Puzzles look tidier: the Engine switch sits at the top, next to the filter, and the material rows only appear once something has been captured.',
       'Puzzles: the solved and missed counters are gone. "See the full line" and "What it allowed" now sit right under the result.',

@@ -185,7 +185,7 @@ test('training: solve a puzzle, reveal the next and see the full line', async ({
   const move = current!.solutionUci[0];
   // Hints come in two steps: what to look for in words, then the piece is highlighted.
   await page.getByRole('button', { name: 'Hint' }).click();
-  await expect(page.getByRole('status').getByText(/(Look for|No capture or check|There is a checkmate)/)).toBeVisible();
+  await expect(page.getByRole('status').getByText(/(Look for|No capture or check|There is a checkmate|under attack|threatens mate)/)).toBeVisible();
   await page.getByRole('button', { name: 'More hint' }).click();
   await expect(page.getByRole('button', { name: 'More hint' })).toBeDisabled();
   await clickSquare(page, move.slice(0, 2));

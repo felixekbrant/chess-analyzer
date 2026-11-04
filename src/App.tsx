@@ -1,5 +1,6 @@
 import { Suspense, lazy, useEffect, useState } from 'react';
 import { backfillPeakEval, upgradeStoredAnalyses } from './lib/analysis/upgrade';
+import { backfillPuzzleStakes } from './lib/training/puzzles';
 import { db, getSettings, saveSettings } from './db/schema';
 import { NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { useApplyTheme } from './hooks/useTheme';
@@ -62,7 +63,9 @@ export default function App() {
     syncManager.start();
     void analysisQueue.refreshCount();
     // After any rebuild, fill in what older analyses lack (biggest advantage, for thrown games).
-    void upgradeStoredAnalyses().then(() => backfillPeakEval());
+    void upgradeStoredAnalyses()
+    .then(() => backfillPeakEval())
+    .then(() => backfillPuzzleStakes());
     void adoptDarkLook();
   }, []);
 

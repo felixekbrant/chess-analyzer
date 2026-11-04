@@ -1,7 +1,91 @@
+import { Chess, type Move } from 'chess.js';
 import { db } from '../../db/schema';
 import { positionKey } from '../pgn/parse';
-import type { GameAnalysis, MoveAnalysis, Puzzle, StoredGame } from '../types';
+import { PIECE_VALUE, materialBalance, other } from '../analysis/board';
+import type { Color, GameAnalysis, MoveAnalysis, Puzzle, PuzzleStake, Score, StoredGame } from '../types';
 import { NEW_CARD } from './srs';
+
+/**
+ * Material change for `you` along a line (UCI or SAN moves from `fen`, at most 10 plies). A line
+ * that stops right after a capture assumes the recapture, if there is one.
+ */
+function lineMaterial(fen: string, moves: string[], you: Color): number {
+  const c = new Chess(fen);
+  const start = materialBalance(fen, you);
+  let last: Move | undefined;
+  for (const mv of moves.slice(0, 10)) {
+    try {
+      last = /^[a-h][1-8][a-h][1-8][qrbn]?$/.test(mv) ? c.move({ from: mv.slice(0, 2), to: mv.slice(2, 4), promotion: mv[4] }) : c.move(mv);
+    } catch {
+      break;
+    }
+  }
+  let bal = materialBalance(c.fen(), you);
+  if (last?.captured && c.moves({ verbose: true }).some((x) => x.to === last.to && x.captured)) {
+    const piece = PIECE_VALUE[last.promotion ?? last.piece];
+    bal += last.color === you ? -piece : piece;
+  }
+  return bal - start;
+}
+
+const mateFor = (s: Score, c: Color) => s.kind === 'mate' && (c === 'w' ? s.v > 0 : s.v < 0);
+
+/** What a mistake cost in concrete terms: material between the best line and yours, or a mate. */
+export function stakeOf(m: MoveAnalysis): PuzzleStake {
+  const best = lineMaterial(m.fenBefore, m.bestLineUci, m.color);
+  const played = lineMaterial(m.fenBefore, [m.uci, ...m.replyLineSan], m.color);
+  const mate = mateFor(m.evalBefore, m.color) ? 'missed' : mateFor(m.evalAfter, other(m.color)) ? 'allowed' : undefined;
+  return { material: Math.max(0, best - played), ...(mate ? { mate } : {}) };
+}
+
+/** A big swing in win chance counts on its own, even without material or mate in the lines. */
+const BIG_SWING = 25;
+
+/**
+ * A small positional puzzle: no mate and less than 2 points of material at stake, and under 25%
+ * win chance. Usually there's no clear lesson in it, so it's left out of daily practice by default.
+ * Puzzles not yet measured, and Lichess puzzles, never count as small.
+ */
+export function isSmall(p: Puzzle): boolean {
+  return !p.lichess && !!p.stake && !p.stake.mate && p.stake.material < 2 && p.winLoss < BIG_SWING;
+}
+
+/** How much a puzzle matters, for putting the biggest first: win chance, plus material and mate. */
+export function stakeScore(p: Puzzle): number {
+  if (!p.stake) return p.winLoss;
+  return p.winLoss + 4 * Math.min(p.stake.material, 9) + (p.stake.mate ? 30 : 0);
+}
+
+// Two points is often the exchange, not two pawns, so it's given as points.
+const pieceWord = (n: number) => (n >= 9 ? 'a queen' : n >= 5 ? 'a rook' : n >= 3 ? 'a piece' : n >= 2 ? `${Math.round(n)} points` : 'a pawn');
+
+/**
+ * The material at stake in a few words ("Worth a piece"), or nothing. Mates aren't named here:
+ * the puzzle's "Missed a mate" / "Allowed mate" tags already say so.
+ */
+export function stakeLabel(p: Puzzle): string | undefined {
+  const s = p.stake;
+  if (!s || p.lichess || s.mate) return undefined;
+  if (s.material >= 1) return `Worth ${pieceWord(s.material)}`;
+  return undefined;
+}
+
+/**
+ * Measures puzzles made before stakes existed (and ones restored from older backups), from their
+ * game's stored analysis. Only touches puzzles that are missing it, so it's cheap to call often.
+ */
+export async function backfillPuzzleStakes(): Promise<number> {
+  const todo = await db.puzzles.filter((p) => !p.stake && !p.lichess && p.gameIds.length > 0).toArray();
+  let n = 0;
+  for (const p of todo) {
+    const a = await db.analyses.get(p.gameIds[p.gameIds.length - 1]);
+    const m = a?.moves[p.plies[p.plies.length - 1]];
+    if (!m || m.uci !== p.playedUci) continue;
+    await db.puzzles.update(p.id, { stake: stakeOf(m) });
+    if (++n % 20 === 0) await new Promise((r) => setTimeout(r, 0));
+  }
+  return n;
+}
 
 const PUZZLE_CLASSES = new Set(['mistake', 'blunder', 'miss']);
 
@@ -46,6 +130,7 @@ export async function upsertPuzzlesFromAnalysis(game: StoredGame, analysis: Game
       opening: game.openingName,
       winLoss: m.winLoss,
       bestWin: m.winBefore,
+      stake: stakeOf(m),
     };
     if (!existing) {
       const p: Puzzle = { id, ...base, gameIds: [game.id], plies: [m.ply], occurrences: 1, createdAt: now, due: now, ...NEW_CARD };
