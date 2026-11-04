@@ -17,7 +17,10 @@ export function LineViewer({
   onIndex,
   onClose,
   controls = true,
+  controlsFirst = false,
 }: {
+  /** Put Back / Play / Next above the moves and notes instead of below them. */
+  controlsFirst?: boolean;
   /** False when the page has its own controls for stepping through the line (the review's bottom bar). */
   controls?: boolean;
   title: string;
@@ -68,6 +71,28 @@ export function LineViewer({
     return () => window.removeEventListener('keydown', h);
   }, [controls, onKey]);
 
+  const controlRow = controls && (
+      <div className="flex items-center gap-2 mt-2">
+        <button className="btn !py-1.5" onClick={() => onIndex(Math.max(0, index - 1))} disabled={index === 0} aria-label="Previous move" title="Previous move (←)">
+          <Icon name="prev" size={16} />
+        </button>
+        <button
+          className="btn btn-primary !py-1.5 flex-1 justify-center"
+          onClick={() => {
+            if (atEnd) {
+              onIndex(0);
+              setPlaying(true);
+            } else setPlaying((p) => !p);
+          }}
+        >
+          <Icon name={playing ? 'pause' : atEnd ? 'retry' : 'play'} size={16} /> {playing ? 'Pause' : atEnd ? 'Replay' : 'Play'}
+        </button>
+        <button className="btn !py-1.5" onClick={() => onIndex(Math.min(shown, index + 1))} disabled={atEnd} aria-label="Next move" title="Next move (→)">
+          <Icon name="next" size={16} />
+        </button>
+      </div>
+  );
+
   return (
     <div>
       <div className="flex items-start justify-between gap-2">
@@ -80,6 +105,9 @@ export function LineViewer({
       </div>
 
       {context && <p className="muted text-sm mt-0.5">{context}</p>}
+
+      {/* Right under the board (e.g. puzzles on phones), the buttons come first, so the board stays in view. */}
+      {controlsFirst && controlRow}
 
       <div className="flex flex-wrap gap-1 mt-2" role="list">
         {line.steps.slice(0, shown).map((s, i) => (
@@ -115,27 +143,7 @@ export function LineViewer({
         )}
       </p>
 
-      {controls && (
-      <div className="flex items-center gap-2 mt-2">
-        <button className="btn !py-1.5" onClick={() => onIndex(Math.max(0, index - 1))} disabled={index === 0} aria-label="Previous move" title="Previous move (←)">
-          <Icon name="prev" size={16} />
-        </button>
-        <button
-          className="btn btn-primary !py-1.5 flex-1 justify-center"
-          onClick={() => {
-            if (atEnd) {
-              onIndex(0);
-              setPlaying(true);
-            } else setPlaying((p) => !p);
-          }}
-        >
-          <Icon name={playing ? 'pause' : atEnd ? 'retry' : 'play'} size={16} /> {playing ? 'Pause' : atEnd ? 'Replay' : 'Play'}
-        </button>
-        <button className="btn !py-1.5" onClick={() => onIndex(Math.min(shown, index + 1))} disabled={atEnd} aria-label="Next move" title="Next move (→)">
-          <Icon name="next" size={16} />
-        </button>
-      </div>
-      )}
+      {!controlsFirst && controlRow}
     </div>
   );
 }

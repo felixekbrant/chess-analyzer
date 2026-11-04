@@ -405,6 +405,12 @@ function PuzzleView({
   // At the start of "why it failed" the board shows your game move.
   const lineLast = shownLine && lineView ? (lineView.index ? shownLine.uci[lineView.index - 1] : lineView.kind === 'refute' ? puzzle.playedUci : undefined) : undefined;
 
+  // Opening a line (from further down the page) brings the board back into view.
+  const lineOpen = !!lineView;
+  useEffect(() => {
+    if (lineOpen) document.getElementById('puzzle-board')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }, [lineOpen]);
+
   const finished = useRef(false);
   async function finish(grade: Grade) {
     // Auto-next and a key press can both fire; only grade once.
@@ -662,6 +668,33 @@ function PuzzleView({
       </div>
 
       <div className="space-y-3">
+        {/* With the engine open, stepping comes first too: right under the board, above the engine's lines. */}
+        {engine && (
+          <div className="flex gap-2">
+            <button className="btn flex-1 justify-center !py-3" onClick={() => setEngine(stepBack(engine))} disabled={!engine.moves.length} title="Back (←)">
+              <Icon name="prev" size={18} /> Back
+            </button>
+            <button className="btn !py-3 !px-4" onClick={() => setEngine(stepForward(engine))} disabled={!engine.future?.length} title="Forward (→)" aria-label="Forward">
+              <Icon name="next" size={18} />
+            </button>
+            <button className="btn flex-1 justify-center !py-3" onClick={() => setEngine(null)}>
+              <Icon name="close" size={18} /> Back to puzzle
+            </button>
+          </div>
+        )}
+        {/* An open line goes right under the board, its buttons first, so the board stays in view while stepping. */}
+        {!engine && shownLine && lineView && (
+          <div className="panel p-3 text-sm" id="puzzle-line">
+            <LineViewer
+              title={lineView.kind === 'best' ? `The full line after ${solutionSan[0]}` : `What ${puzzle.playedSan} allowed`}
+              line={shownLine.line}
+              index={lineView.index}
+              onIndex={(i) => setLineView({ ...lineView, index: i })}
+              onClose={() => setLineView(null)}
+              controlsFirst
+            />
+          </div>
+        )}
         {/* Right under the board on phones: what to do, and the buttons. */}
         {/* The state of the puzzle as a banner: neutral, a green flash when right, a red shake when wrong. */}
         {!engine && (
@@ -701,25 +734,8 @@ function PuzzleView({
             onPlay={(moves) => setEngine({ ...engine, moves })}
           />
         )}
-        <div className="flex gap-2">
-          {engine ? (
-            <>
-              <button
-                className="btn flex-1 justify-center !py-3"
-                onClick={() => setEngine(stepBack(engine))}
-                disabled={!engine.moves.length}
-                title="Back (←)"
-              >
-                <Icon name="prev" size={18} /> Back
-              </button>
-              <button className="btn !py-3 !px-4" onClick={() => setEngine(stepForward(engine))} disabled={!engine.future?.length} title="Forward (→)" aria-label="Forward">
-                <Icon name="next" size={18} />
-              </button>
-              <button className="btn flex-1 justify-center !py-3" onClick={() => setEngine(null)}>
-                <Icon name="close" size={18} /> Back to puzzle
-              </button>
-            </>
-          ) : !done ? (
+        <div className={`flex gap-2 ${engine ? 'hidden' : ''}`}>
+          {engine ? null : !done ? (
             <>
               <button className="btn flex-1 justify-center !py-3" onClick={moreHint} disabled={hintLevel >= 2} title={hint ? 'Show the piece (h)' : 'Hint (h)'} aria-label={hint ? 'More hint' : 'Hint'}>
                 <Icon name="bulb" size={18} /> {hint ? 'More' : 'Hint'}
@@ -772,15 +788,8 @@ function PuzzleView({
             </p>
             {done && puzzle.explanation && <p>{puzzle.explanation}</p>}
             {!engine && done && lines && (lines.best || lines.refute) && (
-              shownLine && lineView ? (
-                <LineViewer
-                  title={lineView.kind === 'best' ? `The full line after ${solutionSan[0]}` : `What ${puzzle.playedSan} allowed`}
-                  line={shownLine.line}
-                  index={lineView.index}
-                  onIndex={(i) => setLineView({ ...lineView, index: i })}
-                  onClose={() => setLineView(null)}
-                />
-              ) : (
+              // An open line is shown right under the board instead (see the top of this column).
+              shownLine && lineView ? null : (
                 <div className="flex flex-wrap gap-2">
                   {lines.best && (
                     <button className="btn !py-1.5 !text-sm" onClick={() => setLineView({ kind: 'best', index: 1 })}>

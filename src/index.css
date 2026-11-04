@@ -417,3 +417,8 @@
     transform: translateX(18px);
   }
 }
+
+/* Scrolled to (e.g. when a puzzle line opens): clear of the top bar and the captured-pieces row. */
+#puzzle-board {
+  scroll-margin-top: 5.5rem;
+}
