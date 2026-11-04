@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { Chess, type Square } from 'chess.js';
-import { Chessboard, type ChessboardOptions } from 'react-chessboard';
+import { Chessboard, defaultPieces, type ChessboardOptions } from 'react-chessboard';
 import type { Classification } from '../lib/types';
 import { ClassificationBadge } from './ClassificationBadge';
 import { CLASS_META } from '../lib/classificationMeta';
@@ -56,14 +56,36 @@ function BoardImpl({ fen, orientation = 'white', arrows = [], lastMove, badge, m
     }
   }, [fen, lastMove, sound]);
 
-  // A capture: the taken piece fades as the moving piece arrives, instead of staying fully visible
-  // under it until the glide ends (the ease-out curve spends its second half on the last pixels).
+  // Captures, smoothed over the board library's animation (which only updates the squares when a
+  // glide ends):
+  // - a taken piece fades as the moving piece arrives, instead of staying fully visible under it
+  //   and then vanishing; it stays faded if the next move comes before the glide ends;
+  // - stepping back over a capture shows the piece that comes back straight away, instead of
+  //   popping it in when the glide ends.
   const [shownFen, setShownFen] = useState(fen);
   const [takenIds, setTakenIds] = useState<string[]>([]);
+  const [returning, setReturning] = useState<Map<string, string>>(() => new Map());
+  const [step, setStep] = useState(0);
   if (shownFen !== fen) {
+    const after = placementOf(fen);
+    // Still fading from the previous step, unless that very piece is back on its square.
+    const kept = takenIds.filter((x) => {
+      const [code, sq] = x.split('-').slice(-2);
+      return after.get(sq) !== code;
+    });
     setShownFen(fen);
-    setTakenIds(takenPieceIds(shownFen, fen, id));
+    setTakenIds([...new Set([...kept, ...takenPieceIds(shownFen, fen, id)])]);
+    setReturning(returningPieces(shownFen, fen));
+    setStep((s) => s + 1);
   }
+  useEffect(() => {
+    // The board shows the real pieces once the glide is over.
+    const t = setTimeout(() => {
+      setTakenIds([]);
+      setReturning(new Map());
+    }, MOVE_MS + 80);
+    return () => clearTimeout(t);
+  }, [step]);
 
   // Tap-to-move: first tap selects a piece, second tap picks the target square.
   const [selected, setSelected] = useState<string | null>(null);
@@ -153,7 +175,6 @@ function BoardImpl({ fen, orientation = 'white', arrows = [], lastMove, badge, m
   }, [lastMove, lastMoveTint, badge, highlight, selected, targets, occupied, orientation, theme]);
   const pieces = useMemo(() => pieceRenderers(settings.pieceSet ?? 'classic'), [settings.pieceSet]);
 
-  const overlay = badge || marker;
   const options: ChessboardOptions = {
     id,
     position: fen,
@@ -211,10 +232,15 @@ function BoardImpl({ fen, orientation = 'white', arrows = [], lastMove, badge, m
       setSelected(null);
       return false;
     },
-    squareRenderer: overlay
-      ? ({ square, children }) => (
+    squareRenderer: ({ square, children }) => (
           // react-chessboard skips squareStyles when a custom renderer is used, so apply them here.
           <div style={{ position: 'relative', width: '100%', height: '100%', ...squareStyles[square] }}>
+            {returning.has(square) && (
+              // The piece coming back, under the one gliding away from this square.
+              <div key={step} style={{ position: 'absolute', inset: 0, pointerEvents: 'none', animation: `piece-in ${MOVE_MS / 2}ms ease-out both` }}>
+                {(pieces ?? defaultPieces)[returning.get(square)!]?.({ svgStyle: { width: '100%', height: '100%' } })}
+              </div>
+            )}
             {children}
             {badge && square === badge.square && (
               <div key={badge.square + badge.classification} className="pop" style={{ position: 'absolute', top: -6, right: -6, zIndex: 20, pointerEvents: 'none' }}>
@@ -232,13 +258,13 @@ function BoardImpl({ fen, orientation = 'white', arrows = [], lastMove, badge, m
               </div>
             )}
           </div>
-        )
-      : undefined,
+        ),
   };
 
   return (
     <div className="w-full aspect-square select-none overflow-visible touch-manipulation">
-      {takenIds.length > 0 && <style key={fen}>{takenIds.map((x) => `#${x}{animation:captured-out ${MOVE_MS}ms linear forwards}`).join('')}</style>}
+      {/* One style element for the whole time (not re-created per move), so a fade already running isn't restarted. */}
+      <style>{takenIds.map((x) => `#${x}{animation:captured-out ${MOVE_MS}ms linear forwards}`).join('')}</style>
       <Chessboard options={options} />
     </div>
   );
@@ -270,6 +296,20 @@ function placementOf(fen: string): Map<string, string> {
  * of the other colour arrived. Only when the board lost a piece, so stepping back (a piece coming
  * back to life) doesn't fade the one moving away.
  */
+/**
+ * Pieces that come back on the board (stepping back over a capture): square → piece code, for
+ * squares that get a piece of which there are now more than before.
+ */
+function returningPieces(before: string, after: string): Map<string, string> {
+  const a = placementOf(before);
+  const b = placementOf(after);
+  const out = new Map<string, string>();
+  if (b.size <= a.size) return out;
+  const count = (m: Map<string, string>, code: string) => [...m.values()].filter((x) => x === code).length;
+  for (const [sq, code] of b) if (a.get(sq) !== code && count(b, code) > count(a, code)) out.set(sq, code);
+  return out;
+}
+
 function takenPieceIds(before: string, after: string, id: string): string[] {
   const a = placementOf(before);
   const b = placementOf(after);

@@ -124,6 +124,13 @@
 
 /* A taken piece fades out as the capturing piece arrives (Board.tsx); the glide covers most of the
    distance in its first half. */
+/* The piece that comes back when stepping back over a capture (Board.tsx). */
+@keyframes piece-in {
+  from {
+    opacity: 0;
+  }
+}
+
 @keyframes captured-out {
   0%,
   40% {
