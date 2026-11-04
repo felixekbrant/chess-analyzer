@@ -22,6 +22,8 @@
  *  (4.5:1 on the surfaces they sit on; checked by src/lib/__tests__/contrast.test.ts).
  */
 :root {
+  /* Status bar height plus a small clearance on phones that have one (see .safe-top). */
+  --status-gap: calc(env(safe-area-inset-top) + min(env(safe-area-inset-top), 12px));
   /* Captured pieces beside the players: a hairline halo on the pieces that match the background. */
   --captured-w-halo: drop-shadow(0 0 0.6px rgba(34, 33, 31, 0.55)) drop-shadow(0 0.5px 0.8px rgba(34, 33, 31, 0.25));
   --captured-b-halo: none;
@@ -376,8 +378,10 @@
       padding-bottom: 1.5rem;
     }
   }
+  /* The phone top bar starts below the status bar, plus a little more where there is one (iPhones):
+     iOS blurs and fades whatever sits right under its status bar. min() makes it nothing elsewhere. */
   .safe-top {
-    padding-top: env(safe-area-inset-top);
+    padding-top: var(--status-gap);
   }
   .safe-bottom {
     padding-bottom: env(safe-area-inset-bottom);

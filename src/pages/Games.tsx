@@ -96,7 +96,7 @@ export default function Games() {
           + Import
         </button>
       </div>
-      <div className="sticky top-12 md:top-0 z-20 -mx-4 px-4 py-2 mb-2 frosted flex gap-2 overflow-x-auto no-scrollbar [&>*]:shrink-0">
+      <div className="sticky top-[calc(3rem+var(--status-gap))] md:top-0 z-20 -mx-4 px-4 py-2 mb-2 frosted flex gap-2 overflow-x-auto no-scrollbar [&>*]:shrink-0">
         {filterControls}
         <Picker
           label="Sort"
