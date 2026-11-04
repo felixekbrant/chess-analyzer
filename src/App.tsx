@@ -157,7 +157,7 @@ function TopBar({ path }: { path: string }) {
   const back = useBackLabel();
   const goBack = () => (window.history.length > 1 ? navigate(-1) : navigate('/games'));
   return (
-    <header className="md:hidden sticky top-0 z-30 safe-top bg-[var(--bg)]/95 backdrop-blur border-b border-[var(--border)]">
+    <header className="md:hidden sticky top-0 z-30 safe-top frosted border-b border-[var(--border)]">
       {/* Slimmer on a game review, where the board should start as high as possible. */}
       <div className={`${isReview ? 'h-10' : 'h-12'} px-2 flex items-center gap-1`}>
         {isReview && back ? (

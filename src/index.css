@@ -438,3 +438,21 @@
   }
 }
 
+
+/* Frosted bars that stay pinned while scrolling (top bar, filter rows). The blur sits on a layer
+   behind the bar, not on the bar itself: iOS Safari draws the text and icons inside a pinned element
+   with backdrop-filter at low resolution, so they looked blurry. Needs a positioned element (sticky
+   or fixed). */
+@utility frosted {
+  isolation: isolate;
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: color-mix(in srgb, var(--bg) 95%, transparent);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
+}

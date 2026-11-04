@@ -484,7 +484,7 @@ const TABS: [Tab, string][] = [
 function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
   return (
     <nav
-      className="sticky top-12 md:top-0 z-20 -mx-4 md:-mx-6 px-4 md:px-6 py-2 bg-[var(--bg)]/95 backdrop-blur"
+      className="sticky top-12 md:top-0 z-20 -mx-4 md:-mx-6 px-4 md:px-6 py-2 frosted"
     >
       {/* One segmented control: a raised track with the chosen tab in felt green. */}
       <div className="grid grid-cols-4 rounded-full bg-[var(--panel-2)] p-1 max-w-md" role="tablist" aria-label="Insight sections">
