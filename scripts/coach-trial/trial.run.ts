@@ -34,12 +34,21 @@ interface Setup {
   take: (items: Item[]) => Item[];
 }
 
+const explanations = (x: Item[]) => x.filter((i) => ['why', 'whatif', 'inaccuracy', 'good'].includes(i.kind));
+/** OpenRouter: room for the reasoning, which it doesn't return in the answer. */
+const OPENROUTER_EXTRA = { max_completion_tokens: undefined, max_tokens: 4000, reasoning: { effort: 'medium', exclude: true } };
+/** Free models only: on OpenRouter anything else could cost money. */
+const isOpenRouter = BASE.includes('openrouter.ai');
+
 const SETUPS: Setup[] = [
   { id: 'oss-facts', label: 'gpt-oss-120b, facts + tools', model: 'openai/gpt-oss-120b', extra: { reasoning_effort: 'low' }, take: (x) => x },
   { id: 'oss-bare', label: 'gpt-oss-120b, no facts or tools', model: 'openai/gpt-oss-120b', extra: { reasoning_effort: 'low' }, bare: true, take: (x) => x.filter((i) => i.kind === 'why').slice(0, 12) },
   { id: 'qwen-facts', label: 'qwen3.8-27b, facts + tools', model: 'qwen/qwen3.8-27b', take: (x) => x.filter((_, n) => n % 2 === 0) },
   // Trial 3: explanations only, thinking longer.
-  { id: 'oss-medium', label: 'gpt-oss-120b, facts + tools, more reasoning', model: 'openai/gpt-oss-120b', extra: { reasoning_effort: 'medium' }, take: (x) => x.filter((i) => ['why', 'whatif', 'inaccuracy', 'good'].includes(i.kind)) },
+  { id: 'oss-medium', label: 'gpt-oss-120b, facts + tools, more reasoning', model: 'openai/gpt-oss-120b', extra: { reasoning_effort: 'medium' }, take: explanations },
+  // Trial 4: larger free models on OpenRouter (COACH_BASE_URL=https://openrouter.ai/api/v1).
+  { id: 'nemotron-ultra', label: 'Nemotron 3 Ultra (OpenRouter free), facts + tools', model: 'nvidia/nemotron-3-ultra-550b-a55b:free', extra: OPENROUTER_EXTRA, take: explanations },
+  { id: 'gemma4-31b', label: 'Gemma 4 31B (OpenRouter free), facts + tools', model: 'google/gemma-4-31b-it:free', extra: OPENROUTER_EXTRA, take: explanations },
 ];
 
 type Kind = 'why' | 'hint' | 'inaccuracy' | 'punish' | 'good' | 'whatif';
@@ -134,7 +143,7 @@ test('coach trial', async () => {
 
   // Which models this key can use.
   const res = await fetch(`${BASE}/models`, { headers: KEY ? { authorization: `Bearer ${KEY}` } : {} });
-  if (!res.ok) throw new Error(`Groq answered ${res.status}: add the key as a network secret for api.groq.com or set GROQ_API_KEY (see README.md)`);
+  if (!res.ok) throw new Error(`${BASE} answered ${res.status}: add the key as a network secret for api.groq.com or set GROQ_API_KEY (see README.md)`);
   const models = await res.json();
   const available = new Set<string>((models.data ?? []).map((m: { id: string }) => m.id));
   console.log('models:', [...available].join(', '));
@@ -147,6 +156,10 @@ test('coach trial', async () => {
 
   for (const s of SETUPS) {
     if (ONLY && !ONLY.includes(s.id)) continue;
+    if (isOpenRouter && !s.model.endsWith(':free')) {
+      console.log(`skip ${s.id}: not a free model`);
+      continue;
+    }
     if (!available.has(s.model)) {
       console.log(`skip ${s.id}: ${s.model} not available`);
       continue;
@@ -191,7 +204,7 @@ test('coach trial', async () => {
   // Coach's view, once per model.
   const profile = profileFacts(games, summaries, joinAnalyzed(games, summaries));
   writeFileSync(`${DIR}/profile-facts.json`, JSON.stringify(profile, null, 1));
-  for (const s of SETUPS.filter((x) => !x.bare && available.has(x.model) && (!ONLY || ONLY.includes(x.id)))) {
+  for (const s of SETUPS.filter((x) => !x.bare && available.has(x.model) && (!isOpenRouter || x.model.endsWith(':free')) && (!ONLY || ONLY.includes(x.id)))) {
     if (done.has(`${s.id}|profile`)) continue;
     try {
       const r = await askProfile({ baseUrl: BASE, apiKey: KEY, model: s.model, extra: s.extra }, profile, PROFILE_PROMPT);
