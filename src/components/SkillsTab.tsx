@@ -1,3 +1,4 @@
+import { backTo } from '../lib/backLink';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { MIN_PROFILE_GAMES, type SkillsData } from '../hooks/useSkills';
@@ -98,7 +99,7 @@ export function SkillsTab({ data }: { data: SkillsData }) {
                       </Link>
                     )}
                     {s.examples.map((ex, j) => (
-                      <Link key={j} className="chip hover:underline" to={`/game/${encodeURIComponent(ex.gameId)}?ply=${ex.ply + 1}`} title={ex.label}>
+                      <Link key={j} className="chip hover:underline" to={`/game/${encodeURIComponent(ex.gameId)}?ply=${ex.ply + 1}`} state={backTo('Insights')} title={ex.label}>
                         {ex.san} ↗
                       </Link>
                     ))}

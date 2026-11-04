@@ -1,6 +1,7 @@
 import { Suspense, lazy, useEffect, useState } from 'react';
 import { backfillPeakEval, upgradeStoredAnalyses } from './lib/analysis/upgrade';
 import { backfillPuzzleStakes } from './lib/training/puzzles';
+import { useBackLabel } from './lib/backLink';
 import { db, getSettings, saveSettings } from './db/schema';
 import { NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { useApplyTheme } from './hooks/useTheme';
@@ -153,16 +154,19 @@ function TopBar({ path }: { path: string }) {
   const navigate = useNavigate();
   const title = TITLES.find(([re]) => re.test(path))?.[1] ?? 'Chess Analyzer';
   const isReview = path.startsWith('/game/');
+  const back = useBackLabel();
+  const goBack = () => (window.history.length > 1 ? navigate(-1) : navigate('/games'));
   return (
     <header className="md:hidden sticky top-0 z-30 safe-top bg-[var(--bg)]/95 backdrop-blur border-b border-[var(--border)]">
       {/* Slimmer on a game review, where the board should start as high as possible. */}
       <div className={`${isReview ? 'h-10' : 'h-12'} px-2 flex items-center gap-1`}>
-        {isReview ? (
-          <button
-            className="icon-btn"
-            aria-label="Back"
-            onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/games'))}
-          >
+        {isReview && back ? (
+          // Opened from a puzzle (or Insights…): say where back goes, so it's easy to carry on there.
+          <button className="inline-flex items-center gap-1 rounded-full bg-[var(--panel-2)] pl-2 pr-3.5 py-1.5 text-sm font-bold shrink-0" onClick={goBack}>
+            <Icon name="back" size={18} /> Back to {back}
+          </button>
+        ) : isReview ? (
+          <button className="icon-btn" aria-label="Back" onClick={goBack}>
             <Icon name="back" />
           </button>
         ) : (
@@ -170,7 +174,7 @@ function TopBar({ path }: { path: string }) {
             <Logo />
           </span>
         )}
-        <h1 className="flex-1 font-bold text-base truncate">{title}</h1>
+        <h1 className={`flex-1 font-bold text-base truncate ${isReview && back ? 'text-right muted !font-semibold !text-sm pr-2' : ''}`}>{title}</h1>
         {!isReview && <StatusIndicator variant="compact" />}
       </div>
     </header>

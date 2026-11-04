@@ -122,6 +122,19 @@
   will-change: transform;
 }
 
+/* A taken piece fades out as the capturing piece arrives (Board.tsx); the glide covers most of the
+   distance in its first half. */
+@keyframes captured-out {
+  0%,
+  40% {
+    opacity: 1;
+  }
+  80%,
+  100% {
+    opacity: 0;
+  }
+}
+
 /* Component classes live in a layer, so Tailwind utilities on the same element (md:hidden, border-l-4, …) win. */
 @layer components {
 /* Cards: flat surfaces, no outlines (a border is only drawn when a component asks for a colour). */

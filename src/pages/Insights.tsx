@@ -1,3 +1,4 @@
+import { backTo } from '../lib/backLink';
 import type { StoredGame } from '../lib/types';
 import type { GameSummary } from '../lib/insights/summary';
 import type { AnalyzedGame } from '../lib/insights/compute';
@@ -222,7 +223,7 @@ export default function Insights() {
               <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">
                 {data.repeated.slice(0, 8).map((r) => (
                   <div key={r.key} className="space-y-2">
-                    <Link className="block max-w-[240px]" to={`/game/${encodeURIComponent(r.refs[r.refs.length - 1].gameId)}?ply=${r.refs[r.refs.length - 1].ply + 1}`}>
+                    <Link className="block max-w-[240px]" to={`/game/${encodeURIComponent(r.refs[r.refs.length - 1].gameId)}?ply=${r.refs[r.refs.length - 1].ply + 1}`} state={backTo('Insights')}>
                       <MiniBoard fen={r.fen} orientation={r.fen.split(' ')[1] === 'w' ? 'white' : 'black'} />
                     </Link>
                     <div className="text-sm">
@@ -231,7 +232,7 @@ export default function Insights() {
                     {r.opening && <div className="muted text-xs">{r.opening}</div>}
                     <div className="flex flex-wrap gap-1">
                       {r.refs.map((x, i) => (
-                        <Link key={i} className="chip hover:underline" to={`/game/${encodeURIComponent(x.gameId)}?ply=${x.ply + 1}`}>
+                        <Link key={i} className="chip hover:underline" to={`/game/${encodeURIComponent(x.gameId)}?ply=${x.ply + 1}`} state={backTo('Insights')}>
                           game {i + 1}
                         </Link>
                       ))}
@@ -377,7 +378,7 @@ export default function Insights() {
                     </div>
                     <div className="flex flex-wrap gap-1">
                       {thrown.slice(0, 6).map((g) => (
-                        <Link key={g.id} className="chip !py-1 !px-2.5 hover:brightness-110" to={`/game/${encodeURIComponent(g.id)}`}>
+                        <Link key={g.id} className="chip !py-1 !px-2.5 hover:brightness-110" to={`/game/${encodeURIComponent(g.id)}`} state={backTo('Insights')}>
                           {opponentName(g)} <span style={{ color: 'var(--attention-ink)' }}>was {formatPeak(g.peakEval!)}</span>
                         </Link>
                       ))}
@@ -460,7 +461,7 @@ function ExampleList({ refs }: { refs: MoveRef[] }) {
       {refs.map((r, i) => (
         <li key={i}>
           {/* Each opens the review at that move. */}
-          <Link className="chip !py-1 !px-2.5 hover:brightness-110" to={`/game/${encodeURIComponent(r.gameId)}?ply=${r.ply + 1}`}>
+          <Link className="chip !py-1 !px-2.5 hover:brightness-110" to={`/game/${encodeURIComponent(r.gameId)}?ply=${r.ply + 1}`} state={backTo('Insights')}>
             <Icon name="play" size={11} /> {r.san}
             {r.label && <span className="muted font-normal">{r.label}</span>}
           </Link>

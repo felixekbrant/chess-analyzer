@@ -11,6 +11,8 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     date: '4 Nov 2026',
     items: [
+      'Captures look smoother: the taken piece fades as the capturing piece arrives.',
+      'Opening a game from a puzzle: "Back to puzzle" takes you back to the same puzzle, exactly where you left it.',
       'Puzzles that matter more: small positional ones (no material or mate at stake) are left out of daily practice, the biggest come first, and each puzzle shows the material at stake ("Worth a rook"). Settings can add the small ones back.',
       'Opening "See the full line" or "What it allowed" keeps the whole board in view.',
       'Puzzles look tidier: the Engine switch sits at the top, next to the filter, and the material rows only appear once something has been captured.',

@@ -724,3 +724,18 @@ test('offline: the header says so; openings with few games wait behind "Show mor
     await expect.poll(() => page.locator('li').count()).toBeGreaterThan(before);
   }
 });
+
+test('puzzles: open the game, then back to the puzzle where you left it', async ({ page }) => {
+  await seed(page);
+  await openTab(page, 'Train');
+  await expect(page.getByText(/to move$/)).toBeVisible();
+  await page.getByRole('button', { name: /Solution/ }).click();
+  await page.getByRole('button', { name: /See the full line/ }).click();
+  const line = (await page.locator('#puzzle-line').textContent())!;
+  await page.getByRole('link', { name: /Open game/ }).click();
+  // The review says where back goes.
+  await page.getByRole('button', { name: 'Back to puzzle' }).filter({ visible: true }).click();
+  // The same puzzle, still revealed, with its line open.
+  await expect(page.getByRole('button', { name: /Next puzzle/ })).toBeVisible();
+  await expect(page.locator('#puzzle-line')).toHaveText(line);
+});

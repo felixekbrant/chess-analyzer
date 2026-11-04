@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useBackLabel } from '../../lib/backLink';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/schema';
 import { usePgn } from '../../hooks/useStores';
@@ -107,11 +108,19 @@ function DesktopHeader({ game, inReview, onSummary }: { game: StoredGame; inRevi
   const word = r === 'win' ? 'Won' : r === 'loss' ? 'Lost' : r === 'draw' ? 'Draw' : game.result;
   const ink = r === 'win' ? 'var(--felt-ink)' : r === 'loss' ? 'var(--loss-ink)' : 'var(--muted)';
   const opponent = game.userColor === 'w' ? game.black : game.userColor === 'b' ? game.white : `${game.white} – ${game.black}`;
+  const back = useBackLabel();
+  const navigate = useNavigate();
   return (
     <div className="hidden md:flex items-center gap-3 mb-4 text-sm min-w-0">
-      <Link to="/games" className="btn !py-1.5 !px-3 !text-sm shrink-0">
-        ← Games
-      </Link>
+      {back ? (
+        <button className="btn btn-primary !py-1.5 !px-3 !text-sm shrink-0" onClick={() => navigate(-1)}>
+          ← Back to {back}
+        </button>
+      ) : (
+        <Link to="/games" className="btn !py-1.5 !px-3 !text-sm shrink-0">
+          ← Games
+        </Link>
+      )}
       {inReview && (
         <button className="btn !py-1.5 !px-3 !text-sm shrink-0" onClick={onSummary}>
           Summary

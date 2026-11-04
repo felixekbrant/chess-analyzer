@@ -56,6 +56,15 @@ function BoardImpl({ fen, orientation = 'white', arrows = [], lastMove, badge, m
     }
   }, [fen, lastMove, sound]);
 
+  // A capture: the taken piece fades as the moving piece arrives, instead of staying fully visible
+  // under it until the glide ends (the ease-out curve spends its second half on the last pixels).
+  const [shownFen, setShownFen] = useState(fen);
+  const [takenIds, setTakenIds] = useState<string[]>([]);
+  if (shownFen !== fen) {
+    setShownFen(fen);
+    setTakenIds(takenPieceIds(shownFen, fen, id));
+  }
+
   // Tap-to-move: first tap selects a piece, second tap picks the target square.
   const [selected, setSelected] = useState<string | null>(null);
   useEffect(() => {
@@ -155,7 +164,7 @@ function BoardImpl({ fen, orientation = 'white', arrows = [], lastMove, badge, m
     allowDrawingArrows: true,
     clearArrowsOnPositionChange: true,
     // Moves glide with an ease-out curve (see [data-piece] in index.css).
-    animationDurationInMs: 220,
+    animationDurationInMs: MOVE_MS,
     showNotation: settings.showCoordinates,
     pieces,
     boardStyle: { borderRadius: BOARD_RADIUS, boxShadow: '0 0 0 3px var(--board-frame), 0 10px 24px rgba(0,0,0,.28)' },
@@ -229,9 +238,48 @@ function BoardImpl({ fen, orientation = 'white', arrows = [], lastMove, badge, m
 
   return (
     <div className="w-full aspect-square select-none overflow-visible touch-manipulation">
+      {takenIds.length > 0 && <style key={fen}>{takenIds.map((x) => `#${x}{animation:captured-out ${MOVE_MS}ms linear forwards}`).join('')}</style>}
       <Chessboard options={options} />
     </div>
   );
+}
+
+const MOVE_MS = 220;
+
+/** Square → piece code ("wN") from a FEN's placement. */
+function placementOf(fen: string): Map<string, string> {
+  const out = new Map<string, string>();
+  fen
+    .split(' ')[0]
+    .split('/')
+    .forEach((row, r) => {
+      let f = 0;
+      for (const ch of row) {
+        if (/\d/.test(ch)) f += Number(ch);
+        else {
+          out.set(String.fromCharCode(97 + f) + (8 - r), (ch === ch.toUpperCase() ? 'w' : 'b') + ch.toUpperCase());
+          f++;
+        }
+      }
+    });
+  return out;
+}
+
+/**
+ * The board's element ids of pieces taken by a move from `before` to `after`: squares where a piece
+ * of the other colour arrived. Only when the board lost a piece, so stepping back (a piece coming
+ * back to life) doesn't fade the one moving away.
+ */
+function takenPieceIds(before: string, after: string, id: string): string[] {
+  const a = placementOf(before);
+  const b = placementOf(after);
+  if (b.size >= a.size) return [];
+  const ids: string[] = [];
+  for (const [sq, was] of a) {
+    const now = b.get(sq);
+    if (now && now[0] !== was[0]) ids.push(`${id}-piece-${was}-${sq}`);
+  }
+  return ids;
 }
 
 const same = (a: unknown, b: unknown) => a === b || JSON.stringify(a) === JSON.stringify(b);

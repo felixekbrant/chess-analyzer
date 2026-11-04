@@ -1,3 +1,4 @@
+import { backTo } from '../lib/backLink';
 import { Icon } from './Icon';
 import { Link } from 'react-router-dom';
 import type { CoachItem } from '../lib/insights/coach';
@@ -36,6 +37,7 @@ export function CoachReport({ items: all, strengths, analysed, limit }: { items:
                     className="chip hover:underline"
                     to={`/game/${encodeURIComponent(ex.gameId)}${ex.ply || ex.san ? `?ply=${ex.ply + 1}` : ''}`}
                     title={ex.label}
+                    state={backTo('Insights')}
                   >
                     {ex.san || 'Game'} ↗
                   </Link>

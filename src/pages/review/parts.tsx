@@ -100,7 +100,7 @@ export const MoveStrip = memo(function MoveStrip({
   const first = useRef(true);
   useEffect(() => {
     // Jump straight there when the page opens; glide when stepping through moves.
-    current.current?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: first.current ? 'auto' : 'smooth' });
+    if (current.current) revealInList(current.current, 'x', !first.current);
     first.current = false;
   }, [ply]);
   return (
@@ -160,7 +160,7 @@ export const MoveList = memo(function MoveList({
           className={`w-full flex items-center gap-1.5 rounded px-1.5 py-1 text-left ${ply === i + 1 ? 'bg-[var(--panel-2)] font-bold' : 'hover:bg-[var(--panel-2)]'}`}
           onClick={() => onSelect(i + 1)}
           ref={(el) => {
-            if (el && ply === i + 1) el.scrollIntoView({ block: 'nearest' });
+            if (el && ply === i + 1) revealInList(el, 'y', false);
           }}
         >
           {m && <ClassificationBadge c={m.classification} size={14} />}
@@ -269,4 +269,30 @@ export function ActionButton({
       {label && <span>{label}</span>}
     </button>
   );
+}
+
+/**
+ * Brings the current move into view inside its own scrolling list (centred when the list scrolls
+ * sideways), without ever scrolling the page itself: opening a review at a late move used to scroll
+ * the page down, past the header and its back button.
+ */
+function revealInList(el: HTMLElement, axis: 'x' | 'y', smooth: boolean) {
+  let box = el.parentElement;
+  while (box && box !== document.body) {
+    const s = getComputedStyle(box);
+    if (/(auto|scroll)/.test(axis === 'x' ? s.overflowX : s.overflowY)) break;
+    box = box.parentElement;
+  }
+  if (!box || box === document.body) return;
+  const e = el.getBoundingClientRect();
+  const b = box.getBoundingClientRect();
+  const behavior: ScrollBehavior = smooth ? 'smooth' : 'auto';
+  if (axis === 'x') box.scrollTo({ left: box.scrollLeft + e.left - b.left - (b.width - e.width) / 2, behavior });
+  else {
+    // The list can reach below the window: keep the move within what's on screen.
+    const bottom = Math.min(b.bottom, window.innerHeight) - 8;
+    const top = Math.max(b.top, 0);
+    if (e.top < top) box.scrollTo({ top: box.scrollTop + e.top - top, behavior });
+    else if (e.bottom > bottom) box.scrollTo({ top: box.scrollTop + e.bottom - bottom + (bottom - top) / 3, behavior });
+  }
 }

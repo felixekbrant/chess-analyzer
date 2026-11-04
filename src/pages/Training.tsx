@@ -1,3 +1,4 @@
+import { backTo } from '../lib/backLink';
 import { createPortal } from 'react-dom';
 import { isThrown } from '../lib/games/thrown';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -51,6 +52,29 @@ type State = 'solving' | 'checking' | 'wrong' | 'solved' | 'revealed';
 /** Positional/time-only puzzles have quiet answers; concrete tactics are shown first. */
 const QUIET: Motif[] = ['positional', 'threw_advantage', 'time_trouble', 'rushed', 'long_think'];
 
+/**
+ * Where you were, kept while the app stays open: opening a puzzle's game and coming back carries on
+ * with the same puzzle, in the same state (solved, hints used, line open), and the same session.
+ */
+const RESUME_MS = 30 * 60_000;
+let pageMemo: { search: string; at: number; skipped: string[]; session: { solved: number; failed: number; streak: number; best: number }; practiceAll: boolean; pinned?: string } | null = null;
+interface PuzzleMemo {
+  id: string;
+  at: number;
+  fen: string;
+  step: number;
+  state: State;
+  mistakes: number;
+  hintLevel: number;
+  lastMove?: { from: string; to: string };
+  marker?: { square: string; kind: 'correct' | 'wrong' };
+  note: string;
+  peeked: boolean;
+  lineView: { kind: 'best' | 'refute'; index: number } | null;
+  startedAt: number;
+}
+let puzzleMemo: PuzzleMemo | null = null;
+
 export default function Training() {
   const [params, setParams] = useSearchParams();
   const motif = params.get('motif') as Motif | null;
@@ -61,9 +85,10 @@ export default function Training() {
   const smallOnly = params.get('small') === '1';
   const area = params.get('area') as SkillArea | null;
   const inSession = params.get('session') === 'today';
-  const [practiceAll, setPracticeAll] = useState(false);
-  const [session, setSession] = useState({ solved: 0, failed: 0, streak: 0, best: 0 });
-  const [skipped, setSkipped] = useState<string[]>([]);
+  const [memo] = useState(() => (pageMemo && pageMemo.search === params.toString() && Date.now() - pageMemo.at < RESUME_MS ? pageMemo : null));
+  const [practiceAll, setPracticeAll] = useState(memo?.practiceAll ?? false);
+  const [session, setSession] = useState(memo?.session ?? { solved: 0, failed: 0, streak: 0, best: 0 });
+  const [skipped, setSkipped] = useState<string[]>(memo?.skipped ?? []);
   const [focusOpen, setFocusOpen] = useState(false);
   const settings = useSettings();
 
@@ -112,9 +137,14 @@ export default function Training() {
 
   // The shown puzzle stays until it's finished or skipped, even if the order changes meanwhile
   // (new puzzles from a game just analysed, or stakes being measured).
-  const pinned = useRef<string | undefined>(undefined);
+  const pinned = useRef<string | undefined>(memo?.pinned);
   const current = queue.find((p) => p.id === pinned.current) ?? queue[0];
-  pinned.current = current?.id;
+  // Not while the puzzles are still loading (an empty queue), or the remembered one is lost.
+  if (current) pinned.current = current.id;
+  // Remembered for coming back (e.g. from the puzzle's game).
+  useEffect(() => {
+    if (puzzles) pageMemo = { search: params.toString(), at: Date.now(), skipped, session, practiceAll, pinned: pinned.current };
+  });
   // In today's session the counter shows progress through the current part of the plan.
   const inDuePart = sess.stage === 'due' && !!current && !current.lichess && current.due <= now;
   const sessionPart = inDuePart ? { done: sess.progress.puzzles, target: sess.targets.puzzles } : { done: sess.progress.drill, target: sess.targets.drill };
@@ -320,6 +350,7 @@ export default function Training() {
           }}
           onSkip={() => {
             pinned.current = undefined;
+            puzzleMemo = null;
             setSkipped((s) => [...s, current.id]);
           }}
         />
@@ -360,35 +391,38 @@ function PuzzleView({
   autoNext: boolean;
   showProgress: boolean;
 }) {
-  const [fen, setFenState] = useState(puzzle.fen);
+  // Coming back to this puzzle (from its game): carry on where you were.
+  const [resume] = useState(() => (puzzleMemo?.id === puzzle.id && Date.now() - puzzleMemo.at < RESUME_MS ? puzzleMemo : null));
+  const [fen, setFenState] = useState(resume?.fen ?? puzzle.fen);
   // The opponent's reply is played from a timeout, so the current position must be read from a ref.
-  const fenRef = useRef(puzzle.fen);
+  const fenRef = useRef(resume?.fen ?? puzzle.fen);
   const setFen = (f: string) => {
     fenRef.current = f;
     setFenState(f);
   };
-  const [step, setStep] = useState(0);
-  const [state, setState] = useState<State>('solving');
-  const [mistakes, setMistakes] = useState(0);
+  const [step, setStep] = useState(resume?.step ?? 0);
+  // A move still being checked when you left is simply tried again.
+  const [state, setState] = useState<State>(resume && resume.state !== 'checking' ? resume.state : 'solving');
+  const [mistakes, setMistakes] = useState(resume?.mistakes ?? 0);
   // Hints in two steps: what to look for (in words), then the piece is highlighted.
-  const [hintLevel, setHintLevel] = useState(0);
+  const [hintLevel, setHintLevel] = useState(resume?.hintLevel ?? 0);
   const hint = hintLevel > 0;
   const moreHint = () => setHintLevel((h) => Math.min(2, h + 1));
   // A Lichess puzzle starts right after the opponent's move: show it.
   const setupMove = puzzle.lichess ? { from: puzzle.lichess.lastMove.slice(0, 2), to: puzzle.lichess.lastMove.slice(2, 4) } : undefined;
-  const [lastMove, setLastMove] = useState<{ from: string; to: string } | undefined>(setupMove);
-  const [marker, setMarker] = useState<{ square: string; kind: 'correct' | 'wrong' } | undefined>();
+  const [lastMove, setLastMove] = useState<{ from: string; to: string } | undefined>(resume ? resume.lastMove : setupMove);
+  const [marker, setMarker] = useState<{ square: string; kind: 'correct' | 'wrong' } | undefined>(resume?.marker?.kind === 'correct' ? resume.marker : undefined);
   // A try that isn't the answer: shown on the board (red, with a ✗) for a moment, then taken back.
   const [attempt, setAttempt] = useState<{ fen: string; uci: string; failed?: boolean } | null>(null);
   const takeBack = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(takeBack.current), []);
-  const [note, setNote] = useState('');
-  const started = useRef(Date.now());
+  const [note, setNote] = useState(resume?.note ?? '');
+  const started = useRef(resume?.startedAt ?? Date.now());
   const settings = useSettings();
   // The engine: free moves from the position on the board, with live analysis. Opening it before the
   // puzzle is solved gives the answer away, so the puzzle then counts as missed.
   const [engine, setEngine] = useState<({ base: string } & MoveSteps) | null>(null);
-  const [peeked, setPeeked] = useState(false);
+  const [peeked, setPeeked] = useState(resume?.peeked ?? false);
   const engineFen = useMemo(() => (engine ? (playUci(engine.base, engine.moves).fens.at(-1) ?? engine.base) : undefined), [engine]);
   const live = useLiveEngine(engineFen, !!engine, 20, 3);
   const game = useLiveQuery(async () => (puzzle.gameIds.length ? db.games.get(puzzle.gameIds[puzzle.gameIds.length - 1]) : undefined), [puzzle.id]);
@@ -435,7 +469,11 @@ function PuzzleView({
       refute: refute.length ? { start: m.fenAfter, uci: refute, line: explainLine(m.fenAfter, refute, color, names) } : undefined,
     };
   }, [puzzle.id]);
-  const [lineView, setLineView] = useState<{ kind: 'best' | 'refute'; index: number } | null>(null);
+  const [lineView, setLineView] = useState<{ kind: 'best' | 'refute'; index: number } | null>(resume?.lineView ?? null);
+  useEffect(() => {
+    if (!finished.current)
+      puzzleMemo = { id: puzzle.id, at: Date.now(), fen, step, state, mistakes, hintLevel, lastMove, marker, note, peeked, lineView, startedAt: started.current };
+  }, [puzzle.id, fen, step, state, mistakes, hintLevel, lastMove, marker, note, peeked, lineView]);
   const shownLine = lineView && lines ? lines[lineView.kind] : undefined;
   const lineFen = useMemo(
     () => (shownLine && lineView ? (lineView.index ? playUci(shownLine.start, shownLine.uci.slice(0, lineView.index)).fens.at(-1) : shownLine.start) : undefined),
@@ -455,6 +493,7 @@ function PuzzleView({
     // Auto-next and a key press can both fire; only grade once.
     if (finished.current) return;
     finished.current = true;
+    puzzleMemo = null;
     await onDone(grade);
   }
 
@@ -859,7 +898,7 @@ function PuzzleView({
             {(game || leadUp.length > 0) && (
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
                 {game && (
-                  <Link className="underline muted inline-flex items-center gap-1 py-2.5 -my-2" to={`/game/${encodeURIComponent(game.id)}?ply=${puzzle.plies[puzzle.plies.length - 1] + 1}`}>
+                  <Link className="underline muted inline-flex items-center gap-1 py-2.5 -my-2" to={`/game/${encodeURIComponent(game.id)}?ply=${puzzle.plies[puzzle.plies.length - 1] + 1}`} state={backTo('puzzle')}>
                     Open game <Icon name="external" size={12} />
                   </Link>
                 )}

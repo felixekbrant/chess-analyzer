@@ -1,3 +1,4 @@
+import { backTo } from '../lib/backLink';
 import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/schema';
@@ -116,7 +117,7 @@ function OpeningCards({ rows }: { rows: OpeningStat[] }) {
                 {r.commonErrors.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 items-center">
                     {r.commonErrors.map((e, i) => (
-                      <Link key={i} className="chip !py-1 !px-2.5" to={`/game/${encodeURIComponent(e.ref.gameId)}?ply=${e.ref.ply + 1}`}>
+                      <Link key={i} className="chip !py-1 !px-2.5" to={`/game/${encodeURIComponent(e.ref.gameId)}?ply=${e.ref.ply + 1}`} state={backTo('Openings')}>
                         {e.moveLabel}
                         {e.bestSan && <span className="muted font-normal"> → {e.bestSan}</span>}
                         {e.count > 1 ? ` ×${e.count}` : ''}
@@ -187,7 +188,7 @@ function MainOpening({ r }: { r: OpeningStat }) {
         {r.commonErrors.length > 0 && (
           <div className="flex flex-wrap gap-1.5 items-center mt-auto">
             {r.commonErrors.slice(0, 2).map((e, i) => (
-              <Link key={i} className="chip !py-0.5 !px-2" to={`/game/${encodeURIComponent(e.ref.gameId)}?ply=${e.ref.ply + 1}`}>
+              <Link key={i} className="chip !py-0.5 !px-2" to={`/game/${encodeURIComponent(e.ref.gameId)}?ply=${e.ref.ply + 1}`} state={backTo('Openings')}>
                 {e.moveLabel}
                 {e.bestSan && <span className="muted font-normal"> → {e.bestSan}</span>}
               </Link>
