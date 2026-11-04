@@ -8,9 +8,9 @@ export function Toasts() {
   const [list, setList] = useState<Toast[]>([]);
   useEffect(() => subscribeToasts(setList), []);
   return (
-    // Phones: just above the bottom bars (the tab bar, or the review's action bar), so nothing at the top
-    // of the page (titles, search, the Today card) gets covered. Desktop: bottom right.
-    <div className="fixed bottom-[calc(6.75rem+env(safe-area-inset-bottom))] md:bottom-4 right-3 left-3 md:left-auto z-50 flex flex-col gap-2 items-center md:items-end pointer-events-none" aria-live="polite">
+    // Phones: over the top bar, so it covers only the page title for a moment, not the page (titles,
+    // search, the Today card) or the buttons at the bottom. Desktop: bottom right.
+    <div className="fixed top-[calc(0.375rem+env(safe-area-inset-top))] md:top-auto md:bottom-4 right-3 left-3 md:left-auto z-50 flex flex-col gap-2 items-center md:items-end pointer-events-none" aria-live="polite">
       {list.map((t) => (
         <div
           key={t.id}

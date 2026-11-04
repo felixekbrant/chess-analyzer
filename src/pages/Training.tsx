@@ -182,9 +182,6 @@ export default function Training() {
               <Icon name="flame" size={14} /> {session.streak}
             </span>
           )}
-          <span className="muted" title="Solved / missed this session">
-            <span style={{ color: 'var(--felt-ink)' }}>✓{session.solved}</span> <span style={{ color: 'var(--loss-ink)' }}>✗{session.failed}</span>
-          </span>
         </div>
       </div>
       <Sheet open={focusOpen} onClose={() => setFocusOpen(false)} title="What to practise">
@@ -713,6 +710,21 @@ function PuzzleView({
             role="status"
           >
             {status}
+            {/* Once it's done, the two lines are right here under the result (an open line shows above, under the board). */}
+            {done && !lineView && lines && (lines.best || lines.refute) && (
+              <div className="flex flex-wrap gap-2 mt-2.5 font-normal">
+                {lines.best && (
+                  <button className="btn !py-2 !text-sm" onClick={() => setLineView({ kind: 'best', index: 1 })}>
+                    <Icon name="play" size={14} /> See the full line
+                  </button>
+                )}
+                {lines.refute && (
+                  <button className="btn !py-2 !text-sm" onClick={() => setLineView({ kind: 'refute', index: 0 })}>
+                    <Icon name="play" size={14} /> What {puzzle.playedSan} allowed
+                  </button>
+                )}
+              </div>
+            )}
             {hintWords && !done && (
               <p className="mt-1.5 font-normal flex gap-1.5" style={{ color: 'var(--attention-ink)' }}>
                 <Icon name="bulb" size={16} /> {hintWords}
@@ -787,23 +799,6 @@ function PuzzleView({
                 ))}
             </p>
             {done && puzzle.explanation && <p>{puzzle.explanation}</p>}
-            {!engine && done && lines && (lines.best || lines.refute) && (
-              // An open line is shown right under the board instead (see the top of this column).
-              shownLine && lineView ? null : (
-                <div className="flex flex-wrap gap-2">
-                  {lines.best && (
-                    <button className="btn !py-1.5 !text-sm" onClick={() => setLineView({ kind: 'best', index: 1 })}>
-                      <Icon name="play" size={14} /> See the full line
-                    </button>
-                  )}
-                  {lines.refute && (
-                    <button className="btn !py-1.5 !text-sm" onClick={() => setLineView({ kind: 'refute', index: 0 })}>
-                      <Icon name="play" size={14} /> What {puzzle.playedSan} allowed
-                    </button>
-                  )}
-                </div>
-              )
-            )}
             {(game || leadUp.length > 0) && (
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
                 {game && (

@@ -214,9 +214,10 @@ test('training: solve a puzzle, reveal the next and see the full line', async ({
     await page.keyboard.press('Escape');
     await expect(page.getByRole('button', { name: 'Close the line' })).toHaveCount(0);
   }
-  // A revealed puzzle counts as missed once you move on.
+  // A revealed puzzle counts as missed once you move on (and the first one as solved).
   await page.getByRole('button', { name: /Next puzzle/ }).click();
-  await expect(page.getByTitle('Solved / missed this session')).toHaveText(/✓1\s*✗1/);
+  const results = () => readPuzzles(page).then((ps) => (ps as { lastResult?: string }[]).map((p) => p.lastResult).filter(Boolean).sort().join(','));
+  await expect.poll(results).toBe('failed,solved');
 });
 
 test('insights: skills tab and game filters', async ({ page }) => {
@@ -332,7 +333,6 @@ test('focus drill: tops up with Lichess puzzles and plays one', async ({ page })
   await page.getByRole('button', { name: /Solution/ }).click();
   await expect(page.getByText(/^Solution:/)).toBeVisible();
   await page.getByRole('button', { name: /Next puzzle/ }).click();
-  await expect(page.getByTitle('Solved / missed this session')).toHaveText(/✗1/);
   // The Lichess puzzle counts towards today's drill.
   await openTab(page, 'Home');
   await expect(page.getByRole('link', { name: /Focus drill 1\/\d+/ })).toBeVisible();
