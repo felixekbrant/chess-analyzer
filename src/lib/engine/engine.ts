@@ -16,6 +16,12 @@ interface Job {
 }
 
 const ENGINE_URL = `${import.meta.env.BASE_URL}stockfish/stockfish.js`;
+/** The multi-threaded build: needs SharedArrayBuffer, i.e. a cross-origin isolated page. */
+const ENGINE_MT_URL = `${import.meta.env.BASE_URL}stockfish/stockfish-mt.js`;
+
+/** Whether this page can run the engine on several threads. */
+export const canUseThreads = (): boolean =>
+  typeof SharedArrayBuffer !== 'undefined' && typeof crossOriginIsolated !== 'undefined' && crossOriginIsolated;
 
 /**
  * Promise-based UCI wrapper around the Stockfish WASM worker. Jobs run one at a time;
@@ -31,13 +37,18 @@ export class Engine {
   private currentMultiPv = 1;
   private readyResolve?: () => void;
 
-  constructor(hashMb = 32) {
-    this.worker = new Worker(ENGINE_URL);
+  /** Threads the engine actually uses (1 where the page can't share memory between threads). */
+  readonly threads: number;
+
+  constructor(hashMb = 32, threads = 1) {
+    this.threads = threads > 1 && canUseThreads() ? threads : 1;
+    this.worker = new Worker(this.threads > 1 ? ENGINE_MT_URL : ENGINE_URL);
     this.worker.onmessage = (e: MessageEvent<string>) => this.onLine(String(e.data));
     this.ready = new Promise((resolve) => {
       this.readyResolve = resolve;
     });
     this.send('uci');
+    if (this.threads > 1) this.send(`setoption name Threads value ${this.threads}`);
     this.send(`setoption name Hash value ${hashMb}`);
     this.send('isready');
   }

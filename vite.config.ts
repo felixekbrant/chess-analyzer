@@ -60,6 +60,8 @@ function buildInfo() {
   };
 }
 
+const ISOLATION = { 'Cross-Origin-Opener-Policy': 'same-origin', 'Cross-Origin-Embedder-Policy': 'require-corp' };
+
 export default defineConfig({
   define: { __BUILD__: JSON.stringify(buildInfo()) },
   // Relative base so the build also works from a GitHub Pages sub-path.
@@ -68,6 +70,10 @@ export default defineConfig({
   // The two chunks over the default 500 kB limit are loaded lazily: the opening book (data, only
   // needed when importing/analysing) and the charting library (after the dashboard renders).
   build: { chunkSizeWarningLimit: 800 },
+  // Cross-origin isolation, so the engine can use several threads (SharedArrayBuffer). GitHub Pages
+  // can't send these headers; there the service worker adds them (see buildServiceWorker.ts).
+  server: { headers: ISOLATION },
+  preview: { headers: ISOLATION },
   test: {
     environment: 'node',
     // Browser tests in e2e/ run with Playwright (`npm run e2e`), not Vitest.
