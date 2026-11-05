@@ -39,6 +39,21 @@ win anything concrete.
 best move's score, the mistake types (for example "Positional error" vs "Hung a piece"), and the
 best line.
 
+## Deep look at your last 10 losses (logged 5 Nov 2026)
+
+**What you want:** a feature that analyses your last 10 losses in depth, to find what to focus on
+most for the fastest progress.
+
+**Notes for when we build it:**
+- Re-analyse those games deeper than the background analysis (the engine work from 5 Nov makes
+  this cheaper).
+- Find the turning point of each loss: the move where the game was lost, and what kind of mistake
+  it was (tactic missed, time trouble, conversion, opening, endgame).
+- Look for patterns across the 10 games and rank them by what they cost (win chance lost, how
+  often), compared with what is typical at your rating.
+- End with one or two focus areas, each with the moments from your games that show it, linked to
+  puzzles and drills. It could feed the weekly focus.
+
 ## Other ideas
 
 - **Feature ideas from other platforms:** see `feature-ideas-2026-11-03.md`, put on hold on 3 Nov.
