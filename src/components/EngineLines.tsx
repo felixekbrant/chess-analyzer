@@ -1,4 +1,5 @@
 import { formatScore } from '../lib/analysis/winprob';
+import { liveThreads } from '../hooks/useLiveEngine';
 import { playUci } from '../lib/analysis/board';
 import type { PositionEval } from '../lib/types';
 
@@ -8,7 +9,10 @@ export function EngineLines({ result, fen, onPlayLine }: { result: PositionEval 
   const black = fen.split(' ')[1] === 'b';
   return (
     <div className="text-sm space-y-1">
-      <div className="muted text-xs">Stockfish 19 lite · depth {result.depth}</div>
+      <div className="muted text-xs">
+        Stockfish 19 lite · depth {result.depth}
+        {liveThreads() > 1 ? ` · ${liveThreads()} threads` : ''}
+      </div>
       {result.lines.map((l, i) => {
         const { sans } = playUci(fen, l.pv.slice(0, 12));
         const positive = l.score.kind === 'over' ? l.score.v >= 0 : l.score.v >= 0;

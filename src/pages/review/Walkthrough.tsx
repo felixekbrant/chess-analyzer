@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Chess } from 'chess.js';
-import { useLiveEngine, evaluateOnce } from '../../hooks/useLiveEngine';
+import { useLiveEngine, evaluateOnce, useWarmEngine } from '../../hooks/useLiveEngine';
 import { useQueueProgress, useSettings } from '../../hooks/useStores';
 import { EngineControls, pill } from '../../components/EngineControls';
 import { hideBestMove } from '../../lib/review/hideBest';
@@ -142,7 +142,8 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
 
   // The live engine runs while you explore (your own moves or an engine line); otherwise the stored analysis is shown.
   const engineWanted = !!explore;
-  const live = useLiveEngine(fen, engineWanted, 20, 3);
+  const live = useLiveEngine(fen, engineWanted);
+  useWarmEngine();
   /** The engine is "open": free exploration from the current position with live analysis. */
   const engineOpen = !!explore && !explore.line;
   const toggleEngine = () => {

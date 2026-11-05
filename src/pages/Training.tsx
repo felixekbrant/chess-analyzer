@@ -6,7 +6,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Chess } from 'chess.js';
 import { db } from '../db/schema';
-import { evaluateOnce, useLiveEngine } from '../hooks/useLiveEngine';
+import { evaluateOnce, useLiveEngine, useWarmEngine } from '../hooks/useLiveEngine';
 import { EngineControls } from '../components/EngineControls';
 import { EngineLines } from '../components/EngineLines';
 import { EngineShortcuts } from '../components/EngineShortcuts';
@@ -424,7 +424,8 @@ function PuzzleView({
   const [engine, setEngine] = useState<({ base: string } & MoveSteps) | null>(null);
   const [peeked, setPeeked] = useState(resume?.peeked ?? false);
   const engineFen = useMemo(() => (engine ? (playUci(engine.base, engine.moves).fens.at(-1) ?? engine.base) : undefined), [engine]);
-  const live = useLiveEngine(engineFen, !!engine, 20, 3);
+  const live = useLiveEngine(engineFen, !!engine);
+  useWarmEngine();
   const game = useLiveQuery(async () => (puzzle.gameIds.length ? db.games.get(puzzle.gameIds[puzzle.gameIds.length - 1]) : undefined), [puzzle.id]);
   // The game's moves: for the opening's lead-up, and the moves before the position on large screens.
   const pgn = usePgn(game?.id);

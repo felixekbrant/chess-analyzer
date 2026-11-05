@@ -128,8 +128,9 @@ class AnalysisQueue {
     this.wakeIfFree();
   }
 
+  /** While the live engine searches (any device), and on phones while the app is in the background. */
   private shouldYield() {
-    return isMobile() && (this.interactive > 0 || (typeof document !== 'undefined' && document.hidden));
+    return this.interactive > 0 || (isMobile() && typeof document !== 'undefined' && document.hidden);
   }
 
   /** Resumes waiting workers if nothing requires them to yield any more. */

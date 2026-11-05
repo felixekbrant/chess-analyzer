@@ -9,6 +9,12 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: '5 Nov 2026',
+    items: [
+      'A stronger live engine: it uses several processor cores where your browser allows it, so its lines are more reliable for the same wait. Puzzle and retry answers are checked more accurately and never take more than a moment.',
+    ],
+  },
+  {
     date: '4 Nov 2026',
     items: [
       'New move-rating badges: bold drawn symbols (!!, !, ?!, ?, ??) with a little depth, the same on every phone.',
