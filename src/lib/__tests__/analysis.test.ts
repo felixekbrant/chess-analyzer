@@ -141,11 +141,13 @@ describe('training', () => {
   it('schedules with SM-2', () => {
     const now = 0;
     const s1 = schedule(NEW_CARD, 'good', now);
-    expect(s1.interval).toBe(1);
+    expect(s1.interval).toBe(4);
+    expect(schedule(NEW_CARD, 'easy', now).interval).toBe(7);
+    expect(schedule(NEW_CARD, 'hard', now).interval).toBe(2);
     const s2 = schedule(s1, 'good', now);
-    expect(s2.interval).toBe(3);
+    expect(s2.interval).toBe(12);
     const s3 = schedule(s2, 'good', now);
-    expect(s3.interval).toBeGreaterThan(6);
+    expect(s3.interval).toBeGreaterThan(24);
     const fail = schedule(s3, 'again', now);
     expect(fail.reps).toBe(0);
     expect(fail.lapses).toBe(1);

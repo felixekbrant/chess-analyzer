@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isSmall, stakeLabel, stakeOf } from './puzzles';
+import { isSmall, puzzlePriority, stakeLabel, stakeOf } from './puzzles';
 import type { MoveAnalysis, Puzzle } from '../types';
 
 const move = (x: Partial<MoveAnalysis>): MoveAnalysis =>
@@ -60,5 +60,17 @@ describe('stakeLabel', () => {
     // Mates are named by the puzzle's own tags.
     expect(stakeLabel(puzzle({ stake: { material: 8, mate: 'missed' } }))).toBeUndefined();
     expect(stakeLabel(puzzle({ stake: { material: 0 } }))).toBeUndefined();
+  });
+});
+
+describe('puzzlePriority', () => {
+  const now = Date.UTC(2026, 10, 6);
+  const DAY = 86400000;
+  const p = (winLoss: number, daysAgo: number, x: Partial<Puzzle> = {}) => ({ winLoss, playedAt: now - daysAgo * DAY, createdAt: 0, occurrences: 1, stake: { material: 0 }, ...x }) as Puzzle;
+  it('prefers recent games, but not strictly', () => {
+    // A little less at stake but played today beats an older one…
+    expect(puzzlePriority(p(25, 0), now)).toBeGreaterThan(puzzlePriority(p(35, 60), now));
+    // …but a much bigger mistake from two months ago still comes first.
+    expect(puzzlePriority(p(70, 60), now)).toBeGreaterThan(puzzlePriority(p(25, 0), now));
   });
 });

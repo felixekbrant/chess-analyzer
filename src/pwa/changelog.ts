@@ -9,6 +9,12 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: '6 Nov 2026',
+    items: [
+      'Puzzles: a solved puzzle now rests for 2–7 days the first time (longer each time after), and the focus drill no longer repeats ones you just solved. Puzzles from your recent games come first.',
+    ],
+  },
+  {
     date: '5 Nov 2026',
     items: [
       'A stronger live engine: it uses several processor cores where your browser allows it, so its lines are more reliable for the same wait. Puzzle and retry answers are checked more accurately and never take more than a moment.',

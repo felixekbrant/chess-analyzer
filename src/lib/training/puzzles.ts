@@ -56,6 +56,21 @@ export function stakeScore(p: Puzzle): number {
   return p.winLoss + 4 * Math.min(p.stake.material, 9) + (p.stake.mate ? 30 : 0);
 }
 
+const DAY = 86400000;
+/** Recent games first, but not strictly: up to +40 for a game played today, fading over weeks. */
+const RECENT_BONUS = 40;
+const RECENT_DAYS = 21;
+
+/**
+ * Which due puzzle to show first: what was at stake, a bonus for recent games (a puzzle from today
+ * beats a slightly bigger one from two months ago, not a much bigger one), and for repeated mistakes.
+ */
+export function puzzlePriority(p: Puzzle, now = Date.now()): number {
+  const played = p.playedAt ?? p.createdAt;
+  const ageDays = Math.max(0, (now - played) / DAY);
+  return stakeScore(p) + RECENT_BONUS * Math.exp(-ageDays / RECENT_DAYS) + 20 * (p.occurrences - 1);
+}
+
 // Two points is often the exchange, not two pawns, so it's given as points.
 const pieceWord = (n: number) => (n >= 9 ? 'a queen' : n >= 5 ? 'a rook' : n >= 3 ? 'a piece' : n >= 2 ? `${Math.round(n)} points` : 'a pawn');
 
@@ -71,17 +86,28 @@ export function stakeLabel(p: Puzzle): string | undefined {
 }
 
 /**
- * Measures puzzles made before stakes existed (and ones restored from older backups), from their
- * game's stored analysis. Only touches puzzles that are missing it, so it's cheap to call often.
+ * Fills in what older puzzles (and ones restored from older backups) are missing: the stake, from
+ * the game's stored analysis, and when the game was played. Puzzles getting their game date for the
+ * first time were scheduled with the old, short gaps; a puzzle solved once then came back the next
+ * day, so that gap is stretched to the new one (4 days). Only touches puzzles that are missing
+ * something, so it's cheap to call often.
  */
 export async function backfillPuzzleStakes(): Promise<number> {
-  const todo = await db.puzzles.filter((p) => !p.stake && !p.lichess && p.gameIds.length > 0).toArray();
+  const todo = await db.puzzles.filter((p) => !p.lichess && p.gameIds.length > 0 && (!p.stake || p.playedAt === undefined)).toArray();
   let n = 0;
   for (const p of todo) {
-    const a = await db.analyses.get(p.gameIds[p.gameIds.length - 1]);
-    const m = a?.moves[p.plies[p.plies.length - 1]];
-    if (!m || m.uci !== p.playedUci) continue;
-    await db.puzzles.update(p.id, { stake: stakeOf(m) });
+    const gameId = p.gameIds[p.gameIds.length - 1];
+    const change: Partial<Puzzle> = {};
+    if (!p.stake) {
+      const a = await db.analyses.get(gameId);
+      const m = a?.moves[p.plies[p.plies.length - 1]];
+      if (m && m.uci === p.playedUci) change.stake = stakeOf(m);
+    }
+    if (p.playedAt === undefined) {
+      change.playedAt = (await db.games.get(gameId))?.endTime ?? p.createdAt;
+      if (p.lastResult === 'solved' && p.reps === 1 && p.interval === 1) Object.assign(change, { interval: 4, due: p.due + 3 * DAY });
+    }
+    await db.puzzles.update(p.id, change);
     if (++n % 20 === 0) await new Promise((r) => setTimeout(r, 0));
   }
   return n;
@@ -131,6 +157,7 @@ export async function upsertPuzzlesFromAnalysis(game: StoredGame, analysis: Game
       winLoss: m.winLoss,
       bestWin: m.winBefore,
       stake: stakeOf(m),
+      playedAt: Math.max(existing?.playedAt ?? 0, game.endTime),
     };
     if (!existing) {
       const p: Puzzle = { id, ...base, gameIds: [game.id], plies: [m.ply], occurrences: 1, createdAt: now, due: now, ...NEW_CARD };

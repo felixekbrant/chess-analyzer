@@ -42,7 +42,7 @@ import { ClassificationBadge } from '../components/ClassificationBadge';
 import { Icon } from '../components/Icon';
 import { Sheet } from '../components/Sheet';
 import { hintText } from '../lib/training/hint';
-import { isSmall, stakeLabel, stakeScore } from '../lib/training/puzzles';
+import { isSmall, puzzlePriority, stakeLabel } from '../lib/training/puzzles';
 import { CapturedPieces } from '../components/CapturedPieces';
 import { materialOf } from '../lib/analysis/material';
 import { EMPTY_FENS, EmptyState, PageHeader, Section } from '../components/ui';
@@ -197,7 +197,7 @@ export default function Training() {
 
   return (
     <div className="max-w-[1100px] space-y-3">
-      <PageHeader title="Training" desktopOnly subtitle="Puzzles made from your own mistakes. Missed ones come back sooner; repeated mistakes come first." />
+      <PageHeader title="Training" desktopOnly subtitle="Puzzles made from your own mistakes, recent games first. Solved ones rest for a few days or more; missed ones come back soon." />
 
       {/* One compact row instead of a wall of filter chips. */}
       <div className="flex items-center gap-2">
@@ -331,7 +331,7 @@ export default function Training() {
             const next = schedule(current, grade);
             const lastResult = grade === 'again' ? 'failed' : 'solved';
             if (current.lichess) await db.extPuzzles.update(current.id, { ...next, lastResult, lichess: { ...current.lichess, seenAt: Date.now() } });
-            else await db.puzzles.update(current.id, { ...next, lastResult });
+            else await db.puzzles.update(current.id, { ...next, lastResult, seenAt: Date.now() });
             if (inSession && sess.stage !== 'done') {
               await addProgress(inDuePart ? 'puzzles' : 'drill');
               setSkipped((s) => [...s, current.id]);
@@ -989,10 +989,19 @@ function LichessInfoPanel({ info }: { info: NonNullable<Puzzle['lichess']> }) {
   );
 }
 
-/** Repeated mistakes first, then the ones with most at stake (material, mate, win chance), then by due date. */
-function sortQueue(pool: Puzzle[]): Puzzle[] {
+/**
+ * Due puzzles first, the most important and most recent games first (see puzzlePriority). When
+ * practising beyond what's due, the ones you did longest ago come next, so recently solved ones
+ * come last instead of first.
+ */
+function sortQueue(pool: Puzzle[], now = Date.now()): Puzzle[] {
   const quiet = (p: Puzzle) => (p.motifs.every((m) => QUIET.includes(m)) ? 1 : 0);
-  return [...pool].sort((a, b) => b.occurrences - a.occurrences || stakeScore(b) - stakeScore(a) || quiet(a) - quiet(b) || a.due - b.due);
+  return [...pool].sort((a, b) => {
+    const ad = a.due <= now, bd = b.due <= now;
+    if (ad !== bd) return ad ? -1 : 1;
+    if (!ad) return a.due - b.due;
+    return puzzlePriority(b, now) - puzzlePriority(a, now) || quiet(a) - quiet(b) || a.due - b.due;
+  });
 }
 
 /** Where today's plan stands: due puzzles first, then the focus drill. */

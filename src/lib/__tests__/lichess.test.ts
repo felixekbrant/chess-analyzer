@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { Chess } from 'chess.js';
 import { bandFor, PACK_AREAS, pickNew, playerRating, readyExt, targetRating, toPuzzle, type Pack, type PackRow } from '../training/lichess';
-import { buildToday, drillCount, drillPuzzles } from '../training/today';
+import type { Puzzle } from '../types';
+import { buildToday, drillCount, drillPuzzles, ownDrillCount, puzzleArea } from '../training/today';
 import type { StoredGame } from '../types';
 
 const with_ = (id: string, rating = ROW[3]): PackRow => [id, ROW[1], ROW[2], rating, ROW[4]];
@@ -63,6 +64,15 @@ describe('focus drill with Lichess puzzles', () => {
   it('adds ready Lichess puzzles after your own', () => {
     expect(drillPuzzles([], 'endgame', ext, now).map((p) => p.id)).toEqual(['lichess:0000D']);
     expect(readyExt(ext, 'opening', now)).toEqual([]);
+  });
+
+  it('leaves out your own puzzles that you solved recently (not due), but counts ones done today', () => {
+    const own = { id: 'own', classification: 'mistake', motifs: ['hung_piece'], phase: 'middlegame', bestWin: 60, winLoss: 20, due: now - 1, occurrences: 1, createdAt: 0 } as unknown as Puzzle;
+    const area = puzzleArea(own)!;
+    const solved = { ...own, id: 'solved', due: now + 4 * 86400000 };
+    expect(drillPuzzles([own, solved], area, [], now).map((p) => p.id)).toEqual(['own']);
+    expect(ownDrillCount([own, solved], area, now)).toBe(1);
+    expect(ownDrillCount([own, { ...solved, seenAt: now - 1000 }], area, now)).toBe(2);
   });
 
   it('counts puzzles done today towards the drill', () => {

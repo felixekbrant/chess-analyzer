@@ -173,6 +173,10 @@ export interface Puzzle {
   lichess?: LichessInfo;
   /** What was at stake (see stakeOf); missing on puzzles made before it existed, until backfilled. */
   stake?: PuzzleStake;
+  /** When the (latest) game it comes from was played, so recent games can come first. */
+  playedAt?: number;
+  /** When it was last done, for today's plan. */
+  seenAt?: number;
 }
 
 export interface PuzzleStake {

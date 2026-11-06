@@ -2,7 +2,7 @@ import { db } from '../../db/schema';
 import { areaOf, type SkillArea } from '../insights/skills';
 import type { Puzzle, StoredGame } from '../types';
 import { readyExt } from './lichess';
-import { stakeScore } from './puzzles';
+import { puzzlePriority } from './puzzles';
 
 export type SessionMinutes = 10 | 15 | 25;
 
@@ -79,21 +79,25 @@ export const puzzleArea = (p: Puzzle): SkillArea | null =>
   areaOf({ classification: p.classification, motifs: p.motifs, phase: p.phase, winBefore: p.bestWin, winLoss: p.winLoss }, false);
 
 /**
- * Puzzles for a focus drill: your own positions first (most at stake first), then Lichess
- * puzzles on the same theme that are new or due again, so the drill doesn't run out.
+ * Puzzles for a focus drill: your own positions that are due (most important and most recent
+ * first; ones you solved recently wait for their turn), then Lichess puzzles on the same theme that
+ * are new or due again, so the drill doesn't run out.
  */
 export function drillPuzzles(puzzles: Puzzle[], area: SkillArea, ext: Puzzle[] = [], now = Date.now()): Puzzle[] {
-  const own = puzzles.filter((p) => puzzleArea(p) === area).sort((a, b) => b.occurrences - a.occurrences || stakeScore(b) - stakeScore(a));
+  const own = puzzles.filter((p) => puzzleArea(p) === area && p.due <= now).sort((a, b) => puzzlePriority(b, now) - puzzlePriority(a, now));
   return [...own, ...readyExt(ext, area, now)];
 }
 
-/** How many of a drill's puzzles are from your own games. */
-export const ownDrillCount = (puzzles: Puzzle[], area: SkillArea) => puzzles.filter((p) => puzzleArea(p) === area).length;
+/** How many of a drill's puzzles are from your own games: due ones, and ones done today (so the plan's count holds still). */
+export const ownDrillCount = (puzzles: Puzzle[], area: SkillArea, now = Date.now()) => {
+  const today = startOfDay(now);
+  return puzzles.filter((p) => puzzleArea(p) === area && (p.due <= now || (p.seenAt ?? 0) >= today)).length;
+};
 
 /** Puzzles today's drill can use: your own, plus Lichess ones that are ready or were done today. */
 export function drillCount(puzzles: Puzzle[], area: SkillArea, ext: Puzzle[] = [], now = Date.now()): number {
   const today = startOfDay(now);
-  return ownDrillCount(puzzles, area) + ext.filter((p) => p.lichess?.area === area && (p.due <= now || (p.lichess.seenAt ?? 0) >= today)).length;
+  return ownDrillCount(puzzles, area, now) + ext.filter((p) => p.lichess?.area === area && (p.due <= now || (p.lichess.seenAt ?? 0) >= today)).length;
 }
 
 export interface TodayItem {
