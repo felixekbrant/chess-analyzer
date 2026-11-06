@@ -11,6 +11,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     date: '6 Nov 2026',
     items: [
+      'Polish: bigger step buttons in lines, your card marked "You" in the game summary, games open in a new tab from the list (desktop), and clearer labels ("125 to analyse", "had +4.6", what the focus percentage means).',
       'Puzzles: a solved puzzle now rests for 2–7 days the first time (longer each time after), and the focus drill no longer repeats ones you just solved. Puzzles from your recent games come first.',
     ],
   },

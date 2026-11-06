@@ -64,7 +64,8 @@ export function StatusIndicator({ variant }: { variant: 'compact' | 'sidebar' })
           !online ? (
             <span className="muted">Offline</span>
           ) : busy || (paused && pending > 0) ? (
-            <span className="tabular-nums">{pending}</span>
+            // "125" alone didn't say what it counts.
+            <span className="tabular-nums">{pending} to analyse</span>
           ) : null
         ) : (
           <span className="truncate">{label}</span>

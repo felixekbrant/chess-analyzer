@@ -1,3 +1,5 @@
+import type { MouseEvent } from 'react';
+import { Link } from 'react-router-dom';
 import { formatPeak, isThrown } from '../lib/games/thrown';
 import { opponentElo, opponentName, userElo } from '../lib/games/build';
 import { analysisQueue } from '../lib/engine/queue';
@@ -7,6 +9,18 @@ import { TimeClassIcon, formatDate } from './ui';
 import { relativeDay } from '../lib/format';
 
 export type SortKey = 'date' | 'accuracy';
+
+const gameHref = (g: StoredGame) => `/game/${encodeURIComponent(g.id)}`;
+
+/**
+ * A plain click opens the game the usual way (onOpen); Ctrl/Cmd-click, a middle click or a long
+ * press use the link itself, so a game can be opened in a new tab.
+ */
+const openPlain = (e: MouseEvent, open: () => void) => {
+  if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+  e.preventDefault();
+  open();
+};
 
 export function GameTable({
   games,
@@ -55,7 +69,10 @@ export function GameTable({
               <td>
                 <div className="flex items-center gap-2">
                   <TimeClassIcon tc={g.timeClass} />
-                  <span className="font-semibold">{g.userColor ? opponentName(g) : `${g.white} – ${g.black}`}</span>
+                  {/* A real link (new tab), while the whole row stays clickable. */}
+                  <Link to={gameHref(g)} className="font-semibold hover:underline" onClick={(e) => { e.stopPropagation(); openPlain(e, () => onOpen(g)); }}>
+                    {g.userColor ? opponentName(g) : `${g.white} – ${g.black}`}
+                  </Link>
                   {opponentElo(g) && <span className="muted">({opponentElo(g)})</span>}
                   <ThrownMark g={g} />
                 </div>
@@ -116,8 +133,8 @@ function AccuracyCell({ g }: { g: StoredGame }) {
 export function ThrownMark({ g }: { g: StoredGame }) {
   if (!isThrown(g)) return null;
   return (
-    <span className="chip !text-[10px] !py-0 shrink-0 whitespace-nowrap" style={{ color: 'var(--attention-ink)' }} title="Lost after being clearly winning">
-      was {formatPeak(g.peakEval!)}
+    <span className="chip !text-[10px] !py-0 shrink-0 whitespace-nowrap" style={{ color: 'var(--attention-ink)' }} title={`Lost after being clearly winning: you were ${formatPeak(g.peakEval!)} up at best`}>
+      had {formatPeak(g.peakEval!)}
     </span>
   );
 }
@@ -185,9 +202,10 @@ export function GameCardList({
           <ul className={`${flush ? '' : 'panel'} divide-y divide-[var(--border)] overflow-hidden`}>
             {grp.games.map((g) => (
               <li key={g.id}>
-                <button
+                <Link
+                  to={gameHref(g)}
                   className="relative w-full flex items-center gap-3 pl-4 pr-3 py-2.5 text-left hover:bg-[var(--panel-2)]"
-                  onClick={() => onOpen(g)}
+                  onClick={(e) => openPlain(e, () => onOpen(g))}
                   data-game-id={g.id}
                 >
                   {/* The result as a thin stripe and a word; your accuracy leads the row. */}
@@ -212,7 +230,7 @@ export function GameCardList({
                     </span>
                     <span className="muted text-[11px] font-semibold">{relativeDay(g.endTime)}</span>
                   </div>
-                </button>
+                </Link>
               </li>
             ))}
           </ul>

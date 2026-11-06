@@ -72,7 +72,7 @@ export function CoachBubble({ children, tone = 'neutral', color }: { children: R
     <div className="flex gap-2 items-start">
       <BrandMark size={40} shape="disc" />
       {/* A steady minimum height, so the board and buttons don't jump as comments change length. */}
-      <div className="relative flex-1 min-w-0 panel p-3 text-sm min-h-[88px]" style={{ borderColor: border }}>
+      <div className="relative flex-1 min-w-0 panel p-3 text-sm min-h-[56px]" style={{ borderColor: border }}>
         <span
           className="absolute -left-1.5 top-3 w-3 h-3 rotate-45 bg-[var(--panel)] border-l border-b"
           style={{ borderColor: border }}

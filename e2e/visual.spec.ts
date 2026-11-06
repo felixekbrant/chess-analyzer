@@ -16,7 +16,7 @@ async function ready(page: Page) {
   await seed(page);
   // Let the post-restore work (model check, biggest-advantage fill-in) finish, and clear the notice.
   await page.goto('./#/games');
-  await expect(page.getByText(/^was \+/).filter({ visible: true }).first()).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(/^had \+/).filter({ visible: true }).first()).toBeVisible({ timeout: 30_000 });
   await page.getByRole('button', { name: 'Dismiss' }).click({ timeout: 2_000 }).catch(() => {});
 }
 

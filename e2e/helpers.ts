@@ -36,7 +36,7 @@ export async function mockChessCom(context: BrowserContext) {
 export async function seed(page: Page) {
   await page.goto('./#/settings');
   await page.locator('input[type="file"]').setInputFiles(SEED_FILE);
-  await expect(page.getByText(/Restored \d+ games from backup/)).toBeVisible();
+  await expect(page.getByText(/\d+ games restored/)).toBeVisible();
 }
 
 /** Chooses an option in one of the app's pickers (a pill button that opens a sheet of options). */

@@ -170,7 +170,16 @@ Ordered by how much I think each helps you, with a recommendation for each.
 | 6 | Explanations written by the app (F) | medium to large |
 | later | Defend puzzles (G), fast puzzles (H), Insights back if AI improves | |
 
-## Decisions for you
+## Decisions (6 Nov: "go with your recommendations")
+
+- Weaknesses in the tab bar; Insights and Openings under More.
+- Play from here: three strengths (~1100, ~1800, full). A "converted" ending stops the game, with a
+  "Keep playing" button for playing on to mate.
+- Puzzles in the order A, B, D, C, E, F (G and H later).
+- Rating chart and stat tiles move off Home.
+- "Balanced" analysis speed is the default on desktop.
+
+## Decisions for you (as asked)
 
 1. **Navigation:** Weaknesses in the tab bar, with Insights and Openings under More? (Recommended.)
 2. **Play from here, engine strength:** three levels (your level ~1100, strong ~1800, full)? And should

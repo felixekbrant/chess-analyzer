@@ -379,7 +379,7 @@ export default function Insights() {
                     <div className="flex flex-wrap gap-1">
                       {thrown.slice(0, 6).map((g) => (
                         <Link key={g.id} className="chip !py-1 !px-2.5 hover:brightness-110" to={`/game/${encodeURIComponent(g.id)}`} state={backTo('Insights')}>
-                          {opponentName(g)} <span style={{ color: 'var(--attention-ink)' }}>was {formatPeak(g.peakEval!)}</span>
+                          {opponentName(g)} <span style={{ color: 'var(--attention-ink)' }}>had {formatPeak(g.peakEval!)}</span>
                         </Link>
                       ))}
                     </div>

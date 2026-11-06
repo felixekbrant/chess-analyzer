@@ -84,13 +84,21 @@ export function ReviewSummary({
               {(['w', 'b'] as Color[]).map((c) => (
                 <div
                   key={c}
-                  className="pop rounded-xl p-3 text-center"
-                  style={{ background: c === 'w' ? '#f4f2ee' : '#1f1d1b', color: c === 'w' ? '#1f1d1b' : '#f4f2ee' }}
+                  className="pop rounded-xl p-3 text-center relative"
+                  style={{
+                    background: c === 'w' ? '#f4f2ee' : '#1f1d1b',
+                    color: c === 'w' ? '#1f1d1b' : '#f4f2ee',
+                    // Your card is the one that stands out, whichever colour you played.
+                    boxShadow: me === c ? '0 0 0 2px var(--felt)' : undefined,
+                    opacity: me && me !== c ? 0.85 : 1,
+                  }}
                 >
-                  <div className="text-xs font-semibold opacity-70 truncate">
-                    {c === 'w' ? game.white : game.black}
-                    {me === c ? ' (you)' : ''}
-                  </div>
+                  {me === c && (
+                    <span className="absolute -top-2 left-1/2 -translate-x-1/2 rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-white" style={{ background: 'var(--felt)' }}>
+                      You
+                    </span>
+                  )}
+                  <div className="text-xs font-semibold opacity-70 truncate">{c === 'w' ? game.white : game.black}</div>
                   <div className="text-4xl font-black tabular-nums tracking-tight">{analysis.accuracy[c].toFixed(1)}</div>
                   <div className="text-[10px] font-bold uppercase tracking-wider opacity-60">accuracy</div>
                   {game.chesscomAccuracy && (

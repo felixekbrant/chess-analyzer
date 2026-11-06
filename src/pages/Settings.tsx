@@ -275,7 +275,7 @@ export default function SettingsPage() {
                   if (!f) return;
                   try {
                     const n = await importBackup(f);
-                    toast(`Restored ${n} games from backup`, 'success');
+                    toast(`${n} games restored`, 'success');
                     // Games the backup hadn't analysed yet are picked up straight away.
                     await analysisQueue.refreshCount();
                     void analysisQueue.kick();

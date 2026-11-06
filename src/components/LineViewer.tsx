@@ -73,11 +73,11 @@ export function LineViewer({
 
   const controlRow = controls && (
       <div className="flex items-center gap-2 mt-2">
-        <button className="btn !py-1.5" onClick={() => onIndex(Math.max(0, index - 1))} disabled={index === 0} aria-label="Previous move" title="Previous move (←)">
+        <button className="btn !py-1.5 min-h-11 !px-4" onClick={() => onIndex(Math.max(0, index - 1))} disabled={index === 0} aria-label="Previous move" title="Previous move (←)">
           <Icon name="prev" size={16} />
         </button>
         <button
-          className="btn btn-primary !py-1.5 flex-1 justify-center"
+          className="btn btn-primary !py-1.5 min-h-11 flex-1 justify-center"
           onClick={() => {
             if (atEnd) {
               onIndex(0);
@@ -87,7 +87,7 @@ export function LineViewer({
         >
           <Icon name={playing ? 'pause' : atEnd ? 'retry' : 'play'} size={16} /> {playing ? 'Pause' : atEnd ? 'Replay' : 'Play'}
         </button>
-        <button className="btn !py-1.5" onClick={() => onIndex(Math.min(shown, index + 1))} disabled={atEnd} aria-label="Next move" title="Next move (→)">
+        <button className="btn !py-1.5 min-h-11 !px-4" onClick={() => onIndex(Math.min(shown, index + 1))} disabled={atEnd} aria-label="Next move" title="Next move (→)">
           <Icon name="next" size={16} />
         </button>
       </div>

@@ -247,7 +247,7 @@ export function FocusCard({
           <div className="muted text-[11px] font-extrabold uppercase tracking-wider">
             Focus · day {focusDay(f)}/{FOCUS_DAYS}
           </div>
-          <button className="font-extrabold text-lg leading-tight text-left truncate max-w-full hover:underline" onClick={() => setPicking(true)} title="Change focus">
+          <button className="font-extrabold text-lg leading-tight text-left truncate max-w-full hover:underline py-2 -my-2" onClick={() => setPicking(true)} title="Change focus">
             {meta.label}
           </button>
           {r && (
@@ -269,6 +269,7 @@ export function FocusCard({
               )}
             </div>
           )}
+          {r && r.typical !== undefined && rating ? <div className="muted text-[11px] mt-0.5">Win chance you lose per game in this area</div> : null}
         </div>
         <div className="flex flex-col gap-1.5 shrink-0">
           {f.area !== 'time' && (

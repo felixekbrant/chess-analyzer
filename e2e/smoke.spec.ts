@@ -415,7 +415,7 @@ test('backup: export is compressed and restores into an empty app', async ({ pag
   const p2 = await fresh.newPage();
   await p2.goto('./#/settings');
   await p2.locator('input[type="file"]').setInputFiles({ name: 'backup.json.gz', mimeType: 'application/gzip', buffer: bytes });
-  await expect(p2.getByText('Restored 29 games from backup')).toBeVisible();
+  await expect(p2.getByText('29 games restored')).toBeVisible();
   await p2.goto('./#/games');
   await expect(p2.locator('[data-game-id]')).not.toHaveCount(0);
   await fresh.close();
@@ -425,11 +425,11 @@ test('thrown games: lost from +3 or better, as a filter, in Insights and as puzz
   await seed(page);
   // The biggest advantage is filled in for restored games in the background.
   await page.goto('./#/games');
-  await expect(page.getByText(/^was \+\d+\.\d$/).filter({ visible: true })).toHaveCount(2, { timeout: 30_000 });
+  await expect(page.getByText(/^had \+\d+\.\d$/).filter({ visible: true })).toHaveCount(2, { timeout: 30_000 });
 
   await pick(page, 'Result', 'Thrown games (lost from +3)');
   await expect(page.locator('[data-game-id]')).toHaveCount(2);
-  await expect(page.getByText('was +7.5').filter({ visible: true })).toBeVisible();
+  await expect(page.getByText('had +7.5').filter({ visible: true })).toBeVisible();
 
   await page.goto('./#/insights?tab=results');
   await expect(page.getByText('Thrown games · lost from +3 or better')).toBeVisible();

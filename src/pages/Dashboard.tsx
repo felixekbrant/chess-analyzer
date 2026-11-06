@@ -78,7 +78,7 @@ export default function Dashboard() {
             <MiniFigure label="Accuracy" value={ov.analyzed ? fmtPct(ov.accuracy, 1) : '–'} sub={ov.analyzed ? `${ov.analyzed} analysed` : 'analysing…'} />
             <MiniFigure label="Score" value={fmtPct(ov.score)} sub={`${ov.wins}W ${ov.draws}D ${ov.losses}L`} />
           </div>
-          <Section title="Recent games" right={<Link to="/games" className="text-sm font-semibold muted hover:text-[var(--text)]">All games →</Link>}>
+          <Section title="Recent games" right={<Link to="/games" className="text-sm font-semibold muted hover:text-[var(--text)] py-2.5 px-2 -my-2.5 -mx-2">All games →</Link>}>
             <div className="-mx-4 -mb-4">
               <GameCardList games={recentGames} onOpen={open} grouped={false} flush />
             </div>
@@ -88,7 +88,7 @@ export default function Dashboard() {
             right={
               ratingData.length > 1 ? (
                 <span className="text-sm font-bold tabular-nums">
-                  {ratingData[ratingData.length - 1].rating} <span className="muted font-semibold">{ratingDelta(ratingData).replace(' over 30 days', '')}</span>
+                  {ratingData[ratingData.length - 1].rating} <span className="muted font-semibold">{ratingDelta(ratingData).replace(' over 30 days', ' in 30 days')}</span>
                 </span>
               ) : undefined
             }
@@ -322,7 +322,7 @@ function ProgressCard({ analysed, latest }: { analysed: number; latest?: { id: s
           <div className="muted text-sm tabular-nums">
             {importing
               ? `Month ${sync.progress!.monthsDone + 1} of ${sync.progress!.monthsTotal}${sync.progress!.newGames ? ` · ${sync.progress!.newGames} games` : ''}`
-              : `${analysed} of ${total} done${etaSeconds !== undefined ? ` · ${formatEta(etaSeconds)} left` : ''}`}
+              : `${analysed} of ${total} done · ${etaSeconds !== undefined ? `${formatEta(etaSeconds)} left` : 'working out the time left'}`}
           </div>
         </div>
       </div>
