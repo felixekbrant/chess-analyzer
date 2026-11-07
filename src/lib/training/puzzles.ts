@@ -93,15 +93,21 @@ export function stakeLabel(p: Puzzle): string | undefined {
  * something, so it's cheap to call often.
  */
 export async function backfillPuzzleStakes(): Promise<number> {
-  const todo = await db.puzzles.filter((p) => !p.lichess && p.gameIds.length > 0 && (!p.stake || p.playedAt === undefined)).toArray();
+  const todo = await db.puzzles
+    .filter((p) => !p.lichess && p.gameIds.length > 0 && (!p.stake || p.playedAt === undefined || p.solutionV !== SOLUTION_VERSION))
+    .toArray();
   let n = 0;
   for (const p of todo) {
     const gameId = p.gameIds[p.gameIds.length - 1];
     const change: Partial<Puzzle> = {};
-    if (!p.stake) {
+    if (!p.stake || p.solutionV !== SOLUTION_VERSION) {
       const a = await db.analyses.get(gameId);
       const m = a?.moves[p.plies[p.plies.length - 1]];
-      if (m && m.uci === p.playedUci) change.stake = stakeOf(m);
+      if (m && m.uci === p.playedUci) {
+        if (!p.stake) change.stake = stakeOf(m);
+        // Puzzles made before longer solutions: the line to find is rebuilt.
+        if (p.solutionV !== SOLUTION_VERSION) Object.assign(change, { solutionUci: solutionFor(m), solutionV: SOLUTION_VERSION });
+      }
     }
     if (p.playedAt === undefined) {
       change.playedAt = (await db.games.get(gameId))?.endTime ?? p.createdAt;
@@ -122,16 +128,46 @@ export function puzzleMoves(analysis: GameAnalysis, userColor: 'w' | 'b'): MoveA
   );
 }
 
+/** Bumped when solutionFor changes, so stored puzzles get their solutions rebuilt. */
+export const SOLUTION_VERSION = 2;
+
 /**
- * The line the user has to find: one move normally, or the whole mating line (up to 3 of the
- * user's moves) when the best line is a forced mate. Always ends on a user move.
+ * The line the user has to find, always ending on a user move:
+ * - a forced mate: the whole mating line (up to 3 of the user's moves);
+ * - otherwise the best move, continued while the win isn't in the bag yet: as long as the next move
+ *   of yours in the engine's line is forcing (a capture or a check) and wins more material once the
+ *   opponent has replied (a fork: the check, then taking the queen). Up to 3 of the user's moves.
  */
 export function solutionFor(m: MoveAnalysis): string[] {
   const isMate = m.evalBefore.kind === 'mate' && (m.color === 'w' ? m.evalBefore.v > 0 : m.evalBefore.v < 0);
-  if (!isMate) return m.bestLineUci.slice(0, 1);
-  const max = Math.min(m.bestLineUci.length, 5);
-  const len = max % 2 === 1 ? max : max - 1;
-  return m.bestLineUci.slice(0, Math.max(1, len));
+  const line = m.bestLineUci;
+  if (isMate) {
+    const max = Math.min(line.length, 5);
+    const len = max % 2 === 1 ? max : max - 1;
+    return line.slice(0, Math.max(1, len));
+  }
+  if (!m.fenBefore) return line.slice(0, 1);
+  const c = new Chess(m.fenBefore);
+  const start = materialBalance(m.fenBefore, m.color);
+  const plies: Move[] = [];
+  // Material after each of the opponent's replies (index k: after your move k+1 and its answer).
+  const settled: number[] = [];
+  for (const uci of line.slice(0, 6)) {
+    try {
+      plies.push(c.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] || undefined }));
+    } catch {
+      break;
+    }
+    if (plies.length % 2 === 0) settled.push(materialBalance(c.fen(), m.color) - start);
+  }
+  let moves = 1;
+  while (moves < 3) {
+    const next = plies[2 * moves];
+    const after = settled[moves];
+    if (!next || after === undefined || !(next.captured || next.san.includes('+')) || after <= (settled[moves - 1] ?? 0)) break;
+    moves++;
+  }
+  return line.slice(0, 2 * moves - 1);
 }
 
 export function puzzleId(m: Pick<MoveAnalysis, 'fenBefore' | 'uci'>) {
@@ -157,6 +193,7 @@ export async function upsertPuzzlesFromAnalysis(game: StoredGame, analysis: Game
       winLoss: m.winLoss,
       bestWin: m.winBefore,
       stake: stakeOf(m),
+      solutionV: SOLUTION_VERSION,
       playedAt: Math.max(existing?.playedAt ?? 0, game.endTime),
     };
     if (!existing) {

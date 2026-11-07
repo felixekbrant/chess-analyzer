@@ -179,6 +179,15 @@ Ordered by how much I think each helps you, with a recommendation for each.
 - Rating chart and stat tiles move off Home.
 - "Balanced" analysis speed is the default on desktop.
 
+## Progress
+
+- Steps 1–3 done (6–7 Nov).
+- Step 4 done (7 Nov): puzzles play on while a capture or check keeps winning material (up to three of
+  your moves; any move that keeps the win counts); "Spot the threat" before puzzles where your game move
+  ignored a threat, with its own set in the filter. "Play it out" (A) shipped with step 3. Spot the threat
+  uses "ignored opponent's threat" only: in "hung a piece" puzzles the danger comes after your move, so
+  there's nothing to spot before it.
+
 ## Decisions for you (as asked)
 
 1. **Navigation:** Weaknesses in the tab bar, with Insights and Openings under More? (Recommended.)

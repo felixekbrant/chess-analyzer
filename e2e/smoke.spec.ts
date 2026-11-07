@@ -54,7 +54,7 @@ async function boardPlacement(page: Page, id: string): Promise<string> {
 function readPuzzles(page: Page) {
   return page.evaluate(
     () =>
-      new Promise<{ id: string; fen: string; solutionUci: string[] }[]>((resolve, reject) => {
+      new Promise<{ id: string; fen: string; solutionUci: string[]; motifs?: string[] }[]>((resolve, reject) => {
         const req = indexedDB.open('chess-analyzer');
         req.onerror = () => reject(req.error);
         req.onsuccess = () => {
@@ -809,4 +809,65 @@ test('play from here: a decisive lead ends as converted, and you can keep playin
   await expect(page.getByText('Your move.')).toBeVisible({ timeout: 15000 });
   const saved = await page.evaluate(() => new Promise<number>((r) => { const q = indexedDB.open('chess-analyzer'); q.onsuccess = () => { const g = q.result.transaction('kv').objectStore('kv').get('playouts'); g.onsuccess = () => r((g.result?.value ?? []).length); }; }));
   expect(saved).toBe(1);
+});
+
+/** Makes one puzzle the only one due, straight in the app's IndexedDB. */
+function onlyDue(page: Page, id: string) {
+  return page.evaluate(
+    (id) =>
+      new Promise<void>((resolve) => {
+        const q = indexedDB.open('chess-analyzer');
+        q.onsuccess = () => {
+          const tx = q.result.transaction('puzzles', 'readwrite');
+          const store = tx.objectStore('puzzles');
+          const all = store.getAll();
+          all.onsuccess = () => all.result.forEach((p) => store.put({ ...p, due: p.id === id ? 0 : Date.now() + 1e10 }));
+          tx.oncomplete = () => resolve();
+        };
+      }),
+    id,
+  );
+}
+
+test('puzzles: a longer puzzle needs your second move too, after their reply', async ({ page }) => {
+  await seed(page);
+  // Older puzzles get their longer solutions in the background, a moment after loading.
+  await page.goto('./#/training');
+  // A tactic one (not a small positional one, and without the threat question first).
+  const isLong = (p: { solutionUci: string[]; motifs?: string[] }) =>
+    p.solutionUci.length >= 3 && !!p.motifs?.some((m) => m === 'allowed_tactic' || m === 'hung_piece') && !p.motifs.includes('ignored_threat');
+  await expect.poll(async () => (await readPuzzles(page)).filter(isLong).length, { timeout: 15000 }).toBeGreaterThan(0);
+  const id = (await readPuzzles(page)).find(isLong)!.id;
+  // Only that puzzle is due.
+  await onlyDue(page, id);
+  await page.reload();
+  await expect(page.getByText(/to move$/)).toBeVisible();
+  const placement = await boardPlacement(page, 'puzzle');
+  const current = (await readPuzzles(page)).find((p) => p.id === id)!;
+  expect(current.fen.split(' ')[0]).toBe(placement);
+  expect(current, 'the long puzzle is shown').toBeTruthy();
+  const [mine, reply, second] = current.solutionUci;
+  await clickSquare(page, mine.slice(0, 2));
+  await clickSquare(page, mine.slice(2, 4));
+  // Not solved yet: their reply comes, then it's your move again.
+  await expect(page.getByText(/^✔ /)).toHaveCount(0);
+  await expect.poll(() => page.locator(`[data-square="${reply.slice(2, 4)}"] [id^="puzzle-piece-"]`).count()).toBe(1);
+  await page.waitForTimeout(400);
+  await clickSquare(page, second.slice(0, 2));
+  await clickSquare(page, second.slice(2, 4));
+  await expect(page.getByText(/^✔ /)).toBeVisible();
+});
+
+test('puzzles: spot the threat first, then find your move', async ({ page }) => {
+  await seed(page);
+  await page.goto('./#/training?threat=1');
+  await expect(page.getByText('First: what does your opponent threaten?')).toBeVisible();
+  // Your moves wait until you've answered; the usual buttons are hidden.
+  await expect(page.getByRole('button', { name: 'Hint' })).toBeHidden();
+  // A wrong guess says what the threat was.
+  await page.getByRole('button', { name: 'They threaten mate' }).click();
+  await expect(page.getByText(/^(✔ Right|Not quite): your opponent threatens/)).toBeVisible();
+  await page.getByRole('button', { name: /Now find your move/ }).click();
+  await expect(page.getByRole('button', { name: 'Hint' })).toBeVisible();
+  await expect(page.getByText('First: what does your opponent threaten?')).toHaveCount(0);
 });

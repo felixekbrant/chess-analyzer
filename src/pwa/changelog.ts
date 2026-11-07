@@ -11,6 +11,8 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     date: '7 Nov 2026',
     items: [
+      'Puzzles go further: when a tactic wins material over a few moves, you now play it to the end (up to three of your moves), not just the first move. Any move that keeps the win is accepted.',
+      'Spot the threat: in puzzles where your game move ignored a threat, you first tap what your opponent threatens (the piece they\'re after, or mate), then find your move. It trains the habit of checking their last move first. There\'s a set for it in the puzzle filter.',
       'Play from here: play on against the engine (your level, strong or full strength) from any move in a review, from your corrected mistake, from a solved puzzle ("Play it out"), or from where you were winning in a thrown game ("Win it again"). Take-backs, hints, a "converted" ending once you\'re decisively ahead, and afterwards where it slipped.',
       'A new Weaknesses tab: your top three weak areas compared with players at your rating, moments from your games that show them, a way to train each, and whether it\'s getting better. Insights and Openings moved under More, and Home is now just today\'s plan, your focus and your recent games.',
     ],

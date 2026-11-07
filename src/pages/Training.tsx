@@ -16,7 +16,7 @@ import { usePgn, useSettings } from '../hooks/useStores';
 import { useStableCallback } from '../hooks/useStableCallback';
 import { schedule, type Grade } from '../lib/training/srs';
 import { winPercentFor } from '../lib/analysis/winprob';
-import { playUci, uciToSan } from '../lib/analysis/board';
+import { PIECE_NAME, playUci, uciToSan } from '../lib/analysis/board';
 import { explainLine } from '../lib/analysis/lines';
 import { LineViewer } from '../components/LineViewer';
 import { parsePgn } from '../lib/pgn/parse';
@@ -41,7 +41,7 @@ import { Board } from '../components/Board';
 import { ClassificationBadge } from '../components/ClassificationBadge';
 import { Icon } from '../components/Icon';
 import { Sheet } from '../components/Sheet';
-import { hintText } from '../lib/training/hint';
+import { hintText, threatOf } from '../lib/training/hint';
 import { isSmall, puzzlePriority, stakeLabel } from '../lib/training/puzzles';
 import { logPuzzleTry } from '../lib/training/puzzleLog';
 import { playHref } from '../lib/play/playouts';
@@ -85,6 +85,7 @@ export default function Training() {
   const repeated = params.get('repeated') === '1';
   const thrownOnly = params.get('thrown') === '1';
   const smallOnly = params.get('small') === '1';
+  const threatOnly = params.get('threat') === '1';
   const area = params.get('area') as SkillArea | null;
   const inSession = params.get('session') === 'today';
   const [memo] = useState(() => (pageMemo && pageMemo.search === params.toString() && Date.now() - pageMemo.at < RESUME_MS ? pageMemo : null));
@@ -114,9 +115,10 @@ export default function Training() {
           (!opening || (p.opening ?? '').startsWith(opening)) &&
           (!repeated || p.occurrences >= 2) &&
           (!thrownOnly || p.gameIds.some((id) => thrownIds?.has(id))) &&
+          (!threatOnly || hasThreat(p)) &&
           (!area || puzzleArea(p) === area),
       ),
-    [puzzles, allPuzzles, smallOnly, motif, phase, opening, repeated, area, thrownOnly, thrownIds],
+    [puzzles, allPuzzles, smallOnly, threatOnly, motif, phase, opening, repeated, area, thrownOnly, thrownIds],
   );
   const due = filtered.filter((p) => p.due <= now);
   const queue = useMemo(() => {
@@ -164,7 +166,10 @@ export default function Training() {
               ? 'Thrown games'
               : smallOnly
                 ? 'Small positional ones'
-                : 'All puzzles';
+                : threatOnly
+                  ? 'Spot the threat'
+                  : 'All puzzles';
+  const threatCount = useMemo(() => (puzzles ?? []).filter(hasThreat).length, [puzzles]);
   const thrownCount = useMemo(() => (puzzles ?? []).filter((p) => p.gameIds.some((id) => thrownIds?.has(id))).length, [puzzles, thrownIds]);
 
   const motifCounts = useMemo(() => {
@@ -239,12 +244,15 @@ export default function Training() {
       <Sheet open={focusOpen} onClose={() => setFocusOpen(false)} title="What to practise">
         <div className="grid gap-1">
           <FocusItem
-            active={!motif && !phase && !opening && !repeated && !area && !thrownOnly && !smallOnly}
+            active={!motif && !phase && !opening && !repeated && !area && !thrownOnly && !smallOnly && !threatOnly}
             onClick={() => setFocus({})}
             label="All puzzles"
             sub={!settings.smallPuzzles && smallCount ? 'The ones with something at stake: material, mate or a big swing' : undefined}
             count={puzzles?.length}
           />
+          {threatCount > 0 && (
+            <FocusItem active={threatOnly} onClick={() => setFocus({ threat: '1' })} label="Spot the threat" sub="Say what your opponent threatens, then find your move" count={threatCount} />
+          )}
           {thrownCount > 0 && (
             <FocusItem active={thrownOnly} onClick={() => setFocus({ thrown: '1' })} label="Thrown games" sub="Lost from +3 or better" count={thrownCount} />
           )}
@@ -362,6 +370,9 @@ export default function Training() {
     </div>
   );
 }
+
+/** A puzzle that starts with "what does your opponent threaten?" (your game move ignored a threat). */
+const hasThreat = (p: Puzzle) => !p.lichess && p.motifs.includes('ignored_threat') && !!threatOf(p.fen, p.fen.split(' ')[1] as Color);
 
 function FocusItem({ active, onClick, label, count, sub }: { active: boolean; onClick: () => void; label: string; count?: number; sub?: string }) {
   return (
@@ -562,10 +573,12 @@ function PuzzleView({
       .then((e) => {
         const color = puzzle.fen.split(' ')[1] as 'w' | 'b';
         const win = e.lines[0] ? winPercentFor(e.lines[0].score, color) : 0;
-        if (puzzle.solutionUci.length === 1 && win >= puzzle.bestWin - 3) {
+        // Another move that keeps the win is fine too, at any step of a longer puzzle (it then ends
+        // there), except in a mating puzzle, where the point is the mate.
+        if ((puzzle.solutionUci.length === 1 || puzzle.stake?.mate !== 'missed') && win >= puzzle.bestWin - 3) {
           setAttempt(null);
           apply(uci);
-          solved(uci, 'Also good! The engine rates this about as highly as its own choice.');
+          solved(uci, step > 0 ? 'Also good! That keeps the win just as well.' : 'Also good! The engine rates this about as highly as its own choice.');
         } else {
           wrong(uci, 'Not the best move here. Try again.');
         }
@@ -602,6 +615,24 @@ function PuzzleView({
     return Date.now() - started.current < 8000 ? 'easy' : 'good';
   };
   const done = state === 'solved' || state === 'revealed';
+
+  // "Spot the threat": when your game move ignored a threat, first say what they threaten, then find
+  // your move. Trains the habit of checking the opponent's last move before looking for your own.
+  const threat = useMemo(
+    () => (!puzzle.lichess && puzzle.motifs.includes('ignored_threat') ? threatOf(puzzle.fen, puzzle.fen.split(' ')[1] as Color) : undefined),
+    [puzzle],
+  );
+  const [threatAsk, setThreatAsk] = useState<'ask' | 'right' | 'wrong' | 'shown' | null>(() => (threat && !resume ? 'ask' : null));
+  const onThreatTap = useStableCallback((sq: string) => {
+    if (threatAsk !== 'ask' || !threat) return;
+    setThreatAsk(threat.squares.includes(sq) ? 'right' : 'wrong');
+    playSound(threat.squares.includes(sq) ? 'correct' : 'wrong');
+  });
+  const threatText = threat
+    ? threat.kind === 'mate'
+      ? `your opponent threatens mate with ${threat.san}.`
+      : `your opponent threatens ${threat.san}, winning your ${PIECE_NAME[threat.target!.type]} on ${threat.target!.square}.`
+    : '';
   const clean = state === 'solved' && !mistakes && !hint && !peeked;
 
   // The Engine switch sits in the page's top row, beside the filter.
@@ -654,6 +685,13 @@ function PuzzleView({
 
   const onKey = useStableCallback((e: KeyboardEvent) => {
     if ((e.target as HTMLElement).tagName === 'INPUT') return;
+    if (threatAsk) {
+      if (threatAsk !== 'ask' && (e.key === 'Enter' || e.key.toLowerCase() === 'n')) {
+        setThreatAsk(null);
+        e.preventDefault();
+      }
+      return;
+    }
     const step = stepKey(e);
     if (engine) {
       // The engine board steps like an analysis board; Esc goes back to the puzzle.
@@ -736,7 +774,8 @@ function PuzzleView({
                 id="puzzle"
                 fen={lineFen ?? attempt?.fen ?? fen}
                 orientation={toMove}
-                onMove={!lineFen && !attempt && (state === 'solving' || state === 'wrong') ? onMove : undefined}
+                onMove={!threatAsk && !lineFen && !attempt && (state === 'solving' || state === 'wrong') ? onMove : undefined}
+                onSquareTap={threatAsk === 'ask' ? onThreatTap : undefined}
                 lastMove={
                   lineFen
                     ? lineLast
@@ -749,6 +788,8 @@ function PuzzleView({
                 lastMoveTint={attempt?.failed && !lineFen ? '#e5533d' : undefined}
                 marker={lineFen ? undefined : marker}
                 highlight={highlight}
+                // After "what do they threaten?": their threat as a red arrow.
+                arrows={threat && threatAsk && threatAsk !== 'ask' ? [{ from: threat.uci.slice(0, 2), to: threat.uci.slice(2, 4), color: 'rgba(229,83,61,0.9)' }] : undefined}
               />
             )}
             <MaterialRow fen={(engine && engineFen) || lineFen || fen} side={toMove === 'white' ? 'w' : 'b'} />
@@ -848,7 +889,42 @@ function PuzzleView({
             onPlay={(moves) => setEngine({ ...engine, moves })}
           />
         )}
-        <div className={`flex gap-2 ${engine ? 'hidden' : ''}`}>
+        {threatAsk && !engine && (
+          // Before the puzzle itself: what is your opponent threatening?
+          <div className="panel p-3 space-y-2.5" role="status" style={{ boxShadow: `inset 3px 0 0 ${threatAsk === 'right' ? 'var(--win)' : threatAsk === 'wrong' ? 'var(--loss)' : 'var(--attention)'}` }}>
+            {threatAsk === 'ask' ? (
+              <>
+                <p className="font-semibold">First: what does your opponent threaten?</p>
+                <p className="muted text-sm">Tap the piece of yours they're after, or say they threaten mate.</p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    className="btn !py-2 !text-sm"
+                    onClick={() => {
+                      setThreatAsk(threat?.kind === 'mate' ? 'right' : 'wrong');
+                      playSound(threat?.kind === 'mate' ? 'correct' : 'wrong');
+                    }}
+                  >
+                    They threaten mate
+                  </button>
+                  <button className="btn !py-2 !text-sm" onClick={() => setThreatAsk('shown')}>
+                    <Icon name="eye" size={14} /> Show me
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="font-semibold" style={{ color: threatAsk === 'right' ? 'var(--felt-ink)' : threatAsk === 'wrong' ? 'var(--loss-ink)' : undefined }}>
+                  {threatAsk === 'right' ? '✔ Right: ' : threatAsk === 'wrong' ? 'Not quite: ' : 'The threat: '}
+                  {threatText}
+                </p>
+                <button className="btn btn-primary w-full justify-center !py-3" onClick={() => setThreatAsk(null)}>
+                  Now find your move <Icon name="next" size={18} />
+                </button>
+              </>
+            )}
+          </div>
+        )}
+        <div className={`flex gap-2 ${engine || threatAsk ? 'hidden' : ''}`}>
           {engine ? null : !done ? (
             <>
               <button className="btn flex-1 justify-center !py-3" onClick={moreHint} disabled={hintLevel >= 2} title={hint ? 'Show the piece (h)' : 'Hint (h)'} aria-label={hint ? 'More hint' : 'Hint'}>

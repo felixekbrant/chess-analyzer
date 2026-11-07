@@ -179,6 +179,8 @@ export interface Puzzle {
   playedAt?: number;
   /** When it was last done, for today's plan. */
   seenAt?: number;
+  /** The solutionFor version its solution was built with (see SOLUTION_VERSION). */
+  solutionV?: number;
 }
 
 export interface PuzzleStake {

@@ -55,3 +55,34 @@ export function hintText(fen: string, san: string | undefined, you: Color): stri
   if (attacked.length) return say(attacked[0]);
   return 'No capture or check here: look for a quiet move that improves one of your pieces.';
 }
+
+/** What your opponent threatens: the move they'd play if it were their turn. */
+export interface Threat {
+  kind: 'mate' | 'piece';
+  /** Their move, as UCI and SAN. */
+  uci: string;
+  san: string;
+  /** Squares that count as the answer: the pieces they could win, or your king for a mate. */
+  squares: string[];
+  /** For a piece: the most valuable one they'd win. */
+  target?: { type: string; square: string };
+}
+
+/**
+ * The threat in a position where it's your move (for "Spot the threat"): a mate in one, or the
+ * most valuable piece of yours they could win. Undefined when there's none, or you're in check.
+ */
+export function threatOf(fen: string, you: Color): Threat | undefined {
+  if (fen.split(' ')[1] !== you) return undefined;
+  const f = nullMoveFen(fen);
+  if (!f) return undefined;
+  const mate = new Chess(f).moves({ verbose: true }).find((m) => m.san.endsWith('#'));
+  if (mate) {
+    const king = new Chess(fen).board().flat().find((p) => p && p.type === 'k' && p.color === you);
+    return { kind: 'mate', uci: mate.from + mate.to + (mate.promotion ?? ''), san: mate.san, squares: king ? [king.square] : [] };
+  }
+  const caps = winningCaptures(f, other(you)).sort((a, b) => PIECE_VALUE[b.captured!] - PIECE_VALUE[a.captured!]);
+  if (!caps.length) return undefined;
+  const best = caps[0];
+  return { kind: 'piece', uci: best.from + best.to, san: best.san, squares: [...new Set(caps.map((c) => c.to))], target: { type: best.captured!, square: best.to } };
+}

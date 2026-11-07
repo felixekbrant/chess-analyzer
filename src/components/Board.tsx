@@ -29,12 +29,14 @@ interface Props {
   lastMoveTint?: string;
   /** Called with uci; return true if the move was accepted. Enables dragging and tap-to-move when set. Keep it stable (useStableCallback). */
   onMove?: (uci: string) => boolean;
+  /** Tapping a square answers a question instead of moving (e.g. "what do they threaten?"). Keep it stable. */
+  onSquareTap?: (square: string) => void;
   /** Play a move sound when the position advances by one move (default true). */
   sound?: boolean;
   id?: string;
 }
 
-function BoardImpl({ fen, orientation = 'white', arrows = [], lastMove, badge, marker, highlight, lastMoveTint, onMove, sound = true, id = 'board' }: Props) {
+function BoardImpl({ fen, orientation = 'white', arrows = [], lastMove, badge, marker, highlight, lastMoveTint, onMove, onSquareTap, sound = true, id = 'board' }: Props) {
   const settings = useSettings();
   const theme = BOARD_THEMES[settings.boardTheme] ?? BOARD_THEMES.green;
   setSoundEnabled(settings.sounds);
@@ -118,6 +120,7 @@ function BoardImpl({ fen, orientation = 'white', arrows = [], lastMove, badge, m
   const dragEnded = useRef(0);
 
   function onSquareClick(square: string) {
+    if (onSquareTap) return onSquareTap(square);
     if (!onMove) return;
     if (performance.now() - dragEnded.current < 150) return;
     if (selected && targets.includes(square)) {
@@ -336,6 +339,7 @@ export const Board = memo(
     a.id === b.id &&
     a.sound === b.sound &&
     a.onMove === b.onMove &&
+    a.onSquareTap === b.onSquareTap &&
     same(a.arrows, b.arrows) &&
     same(a.lastMove, b.lastMove) &&
     same(a.badge, b.badge) &&

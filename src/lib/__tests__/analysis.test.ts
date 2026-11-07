@@ -160,4 +160,16 @@ describe('training', () => {
     const m2 = { color: 'w', evalBefore: cp(300), bestLineUci: ['a', 'b', 'c'] } as never;
     expect(solutionFor(m2)).toEqual(['a']);
   });
+
+  it('continues a puzzle until forcing moves have won the material', () => {
+    // Nc7+ forks king and queen: the puzzle goes on to Nxa8.
+    const fork = { color: 'w', fenBefore: 'q3k3/8/8/3N4/8/8/8/4K3 w - - 0 1', evalBefore: cp(900), bestLineUci: ['d5c7', 'e8d7', 'c7a8', 'd7c8'] } as never;
+    expect(solutionFor(fork)).toEqual(['d5c7', 'e8d7', 'c7a8']);
+    // Without the reply after Nxa8 the gain isn't settled: just the first move.
+    const short = { color: 'w', fenBefore: 'q3k3/8/8/3N4/8/8/8/4K3 w - - 0 1', evalBefore: cp(900), bestLineUci: ['d5c7', 'e8d7', 'c7a8'] } as never;
+    expect(solutionFor(short)).toEqual(['d5c7']);
+    // A quiet second move doesn't extend it.
+    const quiet = { color: 'w', fenBefore: 'q3k3/8/8/3N4/8/8/8/4K3 w - - 0 1', evalBefore: cp(900), bestLineUci: ['d5c7', 'e8d7', 'e1e2', 'd7c7'] } as never;
+    expect(solutionFor(quiet)).toEqual(['d5c7']);
+  });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hintText } from './hint';
+import { hintText, threatOf } from './hint';
 
 describe('hintText', () => {
   // Black to move: Bb4 hits the queen on c3 (a quiet move with a target).
@@ -35,5 +35,24 @@ describe('hintText for quiet moves', () => {
   it('warns of a mate threat first', () => {
     // White threatens Qxg7#; Black's answer is a quiet defence.
     expect(hintText('6k1/5ppp/8/8/8/2B5/5PPP/3Q2K1 b - - 0 1', 'f6', 'b')).toBe('Your opponent threatens mate: deal with that first.');
+  });
+});
+
+describe('threatOf', () => {
+  it('finds the piece they would win', () => {
+    // White to move; Black's bishop on b4 attacks the undefended queen on e1? No: the knight on f3 is hit by the bishop on g4.
+    const t = threatOf('4k3/8/8/8/6b1/5N2/8/4K3 w - - 0 1', 'w');
+    expect(t?.kind).toBe('piece');
+    expect(t?.target).toEqual({ type: 'n', square: 'f3' });
+    expect(t?.squares).toContain('f3');
+  });
+  it('finds a mate threat', () => {
+    // Black threatens Qg2#… with the queen on h3 and the bishop on f3 covering g2.
+    const t = threatOf('4k3/8/8/8/8/5b1q/6PP/6K1 w - - 0 1', 'w');
+    expect(t?.kind).toBe('mate');
+    expect(t?.squares).toEqual(['g1']);
+  });
+  it('is undefined with no threat', () => {
+    expect(threatOf('4k3/8/8/8/8/8/8/4K3 w - - 0 1', 'w')).toBeUndefined();
   });
 });
