@@ -10,9 +10,9 @@ export function hideBestMove(text: string, bestSan: string | undefined): string 
   const b = esc(bestSan);
   let s = text
     .replace(new RegExp(`(You had a forced mate in \\d+) starting with ${b}\\.`), '$1.')
-    .replace(new RegExp(`${b} would have won material \\([^)]*\\)\\.`), 'You could have won material.')
-    .replace(new RegExp(`\\s*${b} was better\\.`), '')
-    .replace(new RegExp(`Better was ${b}\\.`), 'There was a better move.')
+    .replace(new RegExp(`${b} would have won ([^:(]+?)(?::[^(]*)? \\([^)]*\\)\\.`), 'You could have won $1.')
+    .replace(new RegExp(`\\s*${b} was better(?:: it [^.]*)?\\.`), '')
+    .replace(new RegExp(`Better was ${b}(?:, which [^.]*)?\\.`), 'There was a better move.')
     .replace(new RegExp(`slightly preferred ${b}\\.`), 'slightly preferred another move.');
   // Anything else that still names it: drop that sentence.
   const named = new RegExp(`(^|[\\s(])${b}(?=$|[\\s.,;:)])`);

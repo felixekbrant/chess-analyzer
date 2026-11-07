@@ -12,6 +12,7 @@ import type {
 } from '../types';
 import { gameAccuracy, meanAccuracy, moveAccuracy } from './accuracy';
 import {
+  forkTargets,
   PIECE_NAME,
   PIECE_VALUE,
   attackersOf,
@@ -28,12 +29,13 @@ import {
 } from './board';
 import { winPercent, winPercentFor } from './winprob';
 import { formatDuration } from '../pgn/parse';
+import { materialWord, moveIdea } from './explain';
 
 /** Win-% loss thresholds (mover POV) for each classification: chess.com's expected-points cutoffs. */
 export const THRESHOLDS = { excellent: 2, good: 5, inaccuracy: 10, mistake: 20 } as const;
 
 /** Bumped whenever classification or accuracy changes, so stored analyses get rebuilt. */
-export const ANALYSIS_MODEL = 5;
+export const ANALYSIS_MODEL = 6;
 
 export function phaseOf(fen: string, ply: number): Phase {
   if (nonPawnMaterial(fen) <= 26) return 'endgame';
@@ -96,13 +98,18 @@ export function buildAnalysis(gameId: string, parsed: ParsedGame, evals: Positio
 
     const motifs: Motif[] = [];
     let explanation = '';
+    const phase = phaseOf(p.fenBefore, i);
     if (['inaccuracy', 'mistake', 'blunder', 'miss'].includes(classification)) {
-      const r = detectMotifs({ p, evalBefore, evalAfter, winBefore, winAfter, bestUci: best?.pv ?? [], replyUci: after.lines[0]?.pv ?? [] });
+      const r = detectMotifs({ p, evalBefore, evalAfter, winBefore, winAfter, bestUci: best?.pv ?? [], replyUci: after.lines[0]?.pv ?? [], phase });
       motifs.push(...r.motifs);
       explanation = r.explanation;
     }
     motifs.push(...timeMotifs(p, parsed, medianSpent[p.color], classification));
-    if (!explanation) explanation = defaultExplanation(classification, bestLine.sans[0]);
+    if (!explanation) {
+      // What the best move (or your own great move) does, from the board.
+      const idea = ['great', 'inaccuracy', 'mistake', 'blunder', 'miss'].includes(classification) && best ? moveIdea(p.fenBefore, best.pv, p.color, { phase }) : undefined;
+      explanation = defaultExplanation(classification, bestLine.sans[0], idea);
+    }
     const timeNote = timeExplanation(p, motifs, classification);
     if (timeNote) explanation = explanation ? `${explanation} ${timeNote}` : timeNote;
 
@@ -129,7 +136,7 @@ export function buildAnalysis(gameId: string, parsed: ParsedGame, evals: Positio
       classification,
       motifs,
       explanation,
-      phase: phaseOf(p.fenBefore, i),
+      phase,
       isBook,
       clock: p.clock,
       timeSpent: p.timeSpent,
@@ -223,6 +230,7 @@ interface MotifInput {
   winAfter: number;
   bestUci: string[];
   replyUci: string[];
+  phase?: Phase;
 }
 
 const mateFor = (s: Score, c: Color) => s.kind === 'mate' && (c === 'w' ? s.v > 0 : s.v < 0);
@@ -322,13 +330,24 @@ export function detectMotifs(x: MotifInput): { motifs: Motif[]; explanation: str
       const tookAnyway = Math.max(0, materialBalance(p.fenAfter, me) - balBefore);
       if (gained - tookAnyway >= 2 && lost < 2) {
         motifs.push('missed_win');
-        notes.push(`${best.sans[0]} would have won material (${best.sans.slice(0, n).join(' ')}).`);
+        const idea = moveIdea(p.fenBefore, x.bestUci, me, { phase: x.phase, noGain: true });
+        // "Bxg4 would have won their queen for free", not "would have won a queen: it wins their queen".
+        const what = idea?.startsWith('wins ') && !idea.includes(' and ') ? idea.slice(5) : `${materialWord(gained - tookAnyway)}${idea ? `: it ${idea}` : ''}`;
+        notes.push(`${best.sans[0]} would have won ${what} (${best.sans.slice(0, n).join(' ')}).`);
       }
     }
   }
   if (x.winBefore >= 75 && x.winAfter <= 55) {
     motifs.push('threw_advantage');
     if (!notes.length) notes.push('This throws away a winning advantage.');
+  }
+
+  // After what went wrong: what the better move would have done, unless a note already names it.
+  const bestSan = playUci(p.fenBefore, x.bestUci.slice(0, 1)).sans[0];
+  const tacticalNote = notes.length > 0 && !motifs.includes('missed_win') && !motifs.includes('missed_mate') && !motifs.includes('back_rank');
+  if (tacticalNote && bestSan && !notes.some((n) => n.includes(bestSan))) {
+    const idea = moveIdea(p.fenBefore, x.bestUci, me, { phase: x.phase });
+    if (idea) notes.push(`Better was ${bestSan}, which ${idea}.`);
   }
 
   // No material or mate involved: either the king got exposed or it's a positional concession.
@@ -341,26 +360,19 @@ export function detectMotifs(x: MotifInput): { motifs: Motif[]; explanation: str
     } else {
       motifs.push('positional');
       const best = playUci(p.fenBefore, x.bestUci.slice(0, 1)).sans[0];
-      if (!notes.length)
-        // One short line; "Why it fails" shows the moves.
-        notes.push(`Gives your opponent the better game.${best ? ` ${best} was better.` : ''}`);
+      if (!notes.length) {
+        // What their best reply does to you, then what the better move does ("Why it fails" shows the moves).
+        const replyIdea = r1 ? moveIdea(p.fenAfter, x.replyUci, me, { phase: x.phase, forcing: true }) : undefined;
+        notes.push(replyIdea ? `After this, ${r1!.san} ${replyIdea}.` : 'Gives your opponent the better game.');
+        if (best) {
+          const idea = moveIdea(p.fenBefore, x.bestUci, me, { phase: x.phase });
+          notes.push(idea ? `${best} was better: it ${idea}.` : `${best} was better.`);
+        }
+      }
     }
   }
 
   return { motifs, explanation: notes.join(' ') };
-}
-
-/** Pieces of `victim` worth 3+ (or the king) attacked by the piece standing on `square`. */
-function forkTargets(fen: string | undefined, square: string, victim: Color) {
-  if (!fen) return [];
-  const attacker = pieceAt(fen, square);
-  if (!attacker) return [];
-  return piecesOf(fen, victim).filter(
-    (pc) =>
-      (pc.type === 'k' || PIECE_VALUE[pc.type] >= 3) &&
-      (pc.type === 'k' || PIECE_VALUE[pc.type] > PIECE_VALUE[attacker.type] || attackersOf(fen, pc.square, victim).length === 0) &&
-      attackersOf(fen, pc.square, other(victim)).includes(square),
-  );
 }
 
 function timeMotifs(p: ParsedPly, parsed: ParsedGame, medianSpent: number, cls: Classification): Motif[] {
@@ -384,12 +396,12 @@ function timeExplanation(p: ParsedPly, motifs: Motif[], cls: Classification): st
   return '';
 }
 
-function defaultExplanation(cls: Classification, bestSan?: string): string {
+function defaultExplanation(cls: Classification, bestSan?: string, idea?: string): string {
   switch (cls) {
     case 'brilliant':
       return 'A strong sacrifice!';
     case 'great':
-      return 'The only good move here.';
+      return idea ? `The only good move here: it ${idea}.` : 'The only good move here.';
     case 'best':
       return 'The best move.';
     case 'book':
@@ -400,7 +412,7 @@ function defaultExplanation(cls: Classification, bestSan?: string): string {
     case 'good':
       return bestSan ? `Fine. The engine slightly preferred ${bestSan}.` : '';
     default:
-      return bestSan ? `Better was ${bestSan}.` : '';
+      return bestSan ? `Better was ${bestSan}${idea ? `, which ${idea}` : ''}.` : '';
   }
 }
 

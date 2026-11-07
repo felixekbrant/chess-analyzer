@@ -164,3 +164,16 @@ export function nullMoveFen(fen: string): string | undefined {
     return undefined;
   }
 }
+
+/** Pieces of `victim` worth 3+ (or the king) attacked by the piece standing on `square`. */
+export function forkTargets(fen: string | undefined, square: string, victim: Color) {
+  if (!fen) return [];
+  const attacker = pieceAt(fen, square);
+  if (!attacker) return [];
+  return piecesOf(fen, victim).filter(
+    (pc) =>
+      (pc.type === 'k' || PIECE_VALUE[pc.type] >= 3) &&
+      (pc.type === 'k' || PIECE_VALUE[pc.type] > PIECE_VALUE[attacker.type] || attackersOf(fen, pc.square, victim).length === 0) &&
+      attackersOf(fen, pc.square, other(victim)).includes(square),
+  );
+}

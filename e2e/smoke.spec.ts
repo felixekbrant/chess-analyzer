@@ -904,3 +904,19 @@ test("review: a mistake you've made in earlier games says so", async ({ page }) 
   await page.getByRole('link', { name: 'Practise it' }).filter({ visible: true }).click();
   await expect(page).toHaveURL(/#\/training\?motif=/);
 });
+
+test('review: explanations say what the reply does and what the better move does', async ({ page }) => {
+  await seed(page);
+  await page.goto('./#/training');
+  // Stored analyses are rebuilt with the new explanations in the background, puzzles with them.
+  type P = { gameIds: string[]; plies: number[]; explanation?: string };
+  const written = (p: P) => !!p.explanation?.startsWith('After this,') && p.explanation.includes(' was better: it ');
+  await expect.poll(async () => ((await readPuzzles(page)) as unknown as P[]).filter(written).length, { timeout: 30000 }).toBeGreaterThan(0);
+  const p = ((await readPuzzles(page)) as unknown as P[]).find(written)!;
+  await page.goto(`./#/game/${encodeURIComponent(p.gameIds[0])}?ply=${p.plies[0] + 1}`);
+  await expect(page.getByText(/^After this, .* was better: it /).filter({ visible: true })).toBeVisible({ timeout: 15000 });
+  // With best moves hidden, the better move and what it does are left out.
+  await page.getByRole('button', { name: 'Best moves' }).filter({ visible: true }).click();
+  await expect(page.getByText(/ was better: it /).filter({ visible: true })).toHaveCount(0);
+  await expect(page.getByText(/^After this, /).filter({ visible: true })).toBeVisible();
+});

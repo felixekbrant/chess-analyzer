@@ -8,6 +8,7 @@ import { useQueueProgress, useSettings } from '../../hooks/useStores';
 import { EngineControls, pill } from '../../components/EngineControls';
 import { hideBestMove } from '../../lib/review/hideBest';
 import { hintText } from '../../lib/training/hint';
+import { moveIdeaSan } from '../../lib/analysis/explain';
 import { findRepeat, kindText, type Repeat } from '../../lib/training/repeats';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { relativeDay } from '../../lib/format';
@@ -911,11 +912,13 @@ function Coach({
     : `${who}${current.san} is ${noun ? `${article(label)} ${label}${current.classification === 'book' ? ' move' : ''}` : label}`;
   const ending = last && !mate && game.termination ? `${game.termination[0].toUpperCase()}${game.termination.slice(1)}.` : undefined;
   const showBest = current.bestSan && current.bestUci !== current.uci && !['book', 'forced', 'best'].includes(current.classification);
+  // Their mistake: what your best reply does, from the board.
+  const punish = !yours && isError && !hideBest && me ? moveIdeaSan(current.fenAfter, current.replyLineSan, me, { phase: current.phase, forcing: true }) : undefined;
   const explanation =
     !yours && isError
       ? hideBest
         ? 'Your chance: can you find how to punish it?'
-        : `Your chance${current.replyLineSan[0] ? `: ${current.replyLineSan[0]} punishes it` : ''}.`
+        : `Your chance${current.replyLineSan[0] ? `: ${current.replyLineSan[0]} punishes it${punish ? `, as it ${punish}` : ''}` : ''}.`
       : isError || special
         ? hideBest && isError
           ? hideBestMove(current.explanation, current.bestSan)

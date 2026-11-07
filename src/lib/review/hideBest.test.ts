@@ -8,6 +8,11 @@ describe('hideBestMove', () => {
     expect(hideBestMove('Gives your opponent the better game. Bd3 was better.', 'Bd3')).toBe('Gives your opponent the better game.');
     expect(hideBestMove('Better was O-O.', 'O-O')).toBe('There was a better move.');
     expect(hideBestMove('Fine. The engine slightly preferred c4.', 'c4')).toBe('Fine. The engine slightly preferred another move.');
+    // With what the best move does, written by the app.
+    expect(hideBestMove('Nxe5 would have won a piece: it takes their bishop on e5 and attacks their queen (Nxe5 dxe5 Qxd8+).', 'Nxe5')).toBe('You could have won a piece.');
+    expect(hideBestMove('Bxg4 would have won their queen for free (Bxg4 Re3 Kh7).', 'Bxg4')).toBe('You could have won their queen for free.');
+    expect(hideBestMove('After this, Nf5 attacks your queen. Be3 was better: it defends your pawn on d4.', 'Be3')).toBe('After this, Nf5 attacks your queen.');
+    expect(hideBestMove('This leaves your rook on e1 undefended: Rxe1+. Better was Bc7, which attacks their rook on d8.', 'Bc7')).toBe('This leaves your rook on e1 undefended: Rxe1+. There was a better move.');
   });
 
   it('leaves explanations that only describe the punishment', () => {

@@ -11,6 +11,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     date: '7 Nov 2026',
     items: [
+      'Clearer explanations, worked out from the board (no AI): what your opponent\'s reply does ("After this, Ng6 attacks your undefended queen"), what the better move would have done ("Bxf6 was better: it takes their knight on f6 and attacks their queen"), and how to punish your opponent\'s mistakes. Your games are updated automatically.',
       'Mastery: a puzzle is mastered once you\'ve solved it cleanly (first try, no hint) on three separate days; a miss starts it over. Each puzzle shows its progress as three dots, the filter shows mastered / learning / new per skill area, and the Weaknesses page shows it for each weakness.',
       '"You\'ve done this before": when a mistake in a game repeats one from your earlier games (the same position, or the same kind of mistake in the two months before), the review says so, links to that game and to practising it. Those puzzles also come first.',
       'Puzzles go further: when a tactic wins material over a few moves, you now play it to the end (up to three of your moves), not just the first move. Any move that keeps the win is accepted.',

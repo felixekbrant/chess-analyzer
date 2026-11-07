@@ -191,6 +191,10 @@ Ordered by how much I think each helps you, with a recommendation for each.
   credited with the clean solves their schedule proves), shown per puzzle, per area in the filter and per
   weakness. "You've done this before" in the review (same position, or the same kind of tactical mistake
   in the 60 days before), and those puzzles rank higher.
+- Step 6 done (7 Nov): explanations written from the board (src/lib/analysis/explain.ts): what a move
+  takes, forks, attacks, threatens, defends or rescues, and what its line wins. Used for "After this, …"
+  (their reply), "… was better: it …" (the best move), missed wins, great moves and "Your chance" on the
+  opponent's mistakes. Stored analyses are rebuilt offline (analysis model 6), so every game gets them.
 
 ## Decisions for you (as asked)
 
