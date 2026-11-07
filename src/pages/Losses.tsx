@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { db } from '../db/schema';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { useSettings } from '../hooks/useStores';
+import { isSmall } from '../lib/training/puzzles';
 import { DEFAULT_FILTERS, useInsightData } from '../hooks/useInsightData';
 import { mainTimeClass, useSkills } from '../hooks/useSkills';
 import { analysisQueue } from '../lib/engine/queue';
@@ -51,6 +54,15 @@ export default function Losses() {
       analysisQueue.prioritize(g.id);
     }
   }, [waiting]);
+
+  // Puzzles from these losses (each done once), and how many are still to do.
+  const settings = useSettings();
+  const ids = analysed.map((a) => a.game.id);
+  const lossPuzzles = useLiveQuery(
+    async () => (await db.puzzles.toArray()).filter((p) => p.gameIds.some((id) => ids.includes(id)) && (settings.smallPuzzles || !isSmall(p))),
+    [ids.join(), settings.smallPuzzles],
+  );
+  const toDo = lossPuzzles?.filter((p) => !p.lossDoneAt).length ?? 0;
 
   const report = useMemo(() => lossReport(analysed), [analysed.map((a) => a.game.id).join()]);
 
@@ -129,9 +141,13 @@ export default function Losses() {
               <Icon name="puzzle" size={16} /> Train it
             </Link>
           )}
-          <Link className="btn !py-2 !text-sm" to={`/training?games=${encodeURIComponent(lossIds)}`}>
-            <Icon name="retry" size={16} /> Puzzles from these losses
-          </Link>
+          {toDo > 0 ? (
+            <Link className="btn !py-2 !text-sm" to={`/training?games=${encodeURIComponent(lossIds)}`}>
+              <Icon name="retry" size={16} /> Puzzles from these losses ({toDo})
+            </Link>
+          ) : lossPuzzles?.length ? (
+            <span className="muted text-sm self-center">Puzzles from these losses: all done. New losses bring new ones.</span>
+          ) : null}
           {verdict.area && focus !== verdict.area && (
             <button className="btn !py-2 !text-sm" onClick={() => void makeFocus(verdict.area!)}>
               <Icon name="target" size={16} /> Make it my focus

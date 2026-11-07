@@ -138,11 +138,17 @@ export default function Training() {
       }
       return [];
     }
+    // Puzzles from your last losses: each once, whether due or not, newest loss first and in
+    // move order, so you go through each game's mistakes like a review. No repeats in this set.
+    if (fromGames)
+      return filtered
+        .filter((p) => !p.lossDoneAt && !skipped.includes(p.id))
+        .sort((a, b) => (b.playedAt ?? b.createdAt) - (a.playedAt ?? a.createdAt) || a.plies[0] - b.plies[0]);
     const pool = (practiceAll ? filtered : due).filter((p) => !skipped.includes(p.id));
     // Repeated mistakes first, then the ones with most at stake.
     return sortQueue(pool);
     // `due` is derived from `filtered` and the clock; recomputing on puzzle changes is enough.
-  }, [filtered, practiceAll, skipped, puzzles, ext, inSession, sess]);
+  }, [filtered, practiceAll, skipped, puzzles, ext, inSession, sess, fromGames]);
 
   // The shown puzzle stays until it's finished or skipped, even if the order changes meanwhile
   // (new puzzles from a game just analysed, or stakes being measured).
@@ -309,6 +315,18 @@ export default function Training() {
             </Link>
           </EmptyState>
         </Section>
+      ) : !current && fromGames ? (
+        // Done once each: nothing to repeat here; new losses bring new ones.
+        <Section>
+          <EmptyState fen={EMPTY_FENS.mate} title="All done for these losses">
+            {filtered.length
+              ? `You've been through all ${filtered.length} puzzle${filtered.length === 1 ? '' : 's'} from these games. New ones come from your next losses.`
+              : 'These losses have no puzzles: their mistakes were small positional ones.'}
+            <Link className="btn btn-primary" to="/losses">
+              Back to your losses
+            </Link>
+          </EmptyState>
+        </Section>
       ) : !current ? (
         <Section>
           <EmptyState fen={EMPTY_FENS.mate} title={`All done${focusLabel !== 'All puzzles' ? ` for ${focusLabel}` : ''}`}>
@@ -336,12 +354,13 @@ export default function Training() {
           done={inSession ? sessionPart.done : session.solved + session.failed}
           autoNext={settings.autoNextPuzzle}
           showProgress={inSession}
+          once={!!fromGames}
           onDone={async (grade) => {
             pinned.current = undefined;
             const next = { ...schedule(current, grade), mastery: nextMastery(current, grade) };
             const lastResult = grade === 'again' ? 'failed' : 'solved';
             if (current.lichess) await db.extPuzzles.update(current.id, { ...next, lastResult, lichess: { ...current.lichess, seenAt: Date.now() } });
-            else await db.puzzles.update(current.id, { ...next, lastResult, seenAt: Date.now() });
+            else await db.puzzles.update(current.id, { ...next, lastResult, seenAt: Date.now(), ...(fromGames ? { lossDoneAt: Date.now() } : {}) });
             // For the Weaknesses page: is training an area paying off?
             void logPuzzleTry({ at: Date.now(), area: current.lichess?.area ?? puzzleArea(current), clean: grade === 'good' || grade === 'easy', own: !current.lichess });
             if (inSession && sess.stage !== 'done') {
@@ -397,7 +416,10 @@ function PuzzleView({
   onSkip,
   autoNext,
   showProgress,
+  once,
 }: {
+  /** Done once and not repeated (puzzles from your last losses): no mastery shown. */
+  once?: boolean;
   puzzle: Puzzle;
   remaining: number;
   done: number;
@@ -741,7 +763,7 @@ function PuzzleView({
         <KingIcon white={toMove === 'white'} />
         <span>{toMove === 'white' ? 'White' : 'Black'} to move</span>
         <span className="muted font-normal">· {puzzle.solutionUci.length > 1 ? 'find the winning line' : 'find the best move'}</span>
-        <MasteryPips n={puzzle.mastery?.length ?? 0} />
+        {!once && <MasteryPips n={puzzle.mastery?.length ?? 0} />}
       </span>
     );
   // What this try did for the puzzle's mastery (3 clean solves on different days).
@@ -854,7 +876,7 @@ function PuzzleView({
             role="status"
           >
             {status}
-            {masteryNote && <p className="mt-1 text-sm font-normal muted">{masteryNote}</p>}
+            {masteryNote && !once && <p className="mt-1 text-sm font-normal muted">{masteryNote}</p>}
             {/* Once it's done, the two lines are right here under the result (an open line shows above, under the board). */}
             {done && !lineView && lines && (lines.best || lines.refute) && (
               <div className="flex flex-wrap gap-2 mt-2.5 font-normal">

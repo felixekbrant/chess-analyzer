@@ -937,6 +937,13 @@ test('weaknesses: a deep look at your last 10 losses, with what to focus on and 
   await expect(page.getByRole('button', { name: 'Back to your losses' }).filter({ visible: true })).toBeVisible();
   await page.getByRole('button', { name: 'Back to your losses' }).filter({ visible: true }).click();
   // Puzzles from those games.
-  await page.getByRole('link', { name: 'Puzzles from these losses' }).click();
+  await page.getByRole('link', { name: /Puzzles from these losses \(\d+\)/ }).click();
   await expect(page.getByRole('button', { name: /From your last losses/ })).toBeVisible();
+  // Each is done once: no mastery here, and once finished it's marked done for this set.
+  await expect(page.getByText(/to move$/)).toBeVisible();
+  await expect(page.getByLabel(/^Mastery \d of 3$/)).toHaveCount(0);
+  await page.getByRole('button', { name: /Solution/ }).click();
+  await expect(page.getByText(/^Mastery /)).toHaveCount(0);
+  await page.getByRole('button', { name: /Next puzzle/ }).click();
+  await expect.poll(async () => ((await readPuzzles(page)) as unknown as { lossDoneAt?: number }[]).filter((p) => p.lossDoneAt).length).toBe(1);
 });

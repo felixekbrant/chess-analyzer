@@ -185,6 +185,8 @@ export interface Puzzle {
   mastery?: number[];
   /** How many earlier games (in the 60 days before) had a mistake of the same kind (see repeats.ts). */
   repeats?: number;
+  /** When it was done in "Puzzles from these losses", which shows each puzzle once (no repeats). */
+  lossDoneAt?: number;
 }
 
 export interface PuzzleStake {
