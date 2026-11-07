@@ -4,7 +4,7 @@ import { ANALYSIS_MODEL, buildAnalysis, classify, detectMotifs, isSacrifice, reb
 import { parsePgn, type ParsedPly } from '../pgn/parse';
 import { playUci } from '../analysis/board';
 import type { PositionEval, Score } from '../types';
-import { schedule, NEW_CARD } from '../training/srs';
+import { RETIRED, retire, isDone } from '../training/srs';
 import { solutionFor } from '../training/puzzles';
 
 const cp = (v: number): Score => ({ kind: 'cp', v });
@@ -138,20 +138,13 @@ describe('buildAnalysis', () => {
 });
 
 describe('training', () => {
-  it('schedules with SM-2', () => {
-    const now = 0;
-    const s1 = schedule(NEW_CARD, 'good', now);
-    expect(s1.interval).toBe(4);
-    expect(schedule(NEW_CARD, 'easy', now).interval).toBe(7);
-    expect(schedule(NEW_CARD, 'hard', now).interval).toBe(2);
-    const s2 = schedule(s1, 'good', now);
-    expect(s2.interval).toBe(12);
-    const s3 = schedule(s2, 'good', now);
-    expect(s3.interval).toBeGreaterThan(24);
-    const fail = schedule(s3, 'again', now);
-    expect(fail.reps).toBe(0);
-    expect(fail.lapses).toBe(1);
-    expect(fail.due).toBe(10 * 60 * 1000);
+  it('retires a finished puzzle for good, solved or missed', () => {
+    for (const g of ['again', 'hard', 'good', 'easy'] as const) {
+      const r = retire(g, 1000);
+      expect(r.due).toBe(RETIRED);
+      expect(isDone(r)).toBe(true);
+      expect(r.lastResult).toBe(g === 'again' ? 'failed' : 'solved');
+    }
   });
 
   it('builds mate solutions ending on the user move', () => {

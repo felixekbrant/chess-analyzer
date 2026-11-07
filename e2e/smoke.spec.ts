@@ -846,6 +846,23 @@ test('puzzles: a longer puzzle needs your second move too, after their reply', a
   const current = (await readPuzzles(page)).find((p) => p.id === id)!;
   expect(current.fen.split(' ')[0]).toBe(placement);
   expect(current, 'the long puzzle is shown').toBeTruthy();
+  // A background update marking it done meanwhile (old, already-tried puzzles are) must not swap it out.
+  await page.evaluate(
+    (id) =>
+      new Promise<void>((resolve) => {
+        const q = indexedDB.open('chess-analyzer');
+        q.onsuccess = () => {
+          const tx = q.result.transaction('puzzles', 'readwrite');
+          const store = tx.objectStore('puzzles');
+          const g = store.get(id);
+          g.onsuccess = () => store.put({ ...g.result, doneAt: Date.now(), due: 8.64e15 });
+          tx.oncomplete = () => resolve();
+        };
+      }),
+    id,
+  );
+  await page.waitForTimeout(300);
+  expect(await boardPlacement(page, 'puzzle')).toBe(placement);
   const [mine, reply, second] = current.solutionUci;
   await clickSquare(page, mine.slice(0, 2));
   await clickSquare(page, mine.slice(2, 4));
@@ -872,23 +889,30 @@ test('puzzles: spot the threat first, then find your move', async ({ page }) => 
   await expect(page.getByText('First: what does your opponent threaten?')).toHaveCount(0);
 });
 
-test('puzzles: a clean solve counts towards mastery, shown per area in the filter', async ({ page }) => {
+test('puzzles: each is done once; after a miss, a new position with the same idea comes next', async ({ page }) => {
   await seed(page);
-  await page.goto('./#/training');
+  await page.goto('./#/training?motif=hung_piece');
   await expect(page.getByText(/to move$/)).toBeVisible();
-  const placement = await boardPlacement(page, 'puzzle');
-  const current = (await readPuzzles(page)).find((p) => p.fen.split(' ')[0] === placement)!;
-  // Solve it without help: every move of the solution (their replies are played for you).
-  for (let i = 0; i < current.solutionUci.length; i += 2) {
-    if (i) await page.waitForTimeout(700);
-    await clickSquare(page, current.solutionUci[i].slice(0, 2));
-    await clickSquare(page, current.solutionUci[i].slice(2, 4));
-  }
-  await expect(page.getByText('Mastery 1/3: solve it cleanly on 2 more days.')).toBeVisible();
-  await page.getByRole('button', { name: /Next puzzle/ }).click().catch(() => {});
-  await expect.poll(async () => ((await readPuzzles(page)).find((p) => p.id === current.id) as { mastery?: number[] }).mastery?.length, { timeout: 5000 }).toBe(1);
-  await page.getByRole('button', { name: /All puzzles/ }).click();
-  await expect(page.getByText(/1 learning/).first()).toBeVisible();
+  type P = { id: string; fen: string; solutionUci: string[]; motifs?: string[]; doneAt?: number; due: number };
+  const shown = async () => {
+    const placement = await boardPlacement(page, 'puzzle');
+    return ((await readPuzzles(page)) as P[]).find((p) => p.fen.split(' ')[0] === placement)!;
+  };
+  const first = await shown();
+  // Missed (the solution shown): it's done for good, and another "hung a piece" position is next.
+  await page.getByRole('button', { name: /Solution/ }).click();
+  await expect(page.getByText(/^Next: a new position with the same idea \(hung a piece\)\.$/)).toBeVisible();
+  await page.getByRole('button', { name: /Next puzzle/ }).click();
+  await expect.poll(async () => ((await readPuzzles(page)) as P[]).find((p) => p.id === first.id)?.doneAt).toBeTruthy();
+  // (The board shows the new puzzle once its setup move has played.)
+  await expect.poll(async () => (await shown())?.id ?? first.id).not.toBe(first.id);
+  expect((await shown()).motifs).toContain('hung_piece');
+  // It never comes back, also after a reload.
+  await page.reload();
+  await expect(page.getByText(/to move$/)).toBeVisible();
+  await expect.poll(async () => (await shown())?.id ?? first.id).not.toBe(first.id);
+  // No mastery anywhere.
+  await expect(page.getByText(/Mastery|mastered/)).toHaveCount(0);
 });
 
 test("review: a mistake you've made in earlier games says so", async ({ page }) => {
@@ -939,11 +963,9 @@ test('weaknesses: a deep look at your last 10 losses, with what to focus on and 
   // Puzzles from those games.
   await page.getByRole('link', { name: /Puzzles from these losses \(\d+\)/ }).click();
   await expect(page.getByRole('button', { name: /From your last losses/ })).toBeVisible();
-  // Each is done once: no mastery here, and once finished it's marked done for this set.
+  // Each is done once: once finished, it's marked done and won't come back.
   await expect(page.getByText(/to move$/)).toBeVisible();
-  await expect(page.getByLabel(/^Mastery \d of 3$/)).toHaveCount(0);
   await page.getByRole('button', { name: /Solution/ }).click();
-  await expect(page.getByText(/^Mastery /)).toHaveCount(0);
   await page.getByRole('button', { name: /Next puzzle/ }).click();
-  await expect.poll(async () => ((await readPuzzles(page)) as unknown as { lossDoneAt?: number }[]).filter((p) => p.lossDoneAt).length).toBe(1);
+  await expect.poll(async () => ((await readPuzzles(page)) as unknown as { doneAt?: number }[]).filter((p) => p.doneAt).length).toBe(1);
 });

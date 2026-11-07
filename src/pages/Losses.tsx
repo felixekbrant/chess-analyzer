@@ -62,7 +62,7 @@ export default function Losses() {
     async () => (await db.puzzles.toArray()).filter((p) => p.gameIds.some((id) => ids.includes(id)) && (settings.smallPuzzles || !isSmall(p))),
     [ids.join(), settings.smallPuzzles],
   );
-  const toDo = lossPuzzles?.filter((p) => !p.lossDoneAt).length ?? 0;
+  const toDo = lossPuzzles?.filter((p) => !p.doneAt).length ?? 0;
 
   const report = useMemo(() => lossReport(analysed), [analysed.map((a) => a.game.id).join()]);
 

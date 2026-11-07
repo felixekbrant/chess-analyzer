@@ -3,9 +3,8 @@ import { db } from '../../db/schema';
 import { positionKey } from '../pgn/parse';
 import { PIECE_VALUE, materialBalance, other } from '../analysis/board';
 import type { Color, GameAnalysis, MoveAnalysis, Puzzle, PuzzleStake, Score, StoredGame } from '../types';
-import { NEW_CARD } from './srs';
+import { NEW_CARD, RETIRED } from './srs';
 import { repeatsOf } from './repeats';
-import { backfilledMastery } from './mastery';
 
 /**
  * Material change for `you` along a line (UCI or SAN moves from `fen`, at most 10 plies). A line
@@ -108,7 +107,7 @@ export function stakeLabel(p: Puzzle): string | undefined {
  */
 export async function backfillPuzzleStakes(): Promise<number> {
   const todo = await db.puzzles
-    .filter((p) => !p.lichess && p.gameIds.length > 0 && (!p.stake || p.playedAt === undefined || p.solutionV !== SOLUTION_VERSION || p.mastery === undefined))
+    .filter((p) => !p.lichess && p.gameIds.length > 0 && (!p.stake || p.playedAt === undefined || p.solutionV !== SOLUTION_VERSION || (!!p.lastResult && p.doneAt === undefined)))
     .toArray();
   let n = 0;
   for (const p of todo) {
@@ -133,12 +132,15 @@ export async function backfillPuzzleStakes(): Promise<number> {
       .equals(p.id)
       .modify((x) => {
         Object.assign(x, change);
-        // Puzzles from before mastery: credit the clean solves their schedule shows.
-        if (x.mastery === undefined) x.mastery = backfilledMastery(x);
+        // Puzzles from when they were repeated: one already tried is done (no exact repeats).
+        if (x.lastResult && x.doneAt === undefined) Object.assign(x, { doneAt: x.seenAt ?? Date.now(), due: RETIRED });
       });
     if (++n % 20 === 0) await new Promise((r) => setTimeout(r, 0));
   }
-  return n + (await refreshRepeats());
+  // Lichess puzzles from when they were repeated: one already tried is done too.
+  const ext = await db.extPuzzles.filter((p) => !!p.lastResult && p.doneAt === undefined).toArray();
+  if (ext.length) await db.extPuzzles.bulkUpdate(ext.map((p) => ({ key: p.id, changes: { doneAt: p.lichess?.seenAt ?? Date.now(), due: RETIRED } })));
+  return n + ext.length + (await refreshRepeats());
 }
 
 const PUZZLE_CLASSES = new Set(['mistake', 'blunder', 'miss']);
@@ -219,17 +221,17 @@ export async function upsertPuzzlesFromAnalysis(game: StoredGame, analysis: Game
       playedAt: Math.max(existing?.playedAt ?? 0, game.endTime),
     };
     if (!existing) {
-      const p: Puzzle = { id, ...base, gameIds: [game.id], plies: [m.ply], occurrences: 1, createdAt: now, due: now, ...NEW_CARD, mastery: [] };
+      const p: Puzzle = { id, ...base, gameIds: [game.id], plies: [m.ply], occurrences: 1, createdAt: now, due: now, ...NEW_CARD };
       await db.puzzles.put(p);
     } else if (!existing.gameIds.includes(game.id)) {
-      // The same mistake again: count it and make the puzzle due right away.
+      // The same mistake again: counted (the review says "you've done this before"), but a puzzle
+      // you've already done isn't shown again: no exact repeats.
       await db.puzzles.put({
         ...existing,
         ...base,
         gameIds: [...existing.gameIds, game.id],
         plies: [...existing.plies, m.ply],
         occurrences: existing.occurrences + 1,
-        due: Math.min(existing.due, now),
       });
     } else {
       await db.puzzles.put({ ...existing, ...base });

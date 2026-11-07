@@ -91,7 +91,7 @@ export function toPuzzle(row: PackRow, area: SkillArea, now = Date.now()): Puzzl
   };
 }
 
-/** Lichess puzzles of an area that are ready to play (new or due again), oldest first. */
+/** Lichess puzzles of an area that are ready to play (new: done ones are retired), oldest first. */
 export function readyExt(ext: Puzzle[], area: SkillArea, now = Date.now()): Puzzle[] {
   return ext.filter((p) => p.lichess?.area === area && p.due <= now).sort((a, b) => a.due - b.due || a.createdAt - b.createdAt);
 }

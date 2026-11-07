@@ -14,7 +14,7 @@ import { playMove, stepBack, stepForward, stepKey, toEnd, toStart, type MoveStep
 import { EvalBar } from '../components/EvalBar';
 import { usePgn, useSettings } from '../hooks/useStores';
 import { useStableCallback } from '../hooks/useStableCallback';
-import { schedule, type Grade } from '../lib/training/srs';
+import { retire, type Grade } from '../lib/training/srs';
 import { winPercentFor } from '../lib/analysis/winprob';
 import { PIECE_NAME, playUci, uciToSan } from '../lib/analysis/board';
 import { explainLine } from '../lib/analysis/lines';
@@ -44,7 +44,7 @@ import { Sheet } from '../components/Sheet';
 import { hintText, threatOf } from '../lib/training/hint';
 import { isSmall, puzzlePriority, stakeLabel } from '../lib/training/puzzles';
 import { logPuzzleTry } from '../lib/training/puzzleLog';
-import { MASTERY_SOLVES, counted, countMastery, masteryText, nextMastery } from '../lib/training/mastery';
+import { keyMotif, kindText } from '../lib/training/repeats';
 import { playHref } from '../lib/play/playouts';
 import { CapturedPieces } from '../components/CapturedPieces';
 import { materialOf } from '../lib/analysis/material';
@@ -60,7 +60,7 @@ const QUIET: Motif[] = ['positional', 'threw_advantage', 'time_trouble', 'rushed
  * with the same puzzle, in the same state (solved, hints used, line open), and the same session.
  */
 const RESUME_MS = 30 * 60_000;
-let pageMemo: { search: string; at: number; skipped: string[]; session: { solved: number; failed: number; streak: number; best: number }; practiceAll: boolean; pinned?: string } | null = null;
+let pageMemo: { search: string; at: number; skipped: string[]; session: { solved: number; failed: number; streak: number; best: number }; pinned?: string; idea?: string } | null = null;
 interface PuzzleMemo {
   id: string;
   at: number;
@@ -93,7 +93,8 @@ export default function Training() {
   const area = params.get('area') as SkillArea | null;
   const inSession = params.get('session') === 'today';
   const [memo] = useState(() => (pageMemo && pageMemo.search === params.toString() && Date.now() - pageMemo.at < RESUME_MS ? pageMemo : null));
-  const [practiceAll, setPracticeAll] = useState(memo?.practiceAll ?? false);
+  // After a miss: the idea to practise next, in a new position (never the same puzzle again).
+  const [idea, setIdea] = useState<string | undefined>(memo?.idea);
   const [session, setSession] = useState(memo?.session ?? { solved: 0, failed: 0, streak: 0, best: 0 });
   const [skipped, setSkipped] = useState<string[]>(memo?.skipped ?? []);
   const [focusOpen, setFocusOpen] = useState(false);
@@ -142,23 +143,35 @@ export default function Training() {
     // move order, so you go through each game's mistakes like a review. No repeats in this set.
     if (fromGames)
       return filtered
-        .filter((p) => !p.lossDoneAt && !skipped.includes(p.id))
+        .filter((p) => !p.doneAt && !skipped.includes(p.id))
         .sort((a, b) => (b.playedAt ?? b.createdAt) - (a.playedAt ?? a.createdAt) || a.plies[0] - b.plies[0]);
-    const pool = (practiceAll ? filtered : due).filter((p) => !skipped.includes(p.id));
+    const pool = due.filter((p) => !skipped.includes(p.id));
     // Repeated mistakes first, then the ones with most at stake.
     return sortQueue(pool);
     // `due` is derived from `filtered` and the clock; recomputing on puzzle changes is enough.
-  }, [filtered, practiceAll, skipped, puzzles, ext, inSession, sess, fromGames]);
+  }, [filtered, skipped, puzzles, ext, inSession, sess, fromGames]);
+  // After a miss, a new position with the same idea comes next, if there is one.
+  const ordered = useMemo(() => (idea ? [...queue].sort((a, b) => Number(ideaOf(b) === idea) - Number(ideaOf(a) === idea)) : queue), [queue, idea]);
 
   // The shown puzzle stays until it's finished or skipped, even if the order changes meanwhile
   // (new puzzles from a game just analysed, or stakes being measured).
   const pinned = useRef<string | undefined>(memo?.pinned);
-  const current = queue.find((p) => p.id === pinned.current) ?? queue[0];
+  // The one on screen stays until you finish or skip it, even if it leaves the queue meanwhile
+  // (e.g. a background update marks an old, already-tried puzzle done while you're on it).
+  const current =
+    ordered.find((p) => p.id === pinned.current) ??
+    (pinned.current && !skipped.includes(pinned.current)
+      ? (allPuzzles ?? []).find((p) => p.id === pinned.current) ?? ext?.find((p) => p.id === pinned.current)
+      : undefined) ??
+    ordered[0];
+  // Whether another position with this one's idea is waiting (said after a miss).
+  const currentIdea = current && ideaOf(current);
+  const nextIdea = currentIdea && ordered.some((p) => p.id !== current.id && ideaOf(p) === currentIdea) ? ideaText(current) : undefined;
   // Not while the puzzles are still loading (an empty queue), or the remembered one is lost.
   if (current) pinned.current = current.id;
   // Remembered for coming back (e.g. from the puzzle's game).
   useEffect(() => {
-    if (puzzles) pageMemo = { search: params.toString(), at: Date.now(), skipped, session, practiceAll, pinned: pinned.current };
+    if (puzzles) pageMemo = { search: params.toString(), at: Date.now(), skipped, session, pinned: pinned.current, idea };
   });
   // In today's session the counter shows progress through the current part of the plan.
   const inDuePart = sess.stage === 'due' && !!current && !current.lichess && current.due <= now;
@@ -191,19 +204,19 @@ export default function Training() {
     return [...m.entries()].sort((a, b) => b[1] - a[1]);
   }, [puzzles]);
 
-  // Per skill area: how many of your puzzles, and how many are mastered, learning and new.
+  // Per skill area: how many of your puzzles, and how many of those are still new (each is done once).
   const areaCounts = useMemo(() => {
     const m = new Map<SkillArea, Puzzle[]>();
     for (const p of puzzles ?? []) {
       const a = puzzleArea(p);
       if (a) m.set(a, [...(m.get(a) ?? []), p]);
     }
-    return SKILL_AREAS.filter((a) => m.get(a)?.length).map((a) => [a, countMastery(m.get(a)!)] as const);
+    return SKILL_AREAS.filter((a) => m.get(a)?.length).map((a) => [a, countNew(m.get(a)!)] as const);
   }, [puzzles]);
 
   const setFocus = (p: Record<string, string>) => {
     setParams(p);
-    setPracticeAll(false);
+    setIdea(undefined);
     setSkipped([]);
     setFocusOpen(false);
   };
@@ -273,7 +286,7 @@ export default function Training() {
               onClick={() => setFocus({ area: a })}
               label={SKILL_META[a].label}
               count={c.total}
-              sub={c.new < c.total ? masteryText(c) : undefined}
+              sub={c.left < c.total ? `${c.left} new · ${c.total - c.left} done` : undefined}
             />
           ))}
           <div className="muted text-xs font-semibold uppercase tracking-wide mt-3 mb-1 px-3">Mistake type</div>
@@ -330,42 +343,45 @@ export default function Training() {
       ) : !current ? (
         <Section>
           <EmptyState fen={EMPTY_FENS.mate} title={`All done${focusLabel !== 'All puzzles' ? ` for ${focusLabel}` : ''}`}>
-            {filtered.length} puzzle{filtered.length === 1 ? '' : 's'} in this set ({masteryText(countMastery(filtered))}). Solved {session.solved}, missed {session.failed}
-            {session.best > 1 ? `, best streak ${session.best}` : ''}.
-            {filtered.length > 0 && (
-              <button
-                className="btn btn-primary"
-                onClick={() => {
-                  setPracticeAll(true);
-                  setSkipped([]);
-                }}
-              >
-                Keep practising anyway
-              </button>
+            {session.solved + session.failed > 0 && (
+              <span>
+                Solved {session.solved}, missed {session.failed}
+                {session.best > 1 ? `, best streak ${session.best}` : ''}.
+              </span>
             )}
+            <span>
+              Every puzzle is done once, so there's nothing to repeat. New ones come from your next games, and Today's focus drill adds
+              new positions on your weak spots.
+            </span>
+            <Link className="btn btn-primary" to="/">
+              Back to Today
+            </Link>
           </EmptyState>
         </Section>
       ) : (
         <PuzzleView
           // A puzzle starts fresh in each mode (e.g. one already revealed on the Train tab, then met in today's session).
-          key={current.id + (practiceAll ? '-p' : '') + (inSession ? '-s' : '')}
+          key={current.id + (inSession ? '-s' : '')}
           puzzle={current}
           remaining={inSession ? Math.max(1, sessionPart.target - sessionPart.done) : queue.length}
           done={inSession ? sessionPart.done : session.solved + session.failed}
           autoNext={settings.autoNextPuzzle}
           showProgress={inSession}
-          once={!!fromGames}
+          nextIdea={nextIdea}
           onDone={async (grade) => {
             pinned.current = undefined;
-            const next = { ...schedule(current, grade), mastery: nextMastery(current, grade) };
-            const lastResult = grade === 'again' ? 'failed' : 'solved';
-            if (current.lichess) await db.extPuzzles.update(current.id, { ...next, lastResult, lichess: { ...current.lichess, seenAt: Date.now() } });
-            else await db.puzzles.update(current.id, { ...next, lastResult, seenAt: Date.now(), ...(fromGames ? { lossDoneAt: Date.now() } : {}) });
+            // Set aside at once, so it isn't picked again before its "done" is saved.
+            setSkipped((s) => [...s, current.id]);
+            // Done once: solved or missed, it's retired, and never shown again.
+            const done = retire(grade);
+            if (current.lichess) await db.extPuzzles.update(current.id, { ...done, lichess: { ...current.lichess, seenAt: done.seenAt } });
+            else await db.puzzles.update(current.id, done);
+            // Missed: the same idea next, in a new position.
+            setIdea(grade === 'again' ? ideaOf(current) : undefined);
             // For the Weaknesses page: is training an area paying off?
             void logPuzzleTry({ at: Date.now(), area: current.lichess?.area ?? puzzleArea(current), clean: grade === 'good' || grade === 'easy', own: !current.lichess });
             if (inSession && sess.stage !== 'done') {
               await addProgress(inDuePart ? 'puzzles' : 'drill');
-              setSkipped((s) => [...s, current.id]);
             }
             const clean = grade === 'good' || grade === 'easy';
             setSession((s) => {
@@ -377,7 +393,6 @@ export default function Training() {
                 best: Math.max(s.best, streak),
               };
             });
-            if (practiceAll && !inSession) setSkipped((s) => [...s, current.id]);
           }}
           onSkip={() => {
             pinned.current = undefined;
@@ -388,6 +403,19 @@ export default function Training() {
       )}
     </div>
   );
+}
+
+/** How many puzzles, and how many are still to do (each is done once). */
+const countNew = (ps: Puzzle[]) => ({ total: ps.length, left: ps.filter((p) => !p.doneAt).length });
+
+/** The idea a puzzle trains: its kind of tactic, or for a Lichess puzzle without one, its area. */
+function ideaOf(p: Puzzle): string | undefined {
+  const m = keyMotif(p.motifs);
+  return m ?? (p.lichess ? `area:${p.lichess.area}` : undefined);
+}
+function ideaText(p: Puzzle): string | undefined {
+  const m = keyMotif(p.motifs);
+  return m ? kindText(m) : p.lichess ? SKILL_META[p.lichess.area].label.toLowerCase() : undefined;
 }
 
 /** A puzzle that starts with "what does your opponent threaten?" (your game move ignored a threat). */
@@ -416,10 +444,10 @@ function PuzzleView({
   onSkip,
   autoNext,
   showProgress,
-  once,
+  nextIdea,
 }: {
-  /** Done once and not repeated (puzzles from your last losses): no mastery shown. */
-  once?: boolean;
+  /** The idea of this puzzle in words, when a new position with it is next (shown after a miss). */
+  nextIdea?: string;
   puzzle: Puzzle;
   remaining: number;
   done: number;
@@ -763,19 +791,10 @@ function PuzzleView({
         <KingIcon white={toMove === 'white'} />
         <span>{toMove === 'white' ? 'White' : 'Black'} to move</span>
         <span className="muted font-normal">· {puzzle.solutionUci.length > 1 ? 'find the winning line' : 'find the best move'}</span>
-        {!once && <MasteryPips n={puzzle.mastery?.length ?? 0} />}
       </span>
     );
-  // What this try did for the puzzle's mastery (3 clean solves on different days).
-  const masteryNote = useMemo(() => {
-    if (!done) return undefined;
-    const before = puzzle.mastery?.length ?? 0;
-    const now = Date.now();
-    const after = nextMastery(puzzle, gradeFor(), now);
-    if (!after.length) return before ? 'Mastery starts over: solve it cleanly on 3 separate days.' : undefined;
-    if (!counted(after, now)) return after.length === before && clean ? `Mastery ${after.length}/${MASTERY_SOLVES}: a clean solve counts once a day.` : undefined;
-    return after.length >= MASTERY_SOLVES ? 'Mastered! Solved cleanly on 3 separate days.' : `Mastery ${after.length}/${MASTERY_SOLVES}: solve it cleanly on ${MASTERY_SOLVES - after.length} more day${MASTERY_SOLVES - after.length === 1 ? '' : 's'}.`;
-  }, [done, puzzle, clean, state]);
+  // Missed: not shown again; a new position with the same idea comes next, to apply it.
+  const missedNote = done && gradeFor() === 'again' ? (nextIdea ? `Next: a new position with the same idea (${nextIdea}).` : undefined) : undefined;
 
   return (
     // overflow-anchor: none, or the browser keeps the tapped button in place when a line opens above
@@ -876,7 +895,7 @@ function PuzzleView({
             role="status"
           >
             {status}
-            {masteryNote && !once && <p className="mt-1 text-sm font-normal muted">{masteryNote}</p>}
+            {missedNote && <p className="mt-1 text-sm font-normal muted">{missedNote}</p>}
             {/* Once it's done, the two lines are right here under the result (an open line shows above, under the board). */}
             {done && !lineView && lines && (lines.best || lines.refute) && (
               <div className="flex flex-wrap gap-2 mt-2.5 font-normal">
@@ -1043,18 +1062,6 @@ function PuzzleView({
         )}
       </div>
     </div>
-  );
-}
-
-/** Progress to mastery as three dots: clean solves on separate days since the last miss. */
-function MasteryPips({ n }: { n: number }) {
-  if (!n) return null;
-  return (
-    <span className="ml-auto inline-flex gap-1" title={`Mastery: ${Math.min(n, MASTERY_SOLVES)} of ${MASTERY_SOLVES} clean solves on separate days`} aria-label={`Mastery ${Math.min(n, MASTERY_SOLVES)} of ${MASTERY_SOLVES}`}>
-      {Array.from({ length: MASTERY_SOLVES }, (_, i) => (
-        <span key={i} className="w-2 h-2 rounded-full" style={{ background: i < n ? 'var(--win)' : 'var(--border)' }} />
-      ))}
-    </span>
   );
 }
 

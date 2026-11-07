@@ -181,12 +181,10 @@ export interface Puzzle {
   seenAt?: number;
   /** The solutionFor version its solution was built with (see SOLUTION_VERSION). */
   solutionV?: number;
-  /** Times of clean solves on separate days since the last miss; three means mastered (see mastery.ts). */
-  mastery?: number[];
   /** How many earlier games (in the 60 days before) had a mistake of the same kind (see repeats.ts). */
   repeats?: number;
-  /** When it was done in "Puzzles from these losses", which shows each puzzle once (no repeats). */
-  lossDoneAt?: number;
+  /** When it was done. Puzzles are done once and never repeated (see srs.ts). */
+  doneAt?: number;
 }
 
 export interface PuzzleStake {
