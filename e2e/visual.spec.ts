@@ -50,6 +50,11 @@ test('screens', async ({ page }) => {
   await page.waitForTimeout(800);
   await shot(page, 'insights-skills');
 
+  await page.goto('./#/weaknesses');
+  await page.getByRole('heading', { name: 'The other areas' }).waitFor();
+  await page.waitForTimeout(800);
+  await shot(page, 'weaknesses');
+
   await page.goto('./#/openings');
   await page.getByRole('heading', { name: 'As White' }).waitFor();
   await page.waitForTimeout(800);

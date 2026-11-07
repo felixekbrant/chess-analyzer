@@ -1,21 +1,18 @@
-import { Suspense, lazy, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { MiniBoard } from '../components/MiniBoard';
 import { BrandMark } from '../components/BrandMark';
 import { useNavigate } from 'react-router-dom';
 import { useQueue, useSettings, useSyncStatus } from '../hooks/useStores';
 import { DEFAULT_FILTERS, useInsightData } from '../hooks/useInsightData';
-import { overview, trend } from '../lib/insights/compute';
 import { coachReport } from '../lib/insights/coach';
 import { CoachReport } from '../components/CoachReport';
 import { FocusCard, TodayCard } from '../components/Coaching';
 import { MIN_PROFILE_GAMES, useSkills } from '../hooks/useSkills';
 import { WeeklyNoteCard } from '../components/WeeklyNoteCard';
-// Charts (recharts) are loaded after the rest of the dashboard so first paint isn't blocked by them.
-const LineTrend = lazy(() => import('../components/charts').then((m) => ({ default: m.LineTrend })));
 import { GameCardList } from '../components/GameTable';
 import { Icon } from '../components/Icon';
 import { Picker } from '../components/Picker';
-import { PageHeader, Section, fmtPct } from '../components/ui';
+import { PageHeader, Section } from '../components/ui';
 import { connectAccount } from '../lib/account';
 import { formatEta } from '../lib/format';
 import { Link } from 'react-router-dom';
@@ -27,16 +24,11 @@ export default function Dashboard() {
 
   const recentAg = useMemo(() => ag.slice(-50), [ag]);
   const skills = useSkills(games, ag);
-  const ov = useMemo(() => overview(games, ag), [games, ag]);
-  const tr = useMemo(() => trend(games, summaries), [games, summaries]);
   const report = useMemo(
     () => coachReport(recentAg, games.filter((g) => g.endTime >= (recentAg[0]?.game.endTime ?? 0)), summaries),
     [recentAg, games, summaries],
   );
-  // The same time control as the skill profile: your most-played timed one.
-  const mainClass = skills.timeClass;
-  const ratingData = useMemo(() => tr.filter((p) => p.rating && p.timeClass === mainClass).slice(-100), [tr, mainClass]);
-  const recentGames = useMemo(() => games.slice(0, 3), [games]);
+  const recentGames = useMemo(() => games.slice(0, 5), [games]);
   const doneCount = useMemo(() => games.filter((g) => g.analysisStatus === 'done').length, [games]);
   const open = (g: { id: string }) => navigate(`/game/${encodeURIComponent(g.id)}`);
 
@@ -68,44 +60,11 @@ export default function Dashboard() {
         </div>
 
         <div className="space-y-3 min-w-0">
-          <div className="panel grid grid-cols-3 divide-x divide-[var(--border)] py-3 text-center">
-            <MiniFigure
-              label={`${mainClass ?? ''} rating`}
-              value={ratingData[ratingData.length - 1]?.rating ?? '–'}
-              sub={ratingDelta(ratingData).replace(' over 30 days', ' · 30 d')}
-              chart={<Sparkline values={ratingData.map((d) => d.rating ?? 0)} />}
-            />
-            <MiniFigure label="Accuracy" value={ov.analyzed ? fmtPct(ov.accuracy, 1) : '–'} sub={ov.analyzed ? `${ov.analyzed} analysed` : 'analysing…'} />
-            <MiniFigure label="Score" value={fmtPct(ov.score)} sub={`${ov.wins}W ${ov.draws}D ${ov.losses}L`} />
-          </div>
+          {/* Home is about what to do next; rating and score live in Insights › Results. */}
           <Section title="Recent games" right={<Link to="/games" className="text-sm font-semibold muted hover:text-[var(--text)] py-2.5 px-2 -my-2.5 -mx-2">All games →</Link>}>
             <div className="-mx-4 -mb-4">
               <GameCardList games={recentGames} onOpen={open} grouped={false} flush />
             </div>
-          </Section>
-          <Section
-            title={`Rating · ${mainClass ?? '–'}`}
-            right={
-              ratingData.length > 1 ? (
-                <span className="text-sm font-bold tabular-nums">
-                  {ratingData[ratingData.length - 1].rating} <span className="muted font-semibold">{ratingDelta(ratingData).replace(' over 30 days', ' in 30 days')}</span>
-                </span>
-              ) : undefined
-            }
-          >
-            {ratingData.length > 1 ? (
-              <Suspense fallback={<div className="h-40" />}>
-                <LineTrend
-                  data={ratingData}
-                  x="t"
-                  lines={[{ key: 'rating', name: 'Rating', color: 'var(--felt)' }]}
-                  xFormat={(t) => new Date(t).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                  height={160}
-                />
-              </Suspense>
-            ) : (
-              <p className="muted text-sm">Not enough games yet.</p>
-            )}
           </Section>
         </div>
       </div>
@@ -113,16 +72,6 @@ export default function Dashboard() {
   );
 }
 
-function MiniFigure({ label, value, sub, chart }: { label: string; value: ReactNode; sub?: string; chart?: ReactNode }) {
-  return (
-    <div className="min-w-0 px-2">
-      <div className="muted text-[11px] font-bold uppercase tracking-wide truncate">{label}</div>
-      <div className="text-2xl font-black tabular-nums leading-tight mt-0.5">{value}</div>
-      {chart}
-      {sub && <div className="muted text-[11px] font-semibold truncate">{sub}</div>}
-    </div>
-  );
-}
 
 /** Légal's mate (1763), played on a loop: the welcome screen shows a game before any words. */
 // Positions precomputed (keeps chess.js out of the start-up bundle): 1.e4 e5 2.Nf3 d6 3.Bc4 Bg4 4.Nc3 g6 5.Nxe5 Bxd1 6.Bxf7+ Ke7 7.Nd5#
@@ -162,20 +111,6 @@ function LegalsMate() {
   );
 }
 
-/** A tiny line of recent values (no axes): the trend at a glance. */
-function Sparkline({ values }: { values: number[] }) {
-  const v = values.slice(-20).filter((x) => x > 0);
-  if (v.length < 2) return null;
-  const min = Math.min(...v);
-  const max = Math.max(...v);
-  const pts = v.map((x, i) => `${(i / (v.length - 1)) * 60},${16 - ((x - min) / Math.max(1, max - min)) * 14}`).join(' ');
-  const up = v[v.length - 1] >= v[0];
-  return (
-    <svg width="60" height="18" viewBox="0 -1 60 18" className="mx-auto mt-1" aria-hidden="true">
-      <polyline points={pts} fill="none" stroke={up ? 'var(--felt)' : 'var(--loss)'} strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round" />
-    </svg>
-  );
-}
 
 /** Before there are enough analysed games for a skill profile. */
 function ProfilePending({ analysed, timeClass }: { analysed: number; timeClass: string }) {
@@ -213,13 +148,6 @@ function HomeSkeleton() {
   );
 }
 
-function ratingDelta(data: { rating?: number; t: number }[]) {
-  if (data.length < 2) return '';
-  const last = data[data.length - 1];
-  const monthAgo = data.find((d) => d.t >= last.t - 30 * 86400000) ?? data[0];
-  const diff = (last.rating ?? 0) - (monthAgo.rating ?? 0);
-  return `${diff >= 0 ? '+' : ''}${diff} over 30 days`;
-}
 
 /** First-run screen: connect a chess.com account without leaving the page. */
 function Welcome() {

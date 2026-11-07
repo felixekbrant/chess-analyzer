@@ -46,9 +46,9 @@ export async function pick(page: Page, label: string, option: string) {
 }
 
 /** Opens a tab from the phone tab bar (or the "More" sheet for the rest). */
-export async function openTab(page: Page, name: 'Home' | 'Games' | 'Train' | 'Insights' | 'Openings' | 'Settings') {
+export async function openTab(page: Page, name: 'Home' | 'Games' | 'Train' | 'Weaknesses' | 'Insights' | 'Openings' | 'Settings') {
   const nav = page.getByRole('navigation', { name: 'Main' }).last();
-  if (name === 'Openings' || name === 'Settings') {
+  if (name === 'Insights' || name === 'Openings' || name === 'Settings') {
     await nav.getByRole('button', { name: 'More' }).click();
     await page.getByRole('dialog').getByRole('link', { name }).click();
   } else {

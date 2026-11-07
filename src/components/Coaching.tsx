@@ -244,12 +244,16 @@ export function FocusCard({
           <Icon name="target" size={22} />
         </span>
         <div className="min-w-0 flex-1">
-          <div className="muted text-[11px] font-extrabold uppercase tracking-wider">
+          <div className="muted text-[11px] font-extrabold uppercase tracking-wider flex items-center gap-1.5">
             Focus · day {focusDay(f)}/{FOCUS_DAYS}
+            <button className="underline normal-case tracking-normal font-semibold py-2 -my-2 px-1" onClick={() => setPicking(true)}>
+              Change
+            </button>
           </div>
-          <button className="font-extrabold text-lg leading-tight text-left truncate max-w-full hover:underline py-2 -my-2" onClick={() => setPicking(true)} title="Change focus">
-            {meta.label}
-          </button>
+          {/* The focus is your top weakness this week: its page has the examples and progress. */}
+          <Link className="block font-extrabold text-lg leading-tight truncate max-w-full hover:underline py-2 -my-2" to="/weaknesses" title="See your weaknesses">
+            {meta.label} <span className="muted text-sm font-semibold">›</span>
+          </Link>
           {r && (
             <div className="flex items-center gap-2 mt-1 text-xs font-semibold tabular-nums">
               <span style={{ color: r.typical !== undefined && r.cost > r.typical * 1.15 ? 'var(--attention-ink)' : 'var(--text)' }}>{fmt(r.cost)}%</span>

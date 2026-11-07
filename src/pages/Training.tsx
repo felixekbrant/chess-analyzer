@@ -43,6 +43,7 @@ import { Icon } from '../components/Icon';
 import { Sheet } from '../components/Sheet';
 import { hintText } from '../lib/training/hint';
 import { isSmall, puzzlePriority, stakeLabel } from '../lib/training/puzzles';
+import { logPuzzleTry } from '../lib/training/puzzleLog';
 import { CapturedPieces } from '../components/CapturedPieces';
 import { materialOf } from '../lib/analysis/material';
 import { EMPTY_FENS, EmptyState, PageHeader, Section } from '../components/ui';
@@ -332,6 +333,8 @@ export default function Training() {
             const lastResult = grade === 'again' ? 'failed' : 'solved';
             if (current.lichess) await db.extPuzzles.update(current.id, { ...next, lastResult, lichess: { ...current.lichess, seenAt: Date.now() } });
             else await db.puzzles.update(current.id, { ...next, lastResult, seenAt: Date.now() });
+            // For the Weaknesses page: is training an area paying off?
+            void logPuzzleTry({ at: Date.now(), area: current.lichess?.area ?? puzzleArea(current), clean: grade === 'good' || grade === 'easy', own: !current.lichess });
             if (inSession && sess.stage !== 'done') {
               await addProgress(inDuePart ? 'puzzles' : 'drill');
               setSkipped((s) => [...s, current.id]);

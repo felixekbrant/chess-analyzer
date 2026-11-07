@@ -287,7 +287,7 @@ test('focus drill: tops up with Lichess puzzles and plays one', async ({ page })
   const today = page.locator('section', { has: page.getByRole('heading', { name: 'Today', exact: true }) });
   await expect(today.getByText('Focus drill')).toBeVisible();
   // This player has plenty of their own middlegame positions; pick an area with few, so the drill needs Lichess puzzles.
-  await page.getByTitle('Change focus').click();
+  await page.getByRole('button', { name: 'Change', exact: true }).click();
   await page.getByRole('dialog').getByRole('button', { name: /^Opening/ }).click();
   await expect(today.getByText(/Lichess puzzles/)).toBeVisible();
   // The pack for the focus area is downloaded and its puzzles stored in the browser.
@@ -754,4 +754,24 @@ test('review: after a retry, step through the lines and come back to it', async 
   await page.keyboard.press('Escape');
   await expect(page.getByRole('button', { name: /^What .+ allowed$/ }).filter({ visible: true })).toBeVisible();
   await expect(page.getByText(/^The best move was /).filter({ visible: true })).toBeVisible();
+});
+
+test('weaknesses: the top three, with moments from your games, training and focus', async ({ page }) => {
+  await seed(page);
+  await openTab(page, 'Weaknesses');
+  // Three ranked cards, each with a way to train it (or a tip for time management).
+  const cards = page.locator('section', { has: page.getByText('Progress', { exact: true }) });
+  await expect(cards).toHaveCount(3);
+  await expect(cards.first().getByText('In your games:')).toBeVisible();
+  // A moment from your games opens the review, with the way back named.
+  await cards.first().getByRole('link', { name: /^\d+\.{1,3}\S+/ }).first().click();
+  await page.getByRole('button', { name: 'Back to Weaknesses' }).filter({ visible: true }).click();
+  // Making another area the focus moves the "this week's focus" chip there.
+  const other = cards.filter({ has: page.getByRole('button', { name: 'Make it my focus' }) }).first();
+  const area = await other.getByRole('heading').innerText();
+  await other.getByRole('button', { name: 'Make it my focus' }).click();
+  await expect(cards.filter({ hasText: area }).getByText("this week's focus")).toBeVisible();
+  // Insights is still there, under More.
+  await openTab(page, 'Insights');
+  await expect(page.getByRole('tab', { name: 'Skills' })).toBeVisible();
 });

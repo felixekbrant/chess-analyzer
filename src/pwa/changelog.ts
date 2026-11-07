@@ -9,6 +9,12 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: '7 Nov 2026',
+    items: [
+      'A new Weaknesses tab: your top three weak areas compared with players at your rating, moments from your games that show them, a way to train each, and whether it\'s getting better. Insights and Openings moved under More, and Home is now just today\'s plan, your focus and your recent games.',
+    ],
+  },
+  {
     date: '6 Nov 2026',
     items: [
       'Polish: bigger step buttons in lines, your card marked "You" in the game summary, games open in a new tab from the list (desktop), and clearer labels ("125 to analyse", "had +4.6", what the focus percentage means).',

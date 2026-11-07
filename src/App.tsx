@@ -20,6 +20,7 @@ import { StatusIndicator } from './components/StatusIndicator';
 const Games = lazy(() => import('./pages/Games'));
 const Review = lazy(() => import('./pages/review'));
 const Insights = lazy(() => import('./pages/Insights'));
+const Weaknesses = lazy(() => import('./pages/Weaknesses'));
 const Openings = lazy(() => import('./pages/Openings'));
 const Training = lazy(() => import('./pages/Training'));
 const SettingsPage = lazy(() => import('./pages/Settings'));
@@ -36,6 +37,9 @@ const NAV: NavItem[] = [
   { to: '/', label: 'Home', icon: 'home' },
   { to: '/games', label: 'Games', icon: 'games', match: /^\/(games|game\/)/ },
   { to: '/training', label: 'Train', icon: 'puzzle' },
+  // The app is about reviewing your games, your weaknesses and training them; the full statistics
+  // and the openings report are a tap further away, under More.
+  { to: '/weaknesses', label: 'Weaknesses', icon: 'dumbbell' },
   { to: '/insights', label: 'Insights', icon: 'chart' },
   { to: '/openings', label: 'Openings', icon: 'book' },
   { to: '/settings', label: 'Settings', icon: 'settings' },
@@ -48,6 +52,7 @@ const TITLES: [RegExp, string][] = [
   [/^\/games/, 'Games'],
   [/^\/game\//, 'Game Review'],
   [/^\/training/, 'Training'],
+  [/^\/weaknesses/, 'Weaknesses'],
   [/^\/insights/, 'Insights'],
   [/^\/openings/, 'Openings'],
   [/^\/settings/, 'Settings'],
@@ -86,6 +91,7 @@ export default function App() {
                 <Route path="/games" element={<Games />} />
                 <Route path="/game/:id" element={<Review />} />
                 <Route path="/insights" element={<Insights />} />
+                <Route path="/weaknesses" element={<Weaknesses />} />
                 <Route path="/openings" element={<Openings />} />
                 <Route path="/training" element={<Training />} />
                 <Route path="/settings" element={<SettingsPage />} />
@@ -129,7 +135,13 @@ function Sidebar({ path }: { path: string }) {
         Chess Analyzer
       </div>
       <nav className="flex flex-col px-2 gap-1" aria-label="Main">
-        {NAV.map((n) => (
+        {NAV.map((n, i) => [
+          // The secondary pages, under a small "More" heading (as in the phone's More sheet).
+          i === TAB_COUNT && (
+            <div key="more" className="muted text-[11px] font-extrabold uppercase tracking-wider px-3 pt-4 pb-1">
+              More
+            </div>
+          ),
           <NavLink
             key={n.to}
             to={n.to}
@@ -139,8 +151,8 @@ function Sidebar({ path }: { path: string }) {
           >
             <Icon name={n.icon} size={18} />
             {n.label}
-          </NavLink>
-        ))}
+          </NavLink>,
+        ])}
       </nav>
       <div className="mt-auto p-2 pb-4">
         <StatusIndicator variant="sidebar" />

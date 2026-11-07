@@ -4,6 +4,8 @@ import type { ReactNode } from 'react';
 // device, unlike emoji.
 const PATHS: Record<string, ReactNode> = {
   home: <path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10" />,
+  // A dumbbell: the Weaknesses tab, where you work on the areas that cost you most.
+  dumbbell: <path d="M6.5 7v10M3.5 9.5v5M17.5 7v10M20.5 9.5v5M6.5 12h11" />,
   chevronDown: <path d="M6 9l6 6 6-6" />,
   cloud: <path d="M7 18h10a4 4 0 00.6-7.96A6 6 0 006.1 9.1 4.5 4.5 0 007 18zM9.5 13.5l2 2 3.5-3.5" />,
   flame: <path d="M12 3c1 3.5 5 5.5 5 10a5 5 0 01-10 0c0-2.2 1.2-3.6 2.4-4.6.2 1.6 1 2.6 2.1 3.1C11 9 11.2 5.6 12 3z" />,
