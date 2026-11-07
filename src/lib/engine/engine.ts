@@ -73,7 +73,8 @@ export class Engine {
         job.opts.onInfo?.({ fen: job.fen, depth: this.depth, lines: this.lines.filter(Boolean) });
       }
     } else if (line.startsWith('bestmove')) {
-      const result: PositionEval = { fen: job.fen, depth: this.depth, lines: this.lines.filter(Boolean) };
+      const move = line.split(' ')[1];
+      const result: PositionEval = { fen: job.fen, depth: this.depth, lines: this.lines.filter(Boolean), ...(move && move !== '(none)' ? { bestMove: move } : {}) };
       this.current = null;
       job.resolve(result);
       this.next();
@@ -103,6 +104,11 @@ export class Engine {
 
   newGame() {
     this.send('ucinewgame');
+  }
+
+  /** A UCI option, e.g. Skill Level for playing at a set strength. Applies from the next search. */
+  setOption(name: string, value: string | number | boolean) {
+    this.send(`setoption name ${name} value ${value}`);
   }
 
   /** Stops the running search (it resolves with partial results) and drops queued jobs. */

@@ -93,6 +93,8 @@ export interface PositionEval {
   fen: string;
   depth: number;
   lines: EngineLine[]; // best first; up to 2
+  /** The move the engine chose. Usually lines[0]'s first move, but not when its strength is limited. */
+  bestMove?: string;
 }
 
 export interface MoveAnalysis {
@@ -235,7 +237,11 @@ export interface Settings {
   showBestMoves: boolean;
   /** Include small positional puzzles (no material or mate at stake) in daily practice. */
   smallPuzzles: boolean;
+  /** "Play from here": how strong the engine opponent is. */
+  playLevel: PlayLevel;
 }
+
+export type PlayLevel = 'club' | 'strong' | 'full';
 
 export type BoardTheme = 'green' | 'brown' | 'blue' | 'gray';
 export type PieceSet = 'classic' | 'merida' | 'chessnut';
@@ -260,4 +266,5 @@ export const DEFAULT_SETTINGS: Settings = {
   showSuggestions: true,
   showBestMoves: true,
   smallPuzzles: false,
+  playLevel: 'club',
 };

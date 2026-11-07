@@ -22,7 +22,7 @@ import { LineViewer } from '../components/LineViewer';
 import { parsePgn } from '../lib/pgn/parse';
 import { MOTIF_LABEL } from '../lib/insights/compute';
 import { playSound } from '../lib/sound';
-import type { Motif, Phase, Puzzle } from '../lib/types';
+import type { Color, Motif, Phase, Puzzle } from '../lib/types';
 import { SKILL_AREAS, SKILL_META, type SkillArea } from '../lib/insights/skills';
 import type { FocusStore } from '../lib/training/focus';
 import {
@@ -44,6 +44,7 @@ import { Sheet } from '../components/Sheet';
 import { hintText } from '../lib/training/hint';
 import { isSmall, puzzlePriority, stakeLabel } from '../lib/training/puzzles';
 import { logPuzzleTry } from '../lib/training/puzzleLog';
+import { playHref } from '../lib/play/playouts';
 import { CapturedPieces } from '../components/CapturedPieces';
 import { materialOf } from '../lib/analysis/material';
 import { EMPTY_FENS, EmptyState, PageHeader, Section } from '../components/ui';
@@ -814,6 +815,14 @@ function PuzzleView({
                     <Icon name="play" size={14} /> What {puzzle.playedSan} allowed
                   </button>
                 )}
+                {/* Solving it is the start: play on until the win is in the bag. */}
+                <Link
+                  className="btn !py-2 !text-sm"
+                  to={playHref(playUci(puzzle.fen, puzzle.solutionUci).fens.at(-1) ?? puzzle.fen, puzzle.fen.split(' ')[1] as Color, `puzzle:${puzzle.id}`)}
+                  state={backTo('puzzle')}
+                >
+                  <Icon name="engine" size={14} /> Play it out
+                </Link>
               </div>
             )}
             {hintWords && !done && (

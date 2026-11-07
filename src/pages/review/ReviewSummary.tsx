@@ -15,6 +15,9 @@ import { Icon } from '../../components/Icon';
 import { formatDate } from '../../components/ui';
 import { CoachBubble, ERROR_CLASSES, KEY_CLASSES } from './parts';
 import { CLASS_META, CLASS_ORDER } from '../../lib/classificationMeta';
+import { isThrown } from '../../lib/games/thrown';
+import { playHref } from '../../lib/play/playouts';
+import { backTo } from '../../lib/backLink';
 
 export interface StartOptions {
   ply?: number;
@@ -43,6 +46,18 @@ export function ReviewSummary({
   const keyCount = analysis?.moves.filter((m) => m.color === me && KEY_CLASSES.includes(m.classification)).length ?? 0;
   const errorCount = analysis?.moves.filter((m) => m.color === me && ERROR_CLASSES.includes(m.classification) && m.bestUci).length ?? 0;
   const finalFen = parsed.plies.at(-1)?.fenAfter ?? parsed.startFen;
+  // Where to play on from: in a thrown game, the position where you were best ("win it again");
+  // otherwise, just before your biggest mistake, to play it better and go on.
+  const playFrom = useMemo(() => {
+    const mine = analysis?.moves.filter((m) => m.color === me) ?? [];
+    if (!mine.length) return undefined;
+    if (isThrown(game)) {
+      const peak = mine.reduce((a, b) => (b.winBefore > a.winBefore ? b : a));
+      return { m: peak, label: `Win it again from move ${peak.moveNumber}` };
+    }
+    const worst = mine.filter((m) => ERROR_CLASSES.includes(m.classification)).sort((a, b) => b.winLoss - a.winLoss)[0];
+    return worst ? { m: worst, label: `Play from your mistake (move ${worst.moveNumber})` } : undefined;
+  }, [analysis, me, game]);
   const navigate = useNavigate();
   // The newest analysed game you haven't opened yet, so several can be reviewed in a row.
   const nextGame = useLiveQuery(
@@ -137,6 +152,14 @@ export function ReviewSummary({
                   <Icon name="retry" size={16} /> Retry mistakes ({errorCount})
                 </button>
               </div>
+              {playFrom && (
+                <button
+                  className="btn justify-center !py-2.5"
+                  onClick={() => navigate(playHref(playFrom.m.fenBefore, me, `game:${game.id}:${playFrom.m.ply}`), { state: backTo('the game') })}
+                >
+                  <Icon name="engine" size={16} /> {playFrom.label}
+                </button>
+              )}
               {nextGame && (
                 <button className="btn justify-center !py-2.5" onClick={() => navigate(`/game/${encodeURIComponent(nextGame.id)}`)}>
                   Next game · {opponentName(nextGame)} <Icon name="next" size={16} />

@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { PLAYOUTS_KEY, conversionStats, playHref, type Playout } from '../lib/play/playouts';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/schema';
 import { DEFAULT_FILTERS, useInsightData } from '../hooks/useInsightData';
@@ -31,6 +32,7 @@ export default function Weaknesses() {
   const settings = useSettings();
   const puzzles = useLiveQuery(() => db.puzzles.toArray(), []);
   const log = useLiveQuery(async () => ((await db.kv.get(PUZZLE_LOG_KEY))?.value as PuzzleTry[] | undefined) ?? [], []);
+  const playouts = useLiveQuery(async () => ((await db.kv.get(PLAYOUTS_KEY))?.value as Playout[] | undefined) ?? [], []);
 
   // Your puzzles per area (the same set as the Train tab: small positional ones only if turned on).
   const byArea = useMemo(() => {
@@ -98,6 +100,7 @@ export default function Weaknesses() {
           isFocus={focus === r.area}
           puzzles={byArea.get(r.area) ?? []}
           log={log ?? []}
+          playouts={playouts ?? []}
           onFocus={() => void makeFocus(r.area)}
         />
       ))}
@@ -139,6 +142,7 @@ function WeaknessCard({
   puzzles,
   log,
   onFocus,
+  playouts,
 }: {
   rank: number;
   r: AreaRank;
@@ -150,7 +154,17 @@ function WeaknessCard({
   puzzles: Puzzle[];
   log: PuzzleTry[];
   onFocus: () => void;
+  playouts: Playout[];
 }) {
+  const navigate = useNavigate();
+  const conv = conversionStats(playouts);
+  // Converting: play one of your won positions out against the engine.
+  const playItOut = async () => {
+    for (const ex of s.examples) {
+      const m = (await db.analyses.get(ex.gameId))?.moves[ex.ply];
+      if (m) return navigate(playHref(m.fenBefore, m.color, `game:${ex.gameId}:${ex.ply}`), { state: backTo('Weaknesses') });
+    }
+  };
   const meta = SKILL_META[r.area];
   const tries = areaTries(log, r.area);
   const due = puzzles.filter((p) => p.due <= Date.now()).length;
@@ -221,6 +235,12 @@ function WeaknessCard({
               ? `${puzzles.length} puzzle${puzzles.length === 1 ? '' : 's'} from your games${due ? `, ${due} ready now` : ''}.`
               : 'no puzzles from your games yet.'}
         </p>
+        {r.area === 'converting' && (
+          <p>
+            <b>Playing it out:</b>{' '}
+            {conv.tried ? `${conv.converted} of ${conv.tried} won positions converted against the engine.` : 'play a won position from your games against the engine.'}
+          </p>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -232,6 +252,11 @@ function WeaknessCard({
           <p className="text-sm flex gap-1.5 w-full">
             <Icon name="bulb" size={16} className="text-accent shrink-0 mt-0.5" /> {meta.tip}
           </p>
+        )}
+        {r.area === 'converting' && s.examples.length > 0 && (
+          <button className="btn !py-2 !text-sm" onClick={() => void playItOut()}>
+            <Icon name="engine" size={16} /> Play it out
+          </button>
         )}
         {!isFocus && (
           <button className="btn !py-2 !text-sm" onClick={onFocus}>

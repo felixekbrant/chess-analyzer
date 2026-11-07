@@ -21,6 +21,7 @@ const Games = lazy(() => import('./pages/Games'));
 const Review = lazy(() => import('./pages/review'));
 const Insights = lazy(() => import('./pages/Insights'));
 const Weaknesses = lazy(() => import('./pages/Weaknesses'));
+const Play = lazy(() => import('./pages/Play'));
 const Openings = lazy(() => import('./pages/Openings'));
 const Training = lazy(() => import('./pages/Training'));
 const SettingsPage = lazy(() => import('./pages/Settings'));
@@ -53,6 +54,7 @@ const TITLES: [RegExp, string][] = [
   [/^\/game\//, 'Game Review'],
   [/^\/training/, 'Training'],
   [/^\/weaknesses/, 'Weaknesses'],
+  [/^\/play/, 'Play from here'],
   [/^\/insights/, 'Insights'],
   [/^\/openings/, 'Openings'],
   [/^\/settings/, 'Settings'],
@@ -76,7 +78,7 @@ export default function App() {
   }, []);
 
   // A game review is a full-screen view on phones with its own bottom action bar.
-  const fullScreen = location.pathname.startsWith('/game/');
+  const fullScreen = location.pathname.startsWith('/game/') || location.pathname.startsWith('/play');
 
   return (
     <div className="min-h-screen md:flex">
@@ -92,6 +94,7 @@ export default function App() {
                 <Route path="/game/:id" element={<Review />} />
                 <Route path="/insights" element={<Insights />} />
                 <Route path="/weaknesses" element={<Weaknesses />} />
+                <Route path="/play" element={<Play />} />
                 <Route path="/openings" element={<Openings />} />
                 <Route path="/training" element={<Training />} />
                 <Route path="/settings" element={<SettingsPage />} />
@@ -165,7 +168,8 @@ function Sidebar({ path }: { path: string }) {
 function TopBar({ path }: { path: string }) {
   const navigate = useNavigate();
   const title = TITLES.find(([re]) => re.test(path))?.[1] ?? 'Chess Analyzer';
-  const isReview = path.startsWith('/game/');
+  // Reviews and "Play from here" are places you came to from somewhere: they get a back button.
+  const isReview = path.startsWith('/game/') || path.startsWith('/play');
   const back = useBackLabel();
   const goBack = () => (window.history.length > 1 ? navigate(-1) : navigate('/games'));
   return (

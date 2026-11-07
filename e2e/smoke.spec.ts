@@ -775,3 +775,38 @@ test('weaknesses: the top three, with moments from your games, training and focu
   await openTab(page, 'Insights');
   await expect(page.getByRole('tab', { name: 'Skills' })).toBeVisible();
 });
+
+test('play from here: after a puzzle, with a hint, take-back and resigning', async ({ page }) => {
+  test.setTimeout(120_000);
+  await seed(page);
+  await page.goto('./#/training');
+  await expect(page.getByText(/to move$/)).toBeVisible();
+  await page.getByRole('button', { name: /Solution/ }).click();
+  await page.getByRole('link', { name: 'Play it out' }).click();
+  await expect(page.getByRole('button', { name: 'Back to puzzle' }).filter({ visible: true })).toBeVisible();
+  // The engine moves first (the solution was your move), then it's your turn.
+  await expect(page.getByText('Your move.')).toBeVisible({ timeout: 15000 });
+  await page.getByRole('button', { name: 'Hint' }).click();
+  await expect(page.getByText(/Hint: move the highlighted piece/)).toBeVisible({ timeout: 10000 });
+  await page.getByRole('button', { name: 'More' }).click();
+  await expect(page.getByText(/Hint: the arrow shows the move/)).toBeVisible();
+  await page.getByRole('button', { name: 'Take back' }).click();
+  await page.getByRole('button', { name: 'Resign' }).click();
+  await expect(page.getByText('You resigned.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible();
+});
+
+test('play from here: a decisive lead ends as converted, and you can keep playing', async ({ page }) => {
+  test.setTimeout(120_000);
+  await seed(page);
+  await page.goto('./#/play?fen=' + encodeURIComponent('6k1/5ppp/8/8/8/8/5PPP/2QQ2K1 w - - 0 1') + '&you=w&from=position');
+  await expect(page.getByText('Your move.')).toBeVisible({ timeout: 15000 });
+  await clickSquare(page, 'h2'); await clickSquare(page, 'h3');
+  await expect(page.getByText('Your move.')).toBeVisible({ timeout: 15000 });
+  await clickSquare(page, 'g2'); await clickSquare(page, 'g3');
+  await expect(page.getByText(/Converted!/)).toBeVisible({ timeout: 15000 });
+  await page.getByRole('button', { name: 'Keep playing' }).click();
+  await expect(page.getByText('Your move.')).toBeVisible({ timeout: 15000 });
+  const saved = await page.evaluate(() => new Promise<number>((r) => { const q = indexedDB.open('chess-analyzer'); q.onsuccess = () => { const g = q.result.transaction('kv').objectStore('kv').get('playouts'); g.onsuccess = () => r((g.result?.value ?? []).length); }; }));
+  expect(saved).toBe(1);
+});

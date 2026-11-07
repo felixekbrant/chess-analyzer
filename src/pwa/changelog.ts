@@ -11,6 +11,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     date: '7 Nov 2026',
     items: [
+      'Play from here: play on against the engine (your level, strong or full strength) from any move in a review, from your corrected mistake, from a solved puzzle ("Play it out"), or from where you were winning in a thrown game ("Win it again"). Take-backs, hints, a "converted" ending once you\'re decisively ahead, and afterwards where it slipped.',
       'A new Weaknesses tab: your top three weak areas compared with players at your rating, moments from your games that show them, a way to train each, and whether it\'s getting better. Insights and Openings moved under More, and Home is now just today\'s plan, your focus and your recent games.',
     ],
   },

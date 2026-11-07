@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { playHref } from '../../lib/play/playouts';
+import { backTo } from '../../lib/backLink';
 import { Chess } from 'chess.js';
 import { useLiveEngine, evaluateOnce, useWarmEngine } from '../../hooks/useLiveEngine';
 import { useQueueProgress, useSettings } from '../../hooks/useStores';
@@ -96,6 +99,7 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
   const settings = useSettings();
   const [panelTab, setPanelTab] = useState<'moves' | 'report'>('moves');
   const [menuOpen, setMenuOpen] = useState(false);
+  const navigate = useNavigate();
   // Plays an engine line ("Why it fails", "Best line") move by move.
   const [linePlaying, setLinePlaying] = useState(false);
 
@@ -465,6 +469,16 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
       onExitRetry={() => go(retry ? retry.move.ply + 1 : ply)}
       onRetryBest={retryLines?.best}
       onRetryRefute={retryLines?.refute}
+      onRetryPlay={
+        retry && (retry.state === 'right' || retry.state === 'shown') && retry.move.bestUci
+          ? () => {
+              const m = retry.move;
+              // After the better move: the engine (your opponent) plays on from there.
+              const after = playUci(m.fenBefore, [m.bestUci!]).fens[0] ?? m.fenBefore;
+              navigate(playHref(after, m.color, `game:${game.id}:${m.ply}`), { state: backTo('the game') });
+            }
+          : undefined
+      }
       onExitExplore={exitExplore}
       line={explained}
       onLineIndex={(i) => explore?.line && setExplore({ ...explore, moves: explore.line.slice(0, i) })}
@@ -557,6 +571,8 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
   const menuItems = (
     <div className="grid gap-1">
       <MenuItem icon="flip" label="Flip board" onClick={() => setOrientation((o) => (o === 'white' ? 'black' : 'white'))} />
+      {/* Like Lichess's "continue from here": play on against the engine from the position on the board. */}
+      <MenuItem icon="play" label="Play from here" onClick={() => navigate(playHref(fen, me, `game:${game.id}:${ply}`), { state: backTo('the game') })} />
       {keyPlies.length > 0 && (
         <MenuItem icon="star" label={keyOnly ? 'Step through every move' : `Key moments only (${keyPlies.length})`} onClick={() => setKeyOnly((v) => !v)} />
       )}
@@ -718,6 +734,7 @@ function Coach({
   onRetry,
   onRetryBest,
   onRetryRefute,
+  onRetryPlay,
 }: {
   game: StoredGame;
   analysis?: GameAnalysis;
@@ -740,6 +757,8 @@ function Coach({
   /** After a retry: step through the best line, or what the game move allowed. */
   onRetryBest?: () => void;
   onRetryRefute?: () => void;
+  /** After a retry: play on against the engine from the better move. */
+  onRetryPlay?: () => void;
 }) {
   const progress = useQueueProgress(game.id);
   const me = game.userColor ?? 'w';
@@ -774,7 +793,7 @@ function Coach({
         {retry.state === 'wrong' && (
           <p className="mt-1">{retry.wrongUci === m.uci ? "That's the move you played in the game. Try another one." : 'Try another move.'}</p>
         )}
-        {(retry.state === 'right' || retry.state === 'shown') && (onRetryBest || onRetryRefute) && (
+        {(retry.state === 'right' || retry.state === 'shown') && (onRetryBest || onRetryRefute || onRetryPlay) && (
           // As after a puzzle: the lines to step through, with the arrows or the buttons below the board.
           <div className="flex flex-wrap gap-2 mt-2.5">
             {onRetryBest && (
@@ -785,6 +804,11 @@ function Coach({
             {onRetryRefute && (
               <button className="btn !py-1.5 !text-sm" onClick={onRetryRefute}>
                 <Icon name="play" size={14} /> What {m.san} allowed
+              </button>
+            )}
+            {onRetryPlay && (
+              <button className="btn btn-primary !py-1.5 !text-sm" onClick={onRetryPlay}>
+                <Icon name="engine" size={14} /> Play on from here
               </button>
             )}
           </div>
