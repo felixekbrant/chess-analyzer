@@ -68,8 +68,14 @@ export function useSkills(games: StoredGame[], ag: AnalyzedGame[], manageFocus =
 
   useEffect(() => {
     if (!manageFocus || !stored || !data.ready) return;
-    const next = updateFocus(stored, data.ranked, data.ag);
-    if (next !== stored) void db.kv.put({ key: FOCUS_KEY, value: next });
+    if (updateFocus(stored, data.ranked, data.ag) === stored) return;
+    // Update what's stored now, not the copy read earlier: a focus you just picked yourself
+    // ("Change") must not be overwritten by an update computed from the old one.
+    void db.transaction('rw', db.kv, async () => {
+      const latest = ((await db.kv.get(FOCUS_KEY))?.value as FocusStore | undefined) ?? EMPTY_FOCUS;
+      const next = updateFocus(latest, data.ranked, data.ag);
+      if (next !== latest) await db.kv.put({ key: FOCUS_KEY, value: next });
+    });
   }, [stored, data, manageFocus]);
 
   return { ...data, focus: stored ?? EMPTY_FOCUS };

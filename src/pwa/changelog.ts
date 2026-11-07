@@ -11,6 +11,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     date: '7 Nov 2026',
     items: [
+      'The eval bar and graph now use chess.com\'s scale (measured on its analysis board): an even 11.25% per pawn, full at ±4, so a +5 position looks as won as it is. The first review screen shows the bar beside the final position and the evaluation graph; tap the graph to jump to a move. Play from here has a much bigger board, sized to your window like the review.',
       'Your last 10 losses (on the Weaknesses page): for each loss, the move where it turned and what decided it, then what decided most of them, the patterns behind them (a single blunder, moving fast, letting a win slip, the clock, the same opening) and what to work on first, with puzzles from those games. Losses that aren\'t analysed yet go to the front of the queue.',
       'Clearer explanations, worked out from the board (no AI): what your opponent\'s reply does ("After this, Ng6 attacks your undefended queen"), what the better move would have done ("Bxf6 was better: it takes their knight on f6 and attacks their queen"), and how to punish your opponent\'s mistakes. Your games are updated automatically.',
       'Mastery: a puzzle is mastered once you\'ve solved it cleanly (first try, no hint) on three separate days; a miss starts it over. Each puzzle shows its progress as three dots, the filter shows mastered / learning / new per skill area, and the Weaknesses page shows it for each weakness.',

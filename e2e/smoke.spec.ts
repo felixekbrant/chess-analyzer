@@ -290,7 +290,7 @@ test('focus drill: tops up with Lichess puzzles and plays one', async ({ page })
   await page.getByRole('button', { name: 'Change', exact: true }).click();
   await page.getByRole('dialog').getByRole('button', { name: /^Opening/ }).click();
   await expect(today.getByText(/Lichess puzzles/)).toBeVisible();
-  // The pack for the focus area is downloaded and its puzzles stored in the browser.
+  // The pack for the focus area (Opening, not the area before it) is downloaded and stored.
   await expect
     .poll(() =>
       page.evaluate(
@@ -298,7 +298,7 @@ test('focus drill: tops up with Lichess puzzles and plays one', async ({ page })
           new Promise<number>((resolve) => {
             const req = indexedDB.open('chess-analyzer');
             req.onsuccess = () => {
-              const r = req.result.transaction('extPuzzles').objectStore('extPuzzles').count();
+              const r = req.result.transaction('extPuzzles').objectStore('extPuzzles').index('area').count('opening');
               r.onsuccess = () => resolve(r.result);
             };
           }),

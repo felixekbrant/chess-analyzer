@@ -10,6 +10,8 @@ import { useQueueEta, useQueueProgress, useSettings } from '../../hooks/useStore
 import { analysisQueue } from '../../lib/engine/queue';
 import { ClassificationBadge } from '../../components/ClassificationBadge';
 import { MiniBoard } from '../../components/MiniBoard';
+import { EvalBar } from '../../components/EvalBar';
+import { EvalGraph } from '../../components/EvalGraph';
 import { TimeChart } from '../../components/TimeChart';
 import { Icon } from '../../components/Icon';
 import { formatDate } from '../../components/ui';
@@ -74,7 +76,13 @@ export function ReviewSummary({
     <div className="grid lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)] gap-5 lg:gap-8 max-w-5xl mx-auto">
       {/* The result first: what happened, on a proper board (half the width on phones). */}
       <div className="grid grid-cols-[minmax(0,44%)_1fr] lg:grid-cols-1 gap-4 items-center lg:items-start">
-        <MiniBoard fen={finalFen} orientation={me === 'b' ? 'black' : 'white'} />
+        {/* The final position with its evaluation beside it, as in the review. */}
+        <div className="flex gap-1.5 min-w-0">
+          {analysis && <EvalBar score={analysis.evals.at(-1)} orientation={me === 'b' ? 'black' : 'white'} />}
+          <div className="flex-1 min-w-0">
+            <MiniBoard fen={finalFen} orientation={me === 'b' ? 'black' : 'white'} />
+          </div>
+        </div>
         {/* On large screens the header above says this; under the board it only left a gap. */}
         <div className="lg:hidden">
           <GameHeading game={game} moves={Math.ceil(parsed.plies.length / 2)} />
@@ -94,6 +102,12 @@ export function ReviewSummary({
                 </button>
               )}
             </CoachBubble>
+
+            {/* The whole game at a glance; tap a point to open the review at that move. */}
+            <div>
+              <EvalGraph evals={analysis.evals} moves={analysis.moves} current={analysis.moves.length} onSelect={(ply) => onStart({ ply })} height={72} />
+              <p className="muted text-[11px] mt-1">Tap the graph to open the review at that move.</p>
+            </div>
 
             <div className="grid grid-cols-2 gap-2">
               {(['w', 'b'] as Color[]).map((c) => (

@@ -260,11 +260,10 @@ export default function Play() {
         : '';
 
   return (
-    <div className="grid lg:grid-cols-[minmax(0,560px)_minmax(0,1fr)] gap-3 lg:gap-5 max-w-[1100px]">
-      <div className="space-y-2 min-w-0">
-        <div className="hidden lg:block">
-          <PageHeader title="Play from here" subtitle="Play on against the engine. Take back a move or ask for a hint whenever you like." />
-        </div>
+    // Like the review: the board takes the room it can (up to the window's height), the controls
+    // sit beside it on large screens, and on phones the board runs edge to edge.
+    <div className="grid lg:grid-cols-[minmax(0,1fr)_360px] gap-3 lg:gap-5 max-w-[1300px]">
+      <div className="min-w-0 space-y-1 -mx-2.5 px-1 lg:mx-0 lg:px-0" style={{ maxWidth: 'min(760px, calc(100svh - 110px))' }}>
         <div className="flex items-center gap-2 text-sm font-bold px-1 h-6">
           <Icon name="engine" size={16} /> Stockfish · {LEVELS[level].label}
           <span className="ml-auto">
@@ -294,6 +293,9 @@ export default function Play() {
       </div>
 
       <div className="space-y-3 min-w-0">
+        <div className="hidden lg:block">
+          <PageHeader title="Play from here" subtitle="Play on against the engine. Take back a move or ask for a hint whenever you like." />
+        </div>
         <div
           className="panel p-3 font-semibold"
           role="status"
@@ -307,7 +309,7 @@ export default function Play() {
 
         {!over ? (
           <div className="grid grid-cols-3 gap-2">
-            <button className="btn justify-center !py-3" onClick={takeBack} disabled={!moves.length}>
+            <button className="btn justify-center !py-3 !px-2 whitespace-nowrap" onClick={takeBack} disabled={!moves.length}>
               <Icon name="prev" size={16} /> Take back
             </button>
             <button className="btn justify-center !py-3" onClick={() => void askHint()} disabled={thinking || turn !== you || hint?.step === 2}>

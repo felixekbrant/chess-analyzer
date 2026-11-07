@@ -1,4 +1,4 @@
-import { formatScore, winPercent } from '../lib/analysis/winprob';
+import { evalBarPercent, formatScore } from '../lib/analysis/winprob';
 import type { Score } from '../lib/types';
 
 /**
@@ -8,7 +8,8 @@ import type { Score } from '../lib/types';
  * bar holds its last value meanwhile).
  */
 export function EvalBar({ score, orientation = 'white', thinking }: { score?: Score; orientation?: 'white' | 'black'; thinking?: boolean }) {
-  const white = score ? winPercent(score) : 50;
+  // chess.com's scale: linear, full at ±4 (a +5 position looks nearly won, as it is).
+  const white = evalBarPercent(score);
   const whiteOnBottom = orientation === 'white';
   const whiteAhead = white >= 50;
   // The number's end: White's end of the bar if White is ahead, Black's otherwise.

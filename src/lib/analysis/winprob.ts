@@ -70,3 +70,24 @@ export function cpFor(score: Score, color: Color): number {
   }
   return color === 'w' ? v : -v;
 }
+
+/** Share of the eval bar per pawn of advantage, and its cap, as on chess.com (measured: linear, full at ±4). */
+export const BAR_PER_PAWN = 11.25;
+export const BAR_CAP = 95;
+
+/**
+ * White's share (0-100) of the eval bar and graph, on chess.com's scale: linear, 11.25% per pawn,
+ * capped at 5-95% (reached at ±4); a forced mate fills it. Only for display: accuracy and
+ * classification use the win-chance curve (winPercent).
+ */
+export function evalBarPercent(score: Score | undefined): number {
+  if (!score) return 50;
+  switch (score.kind) {
+    case 'cp':
+      return Math.min(BAR_CAP, Math.max(100 - BAR_CAP, 50 + (BAR_PER_PAWN * score.v) / 100));
+    case 'mate':
+      return score.v > 0 ? 100 : 0;
+    case 'over':
+      return 50 + 50 * score.v;
+  }
+}

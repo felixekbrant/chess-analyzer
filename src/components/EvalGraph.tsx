@@ -2,7 +2,7 @@ import { BOARD_THEMES } from '../lib/boardThemes';
 import { useSettings } from '../hooks/useStores';
 import { memo, useMemo, useRef } from 'react';
 import { CLASS_META } from '../lib/classificationMeta';
-import { winPercent } from '../lib/analysis/winprob';
+import { evalBarPercent } from '../lib/analysis/winprob';
 import type { MoveAnalysis, Score } from '../lib/types';
 
 const DOT_CLASSES = new Set(['blunder', 'mistake', 'miss', 'brilliant', 'great']);
@@ -27,12 +27,12 @@ export const EvalGraph = memo(function EvalGraph({
   const ref = useRef<HTMLDivElement>(null);
   const n = Math.max(1, evals.length - 1);
   const { area, line } = useMemo(() => {
-    const pts = evals.map((s, i) => `${(i / n) * 100},${100 - winPercent(s)}`);
+    const pts = evals.map((s, i) => `${(i / n) * 100},${100 - evalBarPercent(s)}`);
     return { line: pts.join(' '), area: `0,100 ${pts.join(' ')} 100,100` };
   }, [evals, n]);
   const theme = BOARD_THEMES[useSettings().boardTheme] ?? BOARD_THEMES.green;
   const dots = useMemo(
-    () => moves.map((m, i) => ({ m, x: ((i + 1) / n) * 100, y: 100 - winPercent(evals[i + 1]) })).filter((d) => DOT_CLASSES.has(d.m.classification)),
+    () => moves.map((m, i) => ({ m, x: ((i + 1) / n) * 100, y: 100 - evalBarPercent(evals[i + 1]) })).filter((d) => DOT_CLASSES.has(d.m.classification)),
     [moves, evals, n],
   );
 
