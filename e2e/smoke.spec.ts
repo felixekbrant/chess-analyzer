@@ -871,3 +871,36 @@ test('puzzles: spot the threat first, then find your move', async ({ page }) => 
   await expect(page.getByRole('button', { name: 'Hint' })).toBeVisible();
   await expect(page.getByText('First: what does your opponent threaten?')).toHaveCount(0);
 });
+
+test('puzzles: a clean solve counts towards mastery, shown per area in the filter', async ({ page }) => {
+  await seed(page);
+  await page.goto('./#/training');
+  await expect(page.getByText(/to move$/)).toBeVisible();
+  const placement = await boardPlacement(page, 'puzzle');
+  const current = (await readPuzzles(page)).find((p) => p.fen.split(' ')[0] === placement)!;
+  // Solve it without help: every move of the solution (their replies are played for you).
+  for (let i = 0; i < current.solutionUci.length; i += 2) {
+    if (i) await page.waitForTimeout(700);
+    await clickSquare(page, current.solutionUci[i].slice(0, 2));
+    await clickSquare(page, current.solutionUci[i].slice(2, 4));
+  }
+  await expect(page.getByText('Mastery 1/3: solve it cleanly on 2 more days.')).toBeVisible();
+  await page.getByRole('button', { name: /Next puzzle/ }).click().catch(() => {});
+  await expect.poll(async () => ((await readPuzzles(page)).find((p) => p.id === current.id) as { mastery?: number[] }).mastery?.length, { timeout: 5000 }).toBe(1);
+  await page.getByRole('button', { name: /All puzzles/ }).click();
+  await expect(page.getByText(/1 learning/).first()).toBeVisible();
+});
+
+test("review: a mistake you've made in earlier games says so", async ({ page }) => {
+  await seed(page);
+  await page.goto('./#/training');
+  // Repeats are counted in the background after loading.
+  type P = { gameIds: string[]; plies: number[]; repeats?: number; occurrences: number };
+  await expect.poll(async () => ((await readPuzzles(page)) as unknown as P[]).filter((p) => (p.repeats ?? 0) > 0).length, { timeout: 15000 }).toBeGreaterThan(0);
+  const r = ((await readPuzzles(page)) as unknown as P[]).find((p) => (p.repeats ?? 0) > 0 && p.occurrences === 1)!;
+  await page.goto(`./#/game/${encodeURIComponent(r.gameIds[0])}?ply=${r.plies[0] + 1}`);
+  const note = page.getByText("You've done this before:").filter({ visible: true });
+  await expect(note).toBeVisible({ timeout: 15000 });
+  await page.getByRole('link', { name: 'Practise it' }).filter({ visible: true }).click();
+  await expect(page).toHaveURL(/#\/training\?motif=/);
+});

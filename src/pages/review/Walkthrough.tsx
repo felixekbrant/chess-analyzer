@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { playHref } from '../../lib/play/playouts';
 import { backTo } from '../../lib/backLink';
 import { Chess } from 'chess.js';
@@ -8,6 +8,9 @@ import { useQueueProgress, useSettings } from '../../hooks/useStores';
 import { EngineControls, pill } from '../../components/EngineControls';
 import { hideBestMove } from '../../lib/review/hideBest';
 import { hintText } from '../../lib/training/hint';
+import { findRepeat, kindText, type Repeat } from '../../lib/training/repeats';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { relativeDay } from '../../lib/format';
 import { db, saveSettings } from '../../db/schema';
 import { playMove, stepBack, stepForward, stepKey, toEnd, toStart } from '../../lib/moveSteps';
 import { EngineShortcuts } from '../../components/EngineShortcuts';
@@ -120,6 +123,9 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
   }, []);
 
   const current: MoveAnalysis | undefined = retry ? undefined : moves?.[ply - 1];
+  // "You've done this before": your mistake here, in an earlier game too.
+  const repeatOf = current && current.color === me && ERROR_CLASSES.includes(current.classification) ? current : undefined;
+  const repeat = useLiveQuery(async () => (repeatOf ? findRepeat(game, repeatOf) : null), [game.id, repeatOf?.ply]);
 
   // ----- Positions shown on the board -----
   const exploreFen = useMemo(() => {
@@ -486,6 +492,7 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
       onShowRefutation={refutation ? showRefutation : undefined}
       hideBest={!settings.showBestMoves}
       onRetry={canRetryCurrent && current ? () => startRetry(current) : undefined}
+      repeat={repeat && repeatOf && current === repeatOf ? repeat : undefined}
     />
   );
 
@@ -705,6 +712,32 @@ function useSwipe(onLeft: () => void, onRight: () => void) {
   };
 }
 
+/** "You've done this before": the same mistake in an earlier game, with a link to it and to practise it. */
+function RepeatNote({ r }: { r: Repeat }) {
+  const when = relativeDay(r.at);
+  const more = r.games - 1;
+  return (
+    <p className="mt-2 text-sm rounded-lg px-2.5 py-2 flex gap-2 items-start" style={{ background: 'color-mix(in srgb, var(--attention) 14%, transparent)' }}>
+      <span className="shrink-0 mt-0.5" style={{ color: 'var(--attention-ink)' }}>
+        <Icon name="retry" size={16} />
+      </span>
+      <span>
+        <b style={{ color: 'var(--attention-ink)' }}>You've done this before:</b>{' '}
+        {r.same === 'position' ? 'the same move in this position' : kindText(r.motif!)}{' '}
+        <Link className="underline" to={`/game/${encodeURIComponent(r.gameId)}?ply=${r.ply + 1}`} state={backTo('the game')}>
+          vs {r.opponent} ({when})
+        </Link>
+        {more > 0 ? `, and in ${more} more game${more === 1 ? '' : 's'} ${r.same === 'kind' ? 'in the 2 months before' : 'before that'}` : ''}.{' '}
+        {r.same === 'kind' && (
+          <Link className="underline font-semibold" to={`/training?motif=${r.motif}`}>
+            Practise it
+          </Link>
+        )}
+      </span>
+    </p>
+  );
+}
+
 function MenuItem({ icon, label, onClick }: { icon: Parameters<typeof Icon>[0]['name']; label: string; onClick: () => void }) {
   return (
     <button className="flex items-center gap-3 px-3 py-3 rounded-lg font-semibold text-left hover:bg-[var(--panel-2)]" onClick={onClick}>
@@ -735,7 +768,10 @@ function Coach({
   onRetryBest,
   onRetryRefute,
   onRetryPlay,
+  repeat,
 }: {
+  /** The same mistake in an earlier game. */
+  repeat?: Repeat;
   game: StoredGame;
   analysis?: GameAnalysis;
   ply: number;
@@ -909,6 +945,7 @@ function Coach({
           Best: <b className="text-[var(--text)]">{current.bestSan}</b>
         </p>
       )}
+      {repeat && yours && <RepeatNote r={repeat} />}
       {motifs.length > 0 && (
         <div className="flex flex-wrap gap-1 mt-2">
           {motifs.map((m) => (

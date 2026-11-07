@@ -44,6 +44,7 @@ import { Sheet } from '../components/Sheet';
 import { hintText, threatOf } from '../lib/training/hint';
 import { isSmall, puzzlePriority, stakeLabel } from '../lib/training/puzzles';
 import { logPuzzleTry } from '../lib/training/puzzleLog';
+import { MASTERY_SOLVES, counted, countMastery, masteryText, nextMastery } from '../lib/training/mastery';
 import { playHref } from '../lib/play/playouts';
 import { CapturedPieces } from '../components/CapturedPieces';
 import { materialOf } from '../lib/analysis/material';
@@ -178,22 +179,15 @@ export default function Training() {
     return [...m.entries()].sort((a, b) => b[1] - a[1]);
   }, [puzzles]);
 
-  // Per skill area: how many puzzles, and how many of those you got right the last time you tried
-  // them (your own and Lichess drill puzzles), so drills show progress.
+  // Per skill area: how many of your puzzles, and how many are mastered, learning and new.
   const areaCounts = useMemo(() => {
-    const m = new Map<SkillArea, { n: number; tried: number; solved: number }>();
-    const add = (a: SkillArea | null | undefined, p: Puzzle, own: boolean) => {
-      if (!a) return;
-      const c = m.get(a) ?? { n: 0, tried: 0, solved: 0 };
-      if (own) c.n++;
-      if (p.lastResult) c.tried++;
-      if (p.lastResult === 'solved') c.solved++;
-      m.set(a, c);
-    };
-    for (const p of puzzles ?? []) add(puzzleArea(p), p, true);
-    for (const p of ext ?? []) add(p.lichess?.area, p, false);
-    return SKILL_AREAS.filter((a) => m.get(a)?.n).map((a) => [a, m.get(a)!] as const);
-  }, [puzzles, ext]);
+    const m = new Map<SkillArea, Puzzle[]>();
+    for (const p of puzzles ?? []) {
+      const a = puzzleArea(p);
+      if (a) m.set(a, [...(m.get(a) ?? []), p]);
+    }
+    return SKILL_AREAS.filter((a) => m.get(a)?.length).map((a) => [a, countMastery(m.get(a)!)] as const);
+  }, [puzzles]);
 
   const setFocus = (p: Record<string, string>) => {
     setParams(p);
@@ -266,8 +260,8 @@ export default function Training() {
               active={area === a}
               onClick={() => setFocus({ area: a })}
               label={SKILL_META[a].label}
-              count={c.n}
-              sub={c.tried ? `${c.solved}/${c.tried} solved` : undefined}
+              count={c.total}
+              sub={c.new < c.total ? masteryText(c) : undefined}
             />
           ))}
           <div className="muted text-xs font-semibold uppercase tracking-wide mt-3 mb-1 px-3">Mistake type</div>
@@ -312,7 +306,7 @@ export default function Training() {
       ) : !current ? (
         <Section>
           <EmptyState fen={EMPTY_FENS.mate} title={`All done${focusLabel !== 'All puzzles' ? ` for ${focusLabel}` : ''}`}>
-            {filtered.length} puzzle{filtered.length === 1 ? '' : 's'} in this set. Solved {session.solved}, missed {session.failed}
+            {filtered.length} puzzle{filtered.length === 1 ? '' : 's'} in this set ({masteryText(countMastery(filtered))}). Solved {session.solved}, missed {session.failed}
             {session.best > 1 ? `, best streak ${session.best}` : ''}.
             {filtered.length > 0 && (
               <button
@@ -338,7 +332,7 @@ export default function Training() {
           showProgress={inSession}
           onDone={async (grade) => {
             pinned.current = undefined;
-            const next = schedule(current, grade);
+            const next = { ...schedule(current, grade), mastery: nextMastery(current, grade) };
             const lastResult = grade === 'again' ? 'failed' : 'solved';
             if (current.lichess) await db.extPuzzles.update(current.id, { ...next, lastResult, lichess: { ...current.lichess, seenAt: Date.now() } });
             else await db.puzzles.update(current.id, { ...next, lastResult, seenAt: Date.now() });
@@ -741,8 +735,19 @@ function PuzzleView({
         <KingIcon white={toMove === 'white'} />
         <span>{toMove === 'white' ? 'White' : 'Black'} to move</span>
         <span className="muted font-normal">· {puzzle.solutionUci.length > 1 ? 'find the winning line' : 'find the best move'}</span>
+        <MasteryPips n={puzzle.mastery?.length ?? 0} />
       </span>
     );
+  // What this try did for the puzzle's mastery (3 clean solves on different days).
+  const masteryNote = useMemo(() => {
+    if (!done) return undefined;
+    const before = puzzle.mastery?.length ?? 0;
+    const now = Date.now();
+    const after = nextMastery(puzzle, gradeFor(), now);
+    if (!after.length) return before ? 'Mastery starts over: solve it cleanly on 3 separate days.' : undefined;
+    if (!counted(after, now)) return after.length === before && clean ? `Mastery ${after.length}/${MASTERY_SOLVES}: a clean solve counts once a day.` : undefined;
+    return after.length >= MASTERY_SOLVES ? 'Mastered! Solved cleanly on 3 separate days.' : `Mastery ${after.length}/${MASTERY_SOLVES}: solve it cleanly on ${MASTERY_SOLVES - after.length} more day${MASTERY_SOLVES - after.length === 1 ? '' : 's'}.`;
+  }, [done, puzzle, clean, state]);
 
   return (
     // overflow-anchor: none, or the browser keeps the tapped button in place when a line opens above
@@ -843,6 +848,7 @@ function PuzzleView({
             role="status"
           >
             {status}
+            {masteryNote && <p className="mt-1 text-sm font-normal muted">{masteryNote}</p>}
             {/* Once it's done, the two lines are right here under the result (an open line shows above, under the board). */}
             {done && !lineView && lines && (lines.best || lines.refute) && (
               <div className="flex flex-wrap gap-2 mt-2.5 font-normal">
@@ -967,6 +973,11 @@ function PuzzleView({
                   ×{puzzle.occurrences} games
                 </span>
               )}
+              {puzzle.occurrences === 1 && (puzzle.repeats ?? 0) > 0 && (
+                <span className="chip" style={{ color: 'var(--attention-ink)' }} title="The same kind of mistake in your games in the 2 months before this one">
+                  Also in {puzzle.repeats} earlier game{puzzle.repeats === 1 ? '' : 's'}
+                </span>
+              )}
               {puzzle.motifs
                 .filter((m) => m !== 'long_think')
                 .slice(0, 2)
@@ -1004,6 +1015,18 @@ function PuzzleView({
         )}
       </div>
     </div>
+  );
+}
+
+/** Progress to mastery as three dots: clean solves on separate days since the last miss. */
+function MasteryPips({ n }: { n: number }) {
+  if (!n) return null;
+  return (
+    <span className="ml-auto inline-flex gap-1" title={`Mastery: ${Math.min(n, MASTERY_SOLVES)} of ${MASTERY_SOLVES} clean solves on separate days`} aria-label={`Mastery ${Math.min(n, MASTERY_SOLVES)} of ${MASTERY_SOLVES}`}>
+      {Array.from({ length: MASTERY_SOLVES }, (_, i) => (
+        <span key={i} className="w-2 h-2 rounded-full" style={{ background: i < n ? 'var(--win)' : 'var(--border)' }} />
+      ))}
+    </span>
   );
 }
 

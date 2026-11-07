@@ -187,6 +187,10 @@ Ordered by how much I think each helps you, with a recommendation for each.
   ignored a threat, with its own set in the filter. "Play it out" (A) shipped with step 3. Spot the threat
   uses "ignored opponent's threat" only: in "hung a piece" puzzles the danger comes after your move, so
   there's nothing to spot before it.
+- Step 5 done (7 Nov): mastery (3 clean solves on separate days, a miss starts over; older puzzles are
+  credited with the clean solves their schedule proves), shown per puzzle, per area in the filter and per
+  weakness. "You've done this before" in the review (same position, or the same kind of tactical mistake
+  in the 60 days before), and those puzzles rank higher.
 
 ## Decisions for you (as asked)
 

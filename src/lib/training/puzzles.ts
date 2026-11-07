@@ -4,6 +4,8 @@ import { positionKey } from '../pgn/parse';
 import { PIECE_VALUE, materialBalance, other } from '../analysis/board';
 import type { Color, GameAnalysis, MoveAnalysis, Puzzle, PuzzleStake, Score, StoredGame } from '../types';
 import { NEW_CARD } from './srs';
+import { repeatsOf } from './repeats';
+import { backfilledMastery } from './mastery';
 
 /**
  * Material change for `you` along a line (UCI or SAN moves from `fen`, at most 10 plies). A line
@@ -63,12 +65,24 @@ const RECENT_DAYS = 21;
 
 /**
  * Which due puzzle to show first: what was at stake, a bonus for recent games (a puzzle from today
- * beats a slightly bigger one from two months ago, not a much bigger one), and for repeated mistakes.
+ * beats a slightly bigger one from two months ago, not a much bigger one), for the same position
+ * gone wrong again, and for the same kind of mistake as in earlier games ("you've done this before").
  */
 export function puzzlePriority(p: Puzzle, now = Date.now()): number {
   const played = p.playedAt ?? p.createdAt;
   const ageDays = Math.max(0, (now - played) / DAY);
-  return stakeScore(p) + RECENT_BONUS * Math.exp(-ageDays / RECENT_DAYS) + 20 * (p.occurrences - 1);
+  return stakeScore(p) + RECENT_BONUS * Math.exp(-ageDays / RECENT_DAYS) + 20 * (p.occurrences - 1) + 10 * Math.min(p.repeats ?? 0, 3);
+}
+
+/** Recounts, for all your puzzles, how many earlier games had the same kind of mistake; saves the changed ones. */
+export async function refreshRepeats(): Promise<number> {
+  const all = (await db.puzzles.toArray()).filter((p) => !p.lichess);
+  const changed = all.flatMap((p) => {
+    const repeats = repeatsOf(p, all);
+    return repeats === p.repeats ? [] : [{ key: p.id, changes: { repeats } }];
+  });
+  if (changed.length) await db.puzzles.bulkUpdate(changed);
+  return changed.length;
 }
 
 // Two points is often the exchange, not two pawns, so it's given as points.
@@ -94,7 +108,7 @@ export function stakeLabel(p: Puzzle): string | undefined {
  */
 export async function backfillPuzzleStakes(): Promise<number> {
   const todo = await db.puzzles
-    .filter((p) => !p.lichess && p.gameIds.length > 0 && (!p.stake || p.playedAt === undefined || p.solutionV !== SOLUTION_VERSION))
+    .filter((p) => !p.lichess && p.gameIds.length > 0 && (!p.stake || p.playedAt === undefined || p.solutionV !== SOLUTION_VERSION || p.mastery === undefined))
     .toArray();
   let n = 0;
   for (const p of todo) {
@@ -113,10 +127,18 @@ export async function backfillPuzzleStakes(): Promise<number> {
       change.playedAt = (await db.games.get(gameId))?.endTime ?? p.createdAt;
       if (p.lastResult === 'solved' && p.reps === 1 && p.interval === 1) Object.assign(change, { interval: 4, due: p.due + 3 * DAY });
     }
-    await db.puzzles.update(p.id, change);
+    // Applied to the stored puzzle as it is now (it may have been solved since this list was read).
+    await db.puzzles
+      .where('id')
+      .equals(p.id)
+      .modify((x) => {
+        Object.assign(x, change);
+        // Puzzles from before mastery: credit the clean solves their schedule shows.
+        if (x.mastery === undefined) x.mastery = backfilledMastery(x);
+      });
     if (++n % 20 === 0) await new Promise((r) => setTimeout(r, 0));
   }
-  return n;
+  return n + (await refreshRepeats());
 }
 
 const PUZZLE_CLASSES = new Set(['mistake', 'blunder', 'miss']);
@@ -197,7 +219,7 @@ export async function upsertPuzzlesFromAnalysis(game: StoredGame, analysis: Game
       playedAt: Math.max(existing?.playedAt ?? 0, game.endTime),
     };
     if (!existing) {
-      const p: Puzzle = { id, ...base, gameIds: [game.id], plies: [m.ply], occurrences: 1, createdAt: now, due: now, ...NEW_CARD };
+      const p: Puzzle = { id, ...base, gameIds: [game.id], plies: [m.ply], occurrences: 1, createdAt: now, due: now, ...NEW_CARD, mastery: [] };
       await db.puzzles.put(p);
     } else if (!existing.gameIds.includes(game.id)) {
       // The same mistake again: count it and make the puzzle due right away.
@@ -213,4 +235,5 @@ export async function upsertPuzzlesFromAnalysis(game: StoredGame, analysis: Game
       await db.puzzles.put({ ...existing, ...base });
     }
   }
+  await refreshRepeats();
 }

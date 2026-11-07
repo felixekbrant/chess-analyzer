@@ -14,6 +14,7 @@ import { chooseFocus, type AreaRank, type FocusStore } from '../lib/training/foc
 import { FOCUS_KEY, puzzleArea } from '../lib/training/today';
 import { isSmall } from '../lib/training/puzzles';
 import { PUZZLE_LOG_KEY, areaTries, type PuzzleTry } from '../lib/training/puzzleLog';
+import { countMastery, type MasteryCount } from '../lib/training/mastery';
 import { backTo } from '../lib/backLink';
 import type { Puzzle } from '../lib/types';
 
@@ -131,6 +132,18 @@ export default function Weaknesses() {
   );
 }
 
+/** Mastered, learning and new puzzles as one bar. */
+function MasteryBar({ c }: { c: MasteryCount }) {
+  const part = (n: number, color: string, label: string) =>
+    n > 0 && <span style={{ width: `${(100 * n) / c.total}%`, background: color }} title={`${n} ${label}`} />;
+  return (
+    <div className="flex h-1.5 rounded-full overflow-hidden bg-[var(--border)] my-1" role="img" aria-label={`${c.mastered} mastered, ${c.learning} learning, ${c.new} new`}>
+      {part(c.mastered, 'var(--win)', 'mastered')}
+      {part(c.learning, 'var(--attention)', 'learning')}
+    </div>
+  );
+}
+
 function WeaknessCard({
   rank,
   r,
@@ -168,6 +181,7 @@ function WeaknessCard({
   const meta = SKILL_META[r.area];
   const tries = areaTries(log, r.area);
   const due = puzzles.filter((p) => p.due <= Date.now()).length;
+  const mastery = countMastery(puzzles);
   const ratio = r.typical ? r.cost / r.typical : undefined;
 
   return (
@@ -229,12 +243,13 @@ function WeaknessCard({
           <b>In training:</b>{' '}
           {r.area === 'time'
             ? "puzzles don't train the clock; the tip below is the exercise, in your next games."
-            : tries.recent.tries >= 3
-            ? `${tries.recent.clean} of ${tries.recent.tries} puzzles solved first time in the last 2 weeks${tries.before.tries >= 3 ? ` (before that: ${tries.before.clean} of ${tries.before.tries})` : ''}.`
-            : puzzles.length
-              ? `${puzzles.length} puzzle${puzzles.length === 1 ? '' : 's'} from your games${due ? `, ${due} ready now` : ''}.`
+            : mastery.total
+              ? `${mastery.mastered} of ${mastery.total} puzzles from your games mastered, ${mastery.learning} learning, ${mastery.new} new${due ? ` (${due} ready now)` : ''}.`
               : 'no puzzles from your games yet.'}
+          {r.area !== 'time' && tries.recent.tries >= 3 &&
+            ` Solved first time: ${tries.recent.clean} of ${tries.recent.tries} in the last 2 weeks${tries.before.tries >= 3 ? ` (before that: ${tries.before.clean} of ${tries.before.tries})` : ''}.`}
         </p>
+        {r.area !== 'time' && mastery.new < mastery.total && <MasteryBar c={mastery} />}
         {r.area === 'converting' && (
           <p>
             <b>Playing it out:</b>{' '}
