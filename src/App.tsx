@@ -21,6 +21,7 @@ const Games = lazy(() => import('./pages/Games'));
 const Review = lazy(() => import('./pages/review'));
 const Insights = lazy(() => import('./pages/Insights'));
 const Weaknesses = lazy(() => import('./pages/Weaknesses'));
+const Losses = lazy(() => import('./pages/Losses'));
 const Play = lazy(() => import('./pages/Play'));
 const Openings = lazy(() => import('./pages/Openings'));
 const Training = lazy(() => import('./pages/Training'));
@@ -40,7 +41,7 @@ const NAV: NavItem[] = [
   { to: '/training', label: 'Train', icon: 'puzzle' },
   // The app is about reviewing your games, your weaknesses and training them; the full statistics
   // and the openings report are a tap further away, under More.
-  { to: '/weaknesses', label: 'Weaknesses', icon: 'dumbbell' },
+  { to: '/weaknesses', label: 'Weaknesses', icon: 'dumbbell', match: /^\/(weaknesses|losses)/ },
   { to: '/insights', label: 'Insights', icon: 'chart' },
   { to: '/openings', label: 'Openings', icon: 'book' },
   { to: '/settings', label: 'Settings', icon: 'settings' },
@@ -54,6 +55,7 @@ const TITLES: [RegExp, string][] = [
   [/^\/game\//, 'Game Review'],
   [/^\/training/, 'Training'],
   [/^\/weaknesses/, 'Weaknesses'],
+  [/^\/losses/, 'Your last losses'],
   [/^\/play/, 'Play from here'],
   [/^\/insights/, 'Insights'],
   [/^\/openings/, 'Openings'],
@@ -94,6 +96,7 @@ export default function App() {
                 <Route path="/game/:id" element={<Review />} />
                 <Route path="/insights" element={<Insights />} />
                 <Route path="/weaknesses" element={<Weaknesses />} />
+                <Route path="/losses" element={<Losses />} />
                 <Route path="/play" element={<Play />} />
                 <Route path="/openings" element={<Openings />} />
                 <Route path="/training" element={<Training />} />
@@ -170,18 +173,20 @@ function TopBar({ path }: { path: string }) {
   const title = TITLES.find(([re]) => re.test(path))?.[1] ?? 'Chess Analyzer';
   // Reviews and "Play from here" are places you came to from somewhere: they get a back button.
   const isReview = path.startsWith('/game/') || path.startsWith('/play');
+  // Pages reached from another page (not from the tab bar) also get a back button.
+  const hasBack = isReview || path.startsWith('/losses');
   const back = useBackLabel();
   const goBack = () => (window.history.length > 1 ? navigate(-1) : navigate('/games'));
   return (
     <header className="md:hidden sticky top-0 z-30 safe-top frosted border-b border-[var(--border)]">
       {/* Slimmer on a game review, where the board should start as high as possible. */}
       <div className={`${isReview ? 'h-10' : 'h-12'} px-2 flex items-center gap-1`}>
-        {isReview && back ? (
+        {hasBack && back ? (
           // Opened from a puzzle (or Insights…): say where back goes, so it's easy to carry on there.
           <button className="inline-flex items-center gap-1 rounded-full bg-[var(--panel-2)] pl-2 pr-3.5 py-1.5 text-sm font-bold shrink-0" onClick={goBack}>
             <Icon name="back" size={18} /> Back to {back}
           </button>
-        ) : isReview ? (
+        ) : hasBack ? (
           <button className="icon-btn" aria-label="Back" onClick={goBack}>
             <Icon name="back" />
           </button>
@@ -190,7 +195,7 @@ function TopBar({ path }: { path: string }) {
             <Logo />
           </span>
         )}
-        <h1 className={`flex-1 font-bold text-base truncate ${isReview && back ? 'text-right muted !font-semibold !text-sm pr-2' : ''}`}>{title}</h1>
+        <h1 className={`flex-1 font-bold text-base truncate ${hasBack && back ? 'text-right muted !font-semibold !text-sm pr-2' : ''}`}>{title}</h1>
         {!isReview && <StatusIndicator variant="compact" />}
       </div>
     </header>

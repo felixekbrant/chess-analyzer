@@ -920,3 +920,23 @@ test('review: explanations say what the reply does and what the better move does
   await expect(page.getByText(/ was better: it /).filter({ visible: true })).toHaveCount(0);
   await expect(page.getByText(/^After this, /).filter({ visible: true })).toBeVisible();
 });
+
+test('weaknesses: a deep look at your last 10 losses, with what to focus on and the games', async ({ page }) => {
+  await seed(page);
+  await openTab(page, 'Weaknesses');
+  await page.getByRole('link', { name: /Your last 10 losses/ }).click();
+  await expect(page).toHaveURL(/#\/losses/);
+  await expect(page.getByText('What to focus on')).toBeVisible();
+  await expect(page.getByRole('heading', { name: /of your last \d+ losses/ })).toBeVisible();
+  await expect(page.getByText('What decided each loss')).toBeVisible();
+  if (process.env.E2E_SHOTS) await page.screenshot({ path: `${process.env.E2E_SHOTS}/losses.png`, fullPage: true });
+  // A game opens at its decisive move, with a way back.
+  const rows = page.locator('a[href*="#/game/"]');
+  expect(await rows.count()).toBeGreaterThanOrEqual(3);
+  await rows.first().click();
+  await expect(page.getByRole('button', { name: 'Back to your losses' }).filter({ visible: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Back to your losses' }).filter({ visible: true }).click();
+  // Puzzles from those games.
+  await page.getByRole('link', { name: 'Puzzles from these losses' }).click();
+  await expect(page.getByRole('button', { name: /From your last losses/ })).toBeVisible();
+});

@@ -87,6 +87,9 @@ export default function Training() {
   const thrownOnly = params.get('thrown') === '1';
   const smallOnly = params.get('small') === '1';
   const threatOnly = params.get('threat') === '1';
+  // A set of games, e.g. "Puzzles from these losses".
+  const gamesParam = params.get('games');
+  const fromGames = useMemo(() => (gamesParam ? new Set(gamesParam.split(',')) : null), [gamesParam]);
   const area = params.get('area') as SkillArea | null;
   const inSession = params.get('session') === 'today';
   const [memo] = useState(() => (pageMemo && pageMemo.search === params.toString() && Date.now() - pageMemo.at < RESUME_MS ? pageMemo : null));
@@ -117,9 +120,10 @@ export default function Training() {
           (!repeated || p.occurrences >= 2) &&
           (!thrownOnly || p.gameIds.some((id) => thrownIds?.has(id))) &&
           (!threatOnly || hasThreat(p)) &&
+          (!fromGames || p.gameIds.some((id) => fromGames.has(id))) &&
           (!area || puzzleArea(p) === area),
       ),
-    [puzzles, allPuzzles, smallOnly, threatOnly, motif, phase, opening, repeated, area, thrownOnly, thrownIds],
+    [puzzles, allPuzzles, smallOnly, threatOnly, fromGames, motif, phase, opening, repeated, area, thrownOnly, thrownIds],
   );
   const due = filtered.filter((p) => p.due <= now);
   const queue = useMemo(() => {
@@ -169,7 +173,9 @@ export default function Training() {
                 ? 'Small positional ones'
                 : threatOnly
                   ? 'Spot the threat'
-                  : 'All puzzles';
+                  : fromGames
+                    ? 'From your last losses'
+                    : 'All puzzles';
   const threatCount = useMemo(() => (puzzles ?? []).filter(hasThreat).length, [puzzles]);
   const thrownCount = useMemo(() => (puzzles ?? []).filter((p) => p.gameIds.some((id) => thrownIds?.has(id))).length, [puzzles, thrownIds]);
 
@@ -238,7 +244,7 @@ export default function Training() {
       <Sheet open={focusOpen} onClose={() => setFocusOpen(false)} title="What to practise">
         <div className="grid gap-1">
           <FocusItem
-            active={!motif && !phase && !opening && !repeated && !area && !thrownOnly && !smallOnly && !threatOnly}
+            active={!motif && !phase && !opening && !repeated && !area && !thrownOnly && !smallOnly && !threatOnly && !fromGames}
             onClick={() => setFocus({})}
             label="All puzzles"
             sub={!settings.smallPuzzles && smallCount ? 'The ones with something at stake: material, mate or a big swing' : undefined}

@@ -89,6 +89,16 @@ export default function Weaknesses() {
   return (
     <div className="max-w-3xl space-y-3">
       {header}
+      <Link to="/losses" state={backTo('Weaknesses')} className="panel p-3.5 flex items-center gap-3 hover:bg-[var(--panel-2)]">
+        <span className="w-9 h-9 rounded-full bg-[var(--panel-2)] grid place-items-center shrink-0">
+          <Icon name="target" size={18} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block font-bold">Your last 10 losses</span>
+          <span className="block muted text-sm">What decided each one, and what to work on first.</span>
+        </span>
+        <Icon name="next" size={18} className="muted shrink-0" />
+      </Link>
       {top.map((r, i) => (
         <WeaknessCard
           key={r.area}
