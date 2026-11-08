@@ -9,6 +9,12 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: '8 Nov 2026',
+    items: [
+      'More accurate best moves: games are analysed at a modest depth so phones keep up, and now and then a better move only shows deeper. When the engine is open in a review and, searching much deeper, clearly finds a better move than the analysis did, that becomes the recommendation: its explanation and the puzzle follow, and it\'s kept for next time.',
+    ],
+  },
+  {
     date: '7 Nov 2026',
     items: [
       'No more repeated puzzles: every puzzle is done once, solved or missed, and never comes back. To understand rather than memorise: after a miss, the next puzzle is a new position with the same idea. Progress on the Weaknesses page is how often you solve new puzzles first time. Puzzles from your last losses go in game order; the button shows how many are left.',

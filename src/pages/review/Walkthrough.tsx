@@ -9,6 +9,8 @@ import { EngineControls, pill } from '../../components/EngineControls';
 import { hideBestMove } from '../../lib/review/hideBest';
 import { hintText } from '../../lib/training/hint';
 import { moveIdeaSan } from '../../lib/analysis/explain';
+import { betterLine, saveBetterLine } from '../../lib/analysis/refine';
+import { toast } from '../../lib/toast';
 import { findRepeat, kindText, type Repeat } from '../../lib/training/repeats';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { relativeDay } from '../../lib/format';
@@ -155,6 +157,23 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
   const engineWanted = !!explore;
   const live = useLiveEngine(fen, engineWanted);
   useWarmEngine();
+  // A deeper look improves the analysis: when the open engine, well past the analysis depth, clearly
+  // finds a better move than the stored one at a position of the game, that becomes the recommendation
+  // (and its explanation and puzzle), saved for next time.
+  const improved = useRef(new Set<string>());
+  useEffect(() => {
+    if (!analysis || !live.settled || !live.result) return;
+    const ply = analysis.moves.findIndex((m) => m.fenBefore === live.result!.fen);
+    const m = analysis.moves[ply];
+    const pv = m && betterLine(m, analysis.depth, live.result);
+    if (!pv || improved.current.has(`${ply}:${pv[0]}`)) return;
+    improved.current.add(`${ply}:${pv[0]}`);
+    const was = m.bestSan;
+    const now = playUci(m.fenBefore, pv.slice(0, 1)).sans[0];
+    void saveBetterLine(game.id, ply, pv).then((ok) => {
+      if (ok) toast(`A deeper look (depth ${live.result!.depth}) found ${now} better than ${was}. The review and the puzzle now use it.`, 'success');
+    });
+  }, [live.result, live.settled, analysis, game.id]);
   /** The engine is "open": free exploration from the current position with live analysis. */
   const engineOpen = !!explore && !explore.line;
   const toggleEngine = () => {
