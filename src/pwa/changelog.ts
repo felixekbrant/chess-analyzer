@@ -12,6 +12,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     date: '9 Nov 2026',
     items: [
       'A tidy-up of every screen. Puzzles: "Next puzzle" now sits right under the result, and what a puzzle is about (what it wins, the kind of mistake) shows only once it\'s done, so it no longer gives the answer away.',
+      'Review on the phone: the Engine switch moved into the top bar, so the coach sits right under the board, and on short screens the board shrinks a little to keep the coach\'s words above the buttons. Hold Next or Back to run through the moves, and the opening card has a button for "only the key moments".',
       'Review: the engine\'s display options and the "Best moves" switch moved into the ⋯ menu, and the best line is one button ("Best"). On large screens Back and Next stay in one place at the top of the side column.',
       'Weaknesses shows how much more than typical each area costs you ("+8.1% vs typical"), which is what the order is built on. Openings with one or two games say how they went instead of showing a percentage.',
       'One answer to "what should I work on": the Weaknesses page. Insights and your last losses now point to it instead of each naming their own main problem, and the losses page says how its finding relates to your focus. Causes that decided only one loss are listed in a line instead of a bar each.',

@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { playHref } from '../../lib/play/playouts';
@@ -494,6 +495,10 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
       retry={retry}
       keyOnly={keyOnly}
       keyCount={keyPlies.length}
+      onKeyOnly={() => {
+        setKeyOnly(true);
+        if (keyPlies.length) go(keyPlies[0]);
+      }}
       onExitRetry={() => go(retry ? retry.move.ply + 1 : ply)}
       onRetryBest={retryLines?.best}
       onRetryRefute={retryLines?.refute}
@@ -517,6 +522,10 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
       repeat={repeat && repeatOf && current === repeatOf ? repeat : undefined}
     />
   );
+
+  // The phone top bar's slot for this page's switch (there is no top bar on larger screens).
+  const [topbarEl, setTopbarEl] = useState<HTMLElement | null>(null);
+  useEffect(() => setTopbarEl(document.getElementById('topbar-tools')), []);
 
   const menuButton = (
     <button className="icon-btn !min-w-11" onClick={() => setMenuOpen(true)} aria-label="More options">
@@ -571,7 +580,7 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
     </>
   ) : (
     <>
-      <ActionButton icon={<Icon name="prev" />} label="Back" onClick={prev} disabled={ply === 0} />
+      <ActionButton icon={<Icon name="prev" />} label="Back" onClick={prev} disabled={ply === 0} repeat />
       <ActionButton icon={<Icon name="star" />} label="Best" onClick={showBest} disabled={!canBest} title="Show the best move (b)" />
       <ActionButton
         icon={<Icon name="retry" />}
@@ -584,7 +593,7 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
       {(keyOnly ? nextKey === undefined : ply >= n) ? (
         <ActionButton icon={<Icon name="chart" />} label="Summary" onClick={onSummary} primary />
       ) : (
-        <ActionButton icon={<Icon name="next" />} label={keyOnly ? 'Next key' : 'Next'} onClick={next} primary />
+        <ActionButton icon={<Icon name="next" />} label={keyOnly ? 'Next key' : 'Next'} onClick={next} primary repeat={!keyOnly} />
       )}
       {menuButton}
     </>
@@ -626,7 +635,10 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
       {/* Board column */}
       <div className="min-w-0 space-y-2 lg:space-y-3">
         {/* Phones: the board runs edge to edge (the page gutter is taken back), like a chess app. */}
-        <div className="flex gap-2 -mx-2.5 px-1 lg:mx-0 lg:px-0" style={{ maxWidth: 'min(720px, calc(100svh - 140px))' }}>
+        {/* On a short screen (a small phone, or a browser with its toolbars showing) the board gives up some
+            size, so what the coach says stays above the bottom bar. */}
+        <div className="-mx-2.5 lg:mx-0 flex justify-center lg:justify-start">
+        <div className="flex gap-2 px-1 lg:px-0 w-full max-w-[min(720px,max(270px,calc(100svh-340px)))] lg:max-w-[min(720px,calc(100svh-140px))]">
           {/* Always part of the review; the engine's eval bar can be switched off while exploring. */}
           {(!engineOpen || settings.showEvalBar) && <EvalBar score={evalScore} orientation={orientation} thinking={evalThinking} />}
           <div className="flex-1 min-w-0">
@@ -646,10 +658,15 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
             <PlayerStrip {...bottom} fen={fen} />
           </div>
         </div>
+        </div>
 
         {/* Phones: coach, engine, graph and the move strip under the board. */}
         <div className="lg:hidden space-y-2">
-          <EngineControls open={engineOpen} onToggle={toggleEngine} show="toggle" compact />
+          {/* Phones: the Engine switch is in the top bar, so the coach sits right under the board. */}
+          {topbarEl && createPortal(<EngineControls open={engineOpen} onToggle={toggleEngine} show="toggle" compact />, topbarEl)}
+          <div className="hidden md:block">
+            <EngineControls open={engineOpen} onToggle={toggleEngine} show="toggle" compact />
+          </div>
           {shortcuts}
           {/* Swipe the coach left/right to step through the moves (the board itself is for dragging pieces). */}
           <div onTouchStart={swipe.start} onTouchEnd={swipe.end}>{coach}</div>
@@ -797,6 +814,7 @@ function Coach({
   retry,
   keyOnly,
   keyCount,
+  onKeyOnly,
   onExitRetry,
   onExitExplore,
   line,
@@ -820,6 +838,8 @@ function Coach({
   retry: RetryStateFull | null;
   keyOnly: boolean;
   keyCount: number;
+  /** Switch to the key moments and open the first. */
+  onKeyOnly: () => void;
   onExitRetry: () => void;
   onExitExplore: () => void;
   line?: ExplainedLine;
@@ -925,12 +945,13 @@ function Coach({
         </p>
         {game.openingName && <p className="muted text-sm mt-0.5">{game.openingName}</p>}
         <p className="text-sm mt-1.5">
-          {keyOnly
-            ? `${keyCount} key moments: tap Next key to jump between them.`
-            : keyCount
-              ? `${keyCount} key moments. Step through with Next, or open the menu to see only those.`
-              : 'Step through with Next.'}
+          {keyOnly ? `${keyCount} key moments: tap Next key to jump between them.` : 'Step through with Next; hold it to run through the moves.'}
         </p>
+        {!keyOnly && keyCount > 0 && (
+          <button className="btn !py-1.5 !text-sm mt-2" onClick={onKeyOnly}>
+            <Icon name="star" size={14} /> Only the {keyCount} key moments
+          </button>
+        )}
       </CoachBubble>
     );
   }

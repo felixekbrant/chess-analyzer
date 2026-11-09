@@ -196,6 +196,8 @@ function TopBar({ path }: { path: string }) {
           </span>
         )}
         <h1 className={`flex-1 font-bold text-base truncate ${hasBack && back ? 'text-right muted !font-semibold !text-sm pr-2' : ''}`}>{title}</h1>
+        {/* A review puts its Engine switch here, so it doesn't cost a row under the board. */}
+        {isReview && <div id="topbar-tools" className="shrink-0 pr-1" />}
         {!isReview && <StatusIndicator variant="compact" />}
       </div>
     </header>

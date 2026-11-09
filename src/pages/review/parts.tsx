@@ -245,6 +245,7 @@ export function ActionButton({
   disabled,
   primary,
   title,
+  repeat,
 }: {
   icon: ReactNode;
   label?: string;
@@ -252,10 +253,14 @@ export function ActionButton({
   disabled?: boolean;
   primary?: boolean;
   title?: string;
+  /** Holding the button keeps going (Back and Next: run through the moves). */
+  repeat?: boolean;
 }) {
+  const hold = useHoldRepeat(onClick, !!repeat && !disabled);
   return (
     <button
-      onClick={onClick}
+      onClick={hold.onClick}
+      {...hold.handlers}
       disabled={disabled}
       title={title}
       aria-label={label ?? title}
@@ -269,6 +274,48 @@ export function ActionButton({
       {label && <span>{label}</span>}
     </button>
   );
+}
+
+/** After this long the held button starts repeating, then once per `HOLD_EVERY`. */
+const HOLD_AFTER = 380;
+const HOLD_EVERY = 260;
+
+/**
+ * Press and hold: `run` fires on the tap as usual, and keeps firing while the button is held.
+ * The click that ends a hold is swallowed, so letting go doesn't add one more step.
+ */
+function useHoldRepeat(run: () => void, enabled: boolean) {
+  const latest = useRef(run);
+  latest.current = run;
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const repeated = useRef(false);
+  const stop = () => {
+    clearTimeout(timer.current);
+    timer.current = undefined;
+  };
+  useEffect(() => stop, []);
+  // The button went disabled under the finger (the last move): stop there.
+  useEffect(() => {
+    if (!enabled) stop();
+  }, [enabled]);
+  const start = () => {
+    if (!enabled) return;
+    repeated.current = false;
+    const tick = () => {
+      repeated.current = true;
+      latest.current();
+      timer.current = setTimeout(tick, HOLD_EVERY);
+    };
+    stop();
+    timer.current = setTimeout(tick, HOLD_AFTER);
+  };
+  return {
+    onClick: () => {
+      if (repeated.current) repeated.current = false;
+      else latest.current();
+    },
+    handlers: enabled ? { onPointerDown: start, onPointerUp: stop, onPointerLeave: stop, onPointerCancel: stop, onContextMenu: (e: { preventDefault: () => void }) => e.preventDefault() } : {},
+  };
 }
 
 /**
