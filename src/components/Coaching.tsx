@@ -40,7 +40,7 @@ function itemLink(i: TodayItem): string {
 }
 
 /** The daily plan: a checklist that runs as one session. */
-export function TodayCard({ games, focus, minutes }: { games: StoredGame[]; focus?: SkillArea; minutes: SessionMinutes }) {
+export function TodayCard({ games, focus, minutes, quiet }: { games: StoredGame[]; focus?: SkillArea; minutes: SessionMinutes; /** Something above already leads the page (your last game): Start isn't the main button. */ quiet?: boolean }) {
   const navigate = useNavigate();
   const settings = useSettings();
   // The same set as the Train tab: small positional puzzles only when turned on.
@@ -136,7 +136,7 @@ export function TodayCard({ games, focus, minutes }: { games: StoredGame[]; focu
         </p>
       ) : (
         next && (
-          <button className="btn btn-primary w-full justify-center mt-3 !py-3 !text-base" onClick={() => navigate(itemLink(next))}>
+          <button className={`btn ${quiet ? '' : 'btn-primary'} w-full justify-center mt-3 !py-3 !text-base`} onClick={() => navigate(itemLink(next))}>
             <Icon name="play" size={16} /> {plan.items.some((i) => i.done) ? 'Continue' : 'Start'}
           </button>
         )

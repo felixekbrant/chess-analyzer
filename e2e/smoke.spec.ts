@@ -969,3 +969,20 @@ test('weaknesses: a deep look at your last losses, with what to focus on and the
   await page.getByRole('button', { name: /Next puzzle/ }).click();
   await expect.poll(async () => ((await readPuzzles(page)) as unknown as { doneAt?: number }[]).filter((p) => p.doneAt).length).toBe(1);
 });
+
+test('home: your last game leads, with its decisive moment and its puzzles', async ({ page }) => {
+  await seed(page);
+  await openTab(page, 'Home');
+  const card = page.getByRole('region', { name: 'Your last game' });
+  await expect(card.getByText(/^It turned on \d+/)).toBeVisible();
+  // The better move isn't given away here: the review and the puzzle show it.
+  await expect(card.getByText(/ was better/)).toHaveCount(0);
+  // One tap to the board at that move, and back.
+  await card.getByRole('link', { name: 'See the moment' }).click();
+  await expect(page).toHaveURL(/#\/game\/.*ply=\d+/);
+  await page.getByRole('button', { name: 'Back to Home' }).filter({ visible: true }).click();
+  // Its puzzles, labelled as this game's.
+  await card.getByRole('link', { name: /Puzzles from it \(\d+\)/ }).click();
+  await expect(page.getByRole('button', { name: /From your last game/ })).toBeVisible();
+  await expect(page.getByText(/to move$/)).toBeVisible();
+});

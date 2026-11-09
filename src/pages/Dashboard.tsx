@@ -9,6 +9,7 @@ import { CoachReport } from '../components/CoachReport';
 import { FocusCard, TodayCard } from '../components/Coaching';
 import { MIN_PROFILE_GAMES, useSkills } from '../hooks/useSkills';
 import { WeeklyNoteCard } from '../components/WeeklyNoteCard';
+import { LastGameCard } from '../components/LastGameCard';
 import { GameCardList } from '../components/GameTable';
 import { Icon } from '../components/Icon';
 import { Picker } from '../components/Picker';
@@ -47,6 +48,11 @@ export default function Dashboard() {
     [recentAg, games, summaries],
   );
   const recentGames = useMemo(() => games.slice(0, 5), [games]);
+  // Your newest game that is analysed (one still in the queue doesn't hide the one before it).
+  const lastGame = useMemo(() => {
+    const byId = new Map(ag.map((a) => [a.game.id, a]));
+    return games.slice(0, 3).flatMap((g) => byId.get(g.id) ?? [])[0];
+  }, [games, ag]);
   const ratings = useMemo(() => (wide ? ratingSeries(trend(games, summaries)) : { data: [], classes: [] }), [wide, games, summaries]);
   const doneCount = useMemo(() => games.filter((g) => g.analysisStatus === 'done').length, [games]);
   const open = (g: { id: string }) => navigate(`/game/${encodeURIComponent(g.id)}`);
@@ -63,7 +69,8 @@ export default function Dashboard() {
       {/* Phones: one column, Today first. Desktop: what to do on the left, how it's going on the right. */}
       <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-4 items-start">
         <div className="space-y-3 min-w-0">
-          <TodayCard games={games} focus={skills.ready ? skills.focus.current?.area : undefined} minutes={settings.sessionMinutes} />
+          {lastGame && <LastGameCard a={lastGame} />}
+          <TodayCard quiet={!!lastGame && !lastGame.game.reviewedAt} games={games} focus={skills.ready ? skills.focus.current?.area : undefined} minutes={settings.sessionMinutes} />
           <WeeklyNoteCard games={games} ag={ag} focus={skills.ready ? skills.focus.current?.area : undefined} />
           {skills.ready && skills.focus.current ? (
             <FocusCard store={skills.focus} ranked={skills.ranked} ag={skills.ag} rating={skills.rating} timeClass={skills.timeClass} />

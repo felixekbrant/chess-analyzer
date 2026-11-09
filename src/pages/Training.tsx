@@ -90,6 +90,8 @@ export default function Training() {
   // A set of games, e.g. "Puzzles from these losses".
   const gamesParam = params.get('games');
   const fromGames = useMemo(() => (gamesParam ? new Set(gamesParam.split(',')) : null), [gamesParam]);
+  // One game's puzzles (from Home), rather than those of your last losses.
+  const oneGame = params.get('from') === 'game';
   const area = params.get('area') as SkillArea | null;
   const inSession = params.get('session') === 'today';
   const [memo] = useState(() => (pageMemo && pageMemo.search === params.toString() && Date.now() - pageMemo.at < RESUME_MS ? pageMemo : null));
@@ -193,7 +195,9 @@ export default function Training() {
                 : threatOnly
                   ? 'Spot the threat'
                   : fromGames
-                    ? 'From your last losses'
+                    ? oneGame
+                      ? 'From your last game'
+                      : 'From your last losses'
                     : 'All puzzles';
   const threatCount = useMemo(() => (puzzles ?? []).filter(hasThreat).length, [puzzles]);
   const thrownCount = useMemo(() => (puzzles ?? []).filter((p) => p.gameIds.some((id) => thrownIds?.has(id))).length, [puzzles, thrownIds]);
@@ -331,12 +335,14 @@ export default function Training() {
       ) : !current && fromGames ? (
         // Done once each: nothing to repeat here; new losses bring new ones.
         <Section>
-          <EmptyState fen={EMPTY_FENS.mate} title="All done for these losses">
+          <EmptyState fen={EMPTY_FENS.mate} title={oneGame ? 'All done for this game' : 'All done for these losses'}>
             {filtered.length
-              ? `You've been through all ${filtered.length} puzzle${filtered.length === 1 ? '' : 's'} from these games. New ones come from your next losses.`
-              : 'These losses have no puzzles: their mistakes were small positional ones.'}
-            <Link className="btn btn-primary" to="/losses">
-              Back to your losses
+              ? `You've been through all ${filtered.length} puzzle${filtered.length === 1 ? '' : 's'} from ${oneGame ? 'this game' : 'these games'}. New ones come from your next ${oneGame ? 'games' : 'losses'}.`
+              : oneGame
+                ? 'This game has no puzzles: its mistakes were small positional ones.'
+                : 'These losses have no puzzles: their mistakes were small positional ones.'}
+            <Link className="btn btn-primary" to={oneGame ? '/' : '/losses'}>
+              {oneGame ? 'Back to Home' : 'Back to your losses'}
             </Link>
           </EmptyState>
         </Section>
