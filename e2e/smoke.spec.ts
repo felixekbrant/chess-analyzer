@@ -50,6 +50,12 @@ async function boardPlacement(page: Page, id: string): Promise<string> {
     .join('/');
 }
 
+/** Flips one of the review's display options, which live in its "More options" menu. */
+async function reviewOption(page: Page, name: string) {
+  await page.getByRole('button', { name: 'More options' }).filter({ visible: true }).click();
+  await page.getByRole('button', { name, exact: true }).click();
+}
+
 /** Reads all training puzzles straight from the app's IndexedDB. */
 function readPuzzles(page: Page) {
   return page.evaluate(
@@ -128,9 +134,7 @@ test('game review: summary, walkthrough and the line viewer', async ({ page }) =
   // Best moves can be hidden, to look for them yourself: no arrow, and the coach offers a retry instead.
   const arrows = page.locator('[id="review-board"] svg polygon');
   await expect(arrows).not.toHaveCount(0);
-  const bestMoves = page.getByRole('button', { name: 'Best moves' }).filter({ visible: true });
-  await bestMoves.click();
-  await expect(bestMoves).toHaveAttribute('aria-pressed', 'false');
+  await reviewOption(page, 'Best moves');
   await expect(arrows).toHaveCount(0);
   await page.getByRole('button', { name: 'Find a better move' }).filter({ visible: true }).click();
   await expect(page.getByText(/^Find a better move than /).filter({ visible: true })).toBeVisible();
@@ -140,7 +144,7 @@ test('game review: summary, walkthrough and the line viewer', async ({ page }) =
   await page.getByRole('button', { name: 'Stop retrying' }).filter({ visible: true }).click();
   // Still hidden on the next visit, until switched back on.
   await expect(arrows).toHaveCount(0);
-  await bestMoves.click();
+  await reviewOption(page, 'Best moves');
   await expect(arrows).not.toHaveCount(0);
   await why.click();
   await expect(page.getByRole('button', { name: 'Close the line' })).toBeVisible();
@@ -157,8 +161,9 @@ test('game review: summary, walkthrough and the line viewer', async ({ page }) =
   await page.getByRole('button', { name: 'Start', exact: true }).filter({ visible: true }).first().click();
   await page.getByRole('group', { name: 'Engine' }).first().getByRole('button', { name: 'Engine' }).click();
 
-  const best = page.getByRole('button', { name: 'Best line' });
-  if (await best.isVisible()) {
+  // The best line is the bar's "Best" button.
+  const best = page.getByRole('button', { name: 'Best', exact: true }).filter({ visible: true });
+  if (await best.isEnabled()) {
     await best.click();
     await expect(page.getByRole('button', { name: 'Close the line' })).toBeVisible();
     await page.getByRole('button', { name: 'Close the line' }).click();
@@ -346,14 +351,8 @@ test('engine controls: open the engine and toggle eval bar and suggestions in re
   await page.getByRole('button', { name: 'Next', exact: true }).click();
 
   const controls = page.getByRole('group', { name: 'Engine' }).first();
-  const evalBar = controls.getByRole('button', { name: 'Eval bar' });
-  const suggestions = controls.getByRole('button', { name: 'Suggestions' });
-  // The display options only appear while the engine is open.
-  await expect(evalBar).toHaveCount(0);
-
   // Open the engine: live lines appear, and moves can be played freely.
   await controls.getByRole('button', { name: 'Engine' }).click();
-  await expect(evalBar).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByText(/Stockfish 19 lite · depth \d+/).filter({ visible: true })).toBeVisible();
   // It opens just before the move, with that move played; the arrow keys step back and forward again.
   const reviewStart = page.locator('button.btn').filter({ hasText: /^\s*Start\s*$/ }).filter({ visible: true });
@@ -362,14 +361,15 @@ test('engine controls: open the engine and toggle eval bar and suggestions in re
   await expect(reviewStart).toHaveCount(0);
   await page.keyboard.press('ArrowRight');
   await expect(reviewStart).toBeVisible();
-  await suggestions.click();
-  await expect(suggestions).toHaveAttribute('aria-pressed', 'false');
+  // Its display options are in the menu, in the review and while exploring alike.
+  await reviewOption(page, 'Engine: suggested moves');
   await expect(page.getByText(/Stockfish 19 lite · depth/)).toHaveCount(0);
-  await evalBar.click();
-  await expect(evalBar).toHaveAttribute('aria-pressed', 'false');
+  await reviewOption(page, 'Engine: eval bar');
+  await page.getByRole('button', { name: 'More options' }).filter({ visible: true }).click();
+  await expect(page.getByRole('button', { name: 'Engine: eval bar' })).toHaveAttribute('aria-pressed', 'false');
+  await page.keyboard.press('Escape');
   await controls.getByRole('button', { name: 'Engine' }).click();
   await expect(controls.getByRole('button', { name: 'Engine' })).toHaveAttribute('aria-pressed', 'false');
-  await expect(evalBar).toHaveCount(0);
 
   // The choices carry over to puzzles.
   await page.goto('./#/training');
@@ -940,15 +940,15 @@ test('review: explanations say what the reply does and what the better move does
   await page.goto(`./#/game/${encodeURIComponent(p.gameIds[0])}?ply=${p.plies[0] + 1}`);
   await expect(page.getByText(/^After this, .* was better: it /).filter({ visible: true })).toBeVisible({ timeout: 15000 });
   // With best moves hidden, the better move and what it does are left out.
-  await page.getByRole('button', { name: 'Best moves' }).filter({ visible: true }).click();
+  await reviewOption(page, 'Best moves');
   await expect(page.getByText(/ was better: it /).filter({ visible: true })).toHaveCount(0);
   await expect(page.getByText(/^After this, /).filter({ visible: true })).toBeVisible();
 });
 
-test('weaknesses: a deep look at your last 10 losses, with what to focus on and the games', async ({ page }) => {
+test('weaknesses: a deep look at your last losses, with what to focus on and the games', async ({ page }) => {
   await seed(page);
   await openTab(page, 'Weaknesses');
-  await page.getByRole('link', { name: /Your last 10 losses/ }).click();
+  await page.getByRole('link', { name: /Your last losses/ }).click();
   await expect(page).toHaveURL(/#\/losses/);
   await expect(page.getByText('What to focus on')).toBeVisible();
   await expect(page.getByRole('heading', { name: /of your last \d+ losses/ })).toBeVisible();

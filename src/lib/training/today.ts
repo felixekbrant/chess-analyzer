@@ -167,7 +167,7 @@ export function buildToday(x: TodayInput): TodayPlan {
       id: 'puzzles',
       kind: 'puzzles',
       title: 'Puzzles from your mistakes',
-      detail: 'Due again',
+      detail: 'From your recent games',
       minutes: puzzles * PUZZLE_MIN,
       done: x.progress.puzzles >= puzzles,
       progress: [Math.min(x.progress.puzzles, puzzles), puzzles],

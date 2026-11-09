@@ -107,7 +107,7 @@ export default function Insights() {
   const dateFmt = (t: number) => new Date(t).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 
   return (
-    <div className="space-y-4 max-w-[1300px]">
+    <div className="space-y-4 max-w-[1300px] mx-auto">
       <PageHeader
         title="Insights"
         subtitle={loading ? 'Loading…' : `${ag.length} analysed games`}

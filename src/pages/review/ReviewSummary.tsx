@@ -72,10 +72,18 @@ export function ReviewSummary({
     [game.id],
   );
 
+  // The whole game at a glance; tap a point to open the review at that move.
+  const graph = analysis && (
+    <div>
+      <EvalGraph evals={analysis.evals} moves={analysis.moves} current={analysis.moves.length} onSelect={(ply) => onStart({ ply })} height={72} />
+      <p className="muted text-[11px] mt-1">Tap the graph to open the review at that move.</p>
+    </div>
+  );
+
   return (
-    <div className="grid lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)] gap-5 lg:gap-8 max-w-5xl mx-auto">
+    <div className="grid lg:grid-cols-[minmax(0,540px)_minmax(0,1fr)] gap-5 lg:gap-8 max-w-[1300px] mx-auto">
       {/* The result first: what happened, on a proper board (half the width on phones). */}
-      <div className="grid grid-cols-[minmax(0,44%)_1fr] lg:grid-cols-1 gap-4 items-center lg:items-start">
+      <div className="grid grid-cols-[minmax(0,44%)_1fr] lg:grid-cols-1 gap-4 items-center lg:items-start lg:content-start lg:max-w-[min(540px,calc(100svh_-_250px))]">
         {/* The final position with its evaluation beside it, as in the review. */}
         <div className="flex gap-1.5 min-w-0">
           {analysis && <EvalBar score={analysis.evals.at(-1)} orientation={me === 'b' ? 'black' : 'white'} />}
@@ -87,6 +95,8 @@ export function ReviewSummary({
         <div className="lg:hidden">
           <GameHeading game={game} moves={Math.ceil(parsed.plies.length / 2)} />
         </div>
+        {/* Large screens: the whole game under the board it ended on. */}
+        {analysis && summary && <div className="hidden lg:block">{graph}</div>}
       </div>
 
       <div className="space-y-4 min-w-0">
@@ -103,11 +113,7 @@ export function ReviewSummary({
               )}
             </CoachBubble>
 
-            {/* The whole game at a glance; tap a point to open the review at that move. */}
-            <div>
-              <EvalGraph evals={analysis.evals} moves={analysis.moves} current={analysis.moves.length} onSelect={(ply) => onStart({ ply })} height={72} />
-              <p className="muted text-[11px] mt-1">Tap the graph to open the review at that move.</p>
-            </div>
+            <div className="lg:hidden">{graph}</div>
 
             <div className="grid grid-cols-2 gap-2">
               {(['w', 'b'] as Color[]).map((c) => (

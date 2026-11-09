@@ -5,7 +5,7 @@ import { backTo } from '../../lib/backLink';
 import { Chess } from 'chess.js';
 import { useLiveEngine, evaluateOnce, useWarmEngine } from '../../hooks/useLiveEngine';
 import { useQueueProgress, useSettings } from '../../hooks/useStores';
-import { EngineControls, pill } from '../../components/EngineControls';
+import { EngineControls } from '../../components/EngineControls';
 import { hideBestMove } from '../../lib/review/hideBest';
 import { hintText } from '../../lib/training/hint';
 import { moveIdeaSan } from '../../lib/analysis/explain';
@@ -410,6 +410,8 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
   const onKey = useStableCallback((e: KeyboardEvent) => {
     const tag = (e.target as HTMLElement).tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    // The menu is open: its own keys (Escape closes it) aren't the board's.
+    if (menuOpen) return;
     const step = stepKey(e);
     if (step) setLinePlaying(false);
     if (step === 'forward') next();
@@ -516,15 +518,9 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
     />
   );
 
-  // Hide the best moves to look for them yourself first; "Best" and the coach's buttons still show them.
-  const bestToggle = (
-    <button
-      className={pill(settings.showBestMoves)}
-      onClick={() => void saveSettings({ showBestMoves: !settings.showBestMoves })}
-      aria-pressed={settings.showBestMoves}
-      title={settings.showBestMoves ? 'Hide the best moves, to look for them yourself' : 'Show the best move for each move'}
-    >
-      <Icon name="star" size={14} /> Best moves
+  const menuButton = (
+    <button className="icon-btn !min-w-11" onClick={() => setMenuOpen(true)} aria-label="More options">
+      <Icon name="more" />
     </button>
   );
 
@@ -566,11 +562,12 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
       <ActionButton icon={<Icon name="close" />} label="Back to game" onClick={exitExplore} />
       <ActionButton
         icon={<Icon name="next" />}
-        label={explore.line || explore.future?.length ? 'Next' : undefined}
+        label="Next"
         title="Forward (→)"
         onClick={next}
         disabled={explore.line ? explore.moves.length >= explore.line.length : !explore.future?.length}
       />
+      {menuButton}
     </>
   ) : (
     <>
@@ -589,9 +586,7 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
       ) : (
         <ActionButton icon={<Icon name="next" />} label={keyOnly ? 'Next key' : 'Next'} onClick={next} primary />
       )}
-      <button className="icon-btn !min-w-11" onClick={() => setMenuOpen(true)} aria-label="More options">
-        <Icon name="more" />
-      </button>
+      {menuButton}
     </>
   );
 
@@ -605,6 +600,16 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
       )}
       {mistakes.length > 0 && <MenuItem icon="retry" label={`Retry all my mistakes (${mistakes.length})`} onClick={() => startRetry(mistakes[0], true)} />}
       <MenuItem icon="chart" label="Game summary" onClick={onSummary} />
+      {/* What the review shows: set once, so here rather than on the screen all the time. */}
+      <MenuSwitch
+        icon="star"
+        label="Best moves"
+        hint="Off: find them yourself first"
+        on={settings.showBestMoves}
+        onClick={() => void saveSettings({ showBestMoves: !settings.showBestMoves })}
+      />
+      <MenuSwitch icon="chart" label="Engine: eval bar" on={settings.showEvalBar} onClick={() => void saveSettings({ showEvalBar: !settings.showEvalBar })} />
+      <MenuSwitch icon="engine" label="Engine: suggested moves" on={settings.showSuggestions} onClick={() => void saveSettings({ showSuggestions: !settings.showSuggestions })} />
       {game.url && <MenuItem icon="external" label="Open on chess.com" onClick={() => window.open(game.url, '_blank', 'noopener')} />}
       {analysis && game.analysisStatus === 'done' && (
         <MenuItem
@@ -617,7 +622,7 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
   );
 
   return (
-    <div className="grid lg:grid-cols-[minmax(0,1fr)_380px] gap-3 lg:gap-5 max-w-[1300px]">
+    <div className="grid lg:grid-cols-[minmax(0,1fr)_380px] gap-3 lg:gap-5 max-w-[1300px] mx-auto">
       {/* Board column */}
       <div className="min-w-0 space-y-2 lg:space-y-3">
         {/* Phones: the board runs edge to edge (the page gutter is taken back), like a chess app. */}
@@ -644,7 +649,7 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
 
         {/* Phones: coach, engine, graph and the move strip under the board. */}
         <div className="lg:hidden space-y-2">
-          <EngineControls open={engineOpen} onToggle={toggleEngine} leading={bestToggle} />
+          <EngineControls open={engineOpen} onToggle={toggleEngine} show="toggle" compact />
           {shortcuts}
           {/* Swipe the coach left/right to step through the moves (the board itself is for dragging pieces). */}
           <div onTouchStart={swipe.start} onTouchEnd={swipe.end}>{coach}</div>
@@ -657,7 +662,9 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
 
       {/* Side panel (larger screens) */}
       <div className="hidden lg:flex lg:flex-col gap-3 min-w-0">
-        <EngineControls open={engineOpen} onToggle={toggleEngine} leading={bestToggle} />
+        {/* First, so Back and Next stay in one place whatever the coach says below. */}
+        <ActionBar>{actions}</ActionBar>
+        <EngineControls open={engineOpen} onToggle={toggleEngine} show="toggle" compact />
         {shortcuts}
         {coach}
         {engineOpen && settings.showSuggestions && (
@@ -665,7 +672,6 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
             <EngineLines result={live.settled ? live.result : null} fen={fen} onPlayLine={onBoardMove} />
           </div>
         )}
-        <ActionBar>{actions}</ActionBar>
         {/* Desktop: one column card with the moves, the graph under them, and the report. */}
         <div className="panel overflow-hidden">
           {analysis && (
@@ -763,6 +769,20 @@ function MenuItem({ icon, label, onClick }: { icon: Parameters<typeof Icon>[0]['
     <button className="flex items-center gap-3 px-3 py-3 rounded-lg font-semibold text-left hover:bg-[var(--panel-2)]" onClick={onClick}>
       <Icon name={icon} />
       {label}
+    </button>
+  );
+}
+
+/** A setting in the menu, with its state at the end of the row. */
+function MenuSwitch({ icon, label, hint, on, onClick }: { icon: Parameters<typeof Icon>[0]['name']; label: string; hint?: string; on: boolean; onClick: () => void }) {
+  return (
+    <button className="flex items-center gap-3 px-3 py-3 rounded-lg font-semibold text-left hover:bg-[var(--panel-2)]" onClick={onClick} aria-pressed={on} aria-label={label}>
+      <Icon name={icon} />
+      <span className="flex-1 min-w-0">
+        {label}
+        {hint && !on && <span className="block text-xs font-normal muted">{hint}</span>}
+      </span>
+      <span className={`text-xs font-bold rounded-full px-2.5 py-1 ${on ? 'bg-primary text-white' : 'bg-[var(--panel-2)] muted'}`}>{on ? 'On' : 'Off'}</span>
     </button>
   );
 }
@@ -977,7 +997,7 @@ function Coach({
           ))}
         </div>
       )}
-      {findIt || (onShowRefutation && isError) || (onShowBest && (isError || special) && (showBest || special)) ? (
+      {findIt || (onShowRefutation && isError) || (onShowBest && special && !showBest) ? (
         <div className="flex flex-wrap gap-2 mt-2.5">
           {findIt && (
             <button className="btn btn-primary !py-1.5 !text-sm" onClick={onRetry}>
@@ -989,9 +1009,10 @@ function Coach({
               <Icon name="play" size={14} /> {yours ? 'Why it fails' : 'How to punish it'}
             </button>
           )}
-          {onShowBest && (isError || special) && (showBest || special) && (
+          {/* The best line of a mistake is the "Best" button in the bar; here only the idea behind a great move. */}
+          {onShowBest && special && !showBest && (
             <button className="btn !py-1.5 !text-sm" onClick={onShowBest}>
-              <Icon name="star" size={14} /> {showBest ? 'Best line' : 'See the idea'}
+              <Icon name="star" size={14} /> See the idea
             </button>
           )}
         </div>

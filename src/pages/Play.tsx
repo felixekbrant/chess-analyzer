@@ -262,7 +262,7 @@ export default function Play() {
   return (
     // Like the review: the board takes the room it can (up to the window's height), the controls
     // sit beside it on large screens, and on phones the board runs edge to edge.
-    <div className="grid lg:grid-cols-[minmax(0,1fr)_360px] gap-3 lg:gap-5 max-w-[1300px]">
+    <div className="grid lg:grid-cols-[minmax(0,1fr)_360px] gap-3 lg:gap-5 max-w-[1300px] mx-auto">
       <div className="min-w-0 space-y-1 -mx-2.5 px-1 lg:mx-0 lg:px-0" style={{ maxWidth: 'min(760px, calc(100svh - 110px))' }}>
         <div className="flex items-center gap-2 text-sm font-bold px-1 h-6">
           <Icon name="engine" size={16} /> Stockfish · {LEVELS[level].label}

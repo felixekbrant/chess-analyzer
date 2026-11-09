@@ -222,8 +222,8 @@ export default function Training() {
   };
 
   return (
-    <div className="max-w-[1100px] space-y-3">
-      <PageHeader title="Training" desktopOnly subtitle="Puzzles made from your own mistakes, recent games first. Solved ones rest for a few days or more; missed ones come back soon." />
+    <div className="max-w-[1300px] mx-auto space-y-3">
+      <PageHeader title="Training" desktopOnly subtitle="Puzzles made from your own mistakes, recent games first. Each is done once; after a miss, the next one has the same idea." />
 
       {/* One compact row instead of a wall of filter chips. */}
       <div className="flex items-center gap-2">
@@ -896,29 +896,6 @@ function PuzzleView({
           >
             {status}
             {missedNote && <p className="mt-1 text-sm font-normal muted">{missedNote}</p>}
-            {/* Once it's done, the two lines are right here under the result (an open line shows above, under the board). */}
-            {done && !lineView && lines && (lines.best || lines.refute) && (
-              <div className="flex flex-wrap gap-2 mt-2.5 font-normal">
-                {lines.best && (
-                  <button className="btn !py-2 !text-sm" onClick={() => setLineView({ kind: 'best', index: 1 })}>
-                    <Icon name="play" size={14} /> See the full line
-                  </button>
-                )}
-                {lines.refute && (
-                  <button className="btn !py-2 !text-sm" onClick={() => setLineView({ kind: 'refute', index: 0 })}>
-                    <Icon name="play" size={14} /> What {puzzle.playedSan} allowed
-                  </button>
-                )}
-                {/* Solving it is the start: play on until the win is in the bag. */}
-                <Link
-                  className="btn !py-2 !text-sm"
-                  to={playHref(playUci(puzzle.fen, puzzle.solutionUci).fens.at(-1) ?? puzzle.fen, puzzle.fen.split(' ')[1] as Color, `puzzle:${puzzle.id}`)}
-                  state={backTo('puzzle')}
-                >
-                  <Icon name="engine" size={14} /> Play it out
-                </Link>
-              </div>
-            )}
             {hintWords && !done && (
               <p className="mt-1.5 font-normal flex gap-1.5" style={{ color: 'var(--attention-ink)' }}>
                 <Icon name="bulb" size={16} /> {hintWords}
@@ -997,9 +974,33 @@ function PuzzleView({
           )}
         </div>
 
+        {/* Once it's done: the lines and playing on, under "Next puzzle" so that button never moves out of reach. */}
+        {!engine && !threatAsk && done && !lineView && lines && (lines.best || lines.refute) && (
+          <div className="flex flex-wrap gap-2">
+            {lines.best && (
+              <button className="btn !py-2 !text-sm" onClick={() => setLineView({ kind: 'best', index: 1 })}>
+                <Icon name="play" size={14} /> See the full line
+              </button>
+            )}
+            {lines.refute && (
+              <button className="btn !py-2 !text-sm" onClick={() => setLineView({ kind: 'refute', index: 0 })}>
+                <Icon name="play" size={14} /> What {puzzle.playedSan} allowed
+              </button>
+            )}
+            {/* Solving it is the start: play on until the win is in the bag. */}
+            <Link
+              className="btn !py-2 !text-sm"
+              to={playHref(playUci(puzzle.fen, puzzle.solutionUci).fens.at(-1) ?? puzzle.fen, puzzle.fen.split(' ')[1] as Color, `puzzle:${puzzle.id}`)}
+              state={backTo('puzzle')}
+            >
+              <Icon name="engine" size={14} /> Play it out
+            </Link>
+          </div>
+        )}
+
         {/* One card: what happened in your game, then (once done) the lines and links. */}
         {puzzle.lichess ? (
-          <LichessInfoPanel info={puzzle.lichess} />
+          <LichessInfoPanel info={puzzle.lichess} done={done} />
         ) : (
           <div className="panel p-3 text-sm space-y-2.5">
             <p className="flex items-center gap-1.5 flex-wrap">
@@ -1007,10 +1008,13 @@ function PuzzleView({
               <span className="inline-flex items-center gap-1 font-bold">
                 <ClassificationBadge c={puzzle.classification} size={16} /> {puzzle.playedSan}
               </span>
-              <span className="muted tabular-nums" title="Win chance your move lost">
-                −{puzzle.winLoss.toFixed(0)}%
-              </span>
-              {stakeLabel(puzzle) && (
+              {/* What it cost and what kind of mistake it was would give the answer away: shown once it's done. */}
+              {done && (
+                <span className="muted tabular-nums" title="Win chance your move lost">
+                  −{puzzle.winLoss.toFixed(0)}%
+                </span>
+              )}
+              {done && stakeLabel(puzzle) && (
                 <span className="chip font-bold" style={{ color: 'var(--brass-ink)' }} title="What the best move wins or saves compared with yours">
                   {stakeLabel(puzzle)}
                 </span>
@@ -1025,7 +1029,7 @@ function PuzzleView({
                   Also in {puzzle.repeats} earlier game{puzzle.repeats === 1 ? '' : 's'}
                 </span>
               )}
-              {puzzle.motifs
+              {(done ? puzzle.motifs : [])
                 .filter((m) => m !== 'long_think')
                 .slice(0, 2)
                 .map((m) => (
@@ -1111,8 +1115,9 @@ const THEME_LABEL: Record<string, string> = {
 };
 
 /** Where a drill puzzle from the Lichess database comes from and what it is about. */
-function LichessInfoPanel({ info }: { info: NonNullable<Puzzle['lichess']> }) {
-  const themes = info.themes.filter((t) => THEME_LABEL[t]);
+function LichessInfoPanel({ info, done }: { info: NonNullable<Puzzle['lichess']>; done: boolean }) {
+  // The themes name the tactic, so they wait until the puzzle is done.
+  const themes = done ? info.themes.filter((t) => THEME_LABEL[t]) : [];
   return (
     <div className="panel p-3 text-sm space-y-2">
       {/* The same one-row shape as "You played …" on your own puzzles. */}

@@ -78,7 +78,7 @@ export default function Games() {
   );
 
   return (
-    <div className="max-w-5xl">
+    <div className="max-w-[1300px] mx-auto">
       <PageHeader
         title="Games"
         desktopOnly

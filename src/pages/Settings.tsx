@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, getSettings, saveSettings } from '../db/schema';
 import { useSettings } from '../hooks/useStores';
@@ -32,8 +32,11 @@ export default function SettingsPage() {
   const syncState = useLiveQuery(() => (settings.username ? db.sync.get(settings.username.toLowerCase()) : undefined), [settings.username]);
   const counts = useLiveQuery(async () => ({ games: await db.games.count(), analysed: await db.analyses.count(), puzzles: await db.puzzles.count() }), []);
 
+  // The field follows the saved name until you type in it: settings arriving a moment after the
+  // page opens must not wipe what you've started typing.
+  const typed = useRef(false);
   useEffect(() => {
-    setUsername(settings.username);
+    if (!typed.current) setUsername(settings.username);
   }, [settings.username]);
 
   async function saveUsername() {
@@ -43,6 +46,8 @@ export default function SettingsPage() {
     setMsg('Checking chess.com…');
     try {
       const name = await connectAccount(u);
+      typed.current = false;
+      setUsername(name);
       setMsg(`Connected to ${name}.`);
     } catch (e) {
       setMsg((e as Error).message);
@@ -83,7 +88,7 @@ export default function SettingsPage() {
   );
 
   return (
-    <div className="max-w-2xl space-y-5">
+    <div className="max-w-3xl mx-auto space-y-5">
       <PageHeader title="Settings" desktopOnly />
 
       <Group title="chess.com">
@@ -96,7 +101,10 @@ export default function SettingsPage() {
             autoCorrect="off"
             spellCheck={false}
             value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            onChange={(e) => {
+              typed.current = true;
+              setUsername(e.target.value);
+            }}
             onKeyDown={(e) => e.key === 'Enter' && saveUsername()}
           />
           {/* Only offered once there's something to save. */}

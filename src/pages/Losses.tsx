@@ -66,9 +66,9 @@ export default function Losses() {
 
   const report = useMemo(() => lossReport(analysed), [analysed.map((a) => a.game.id).join()]);
 
-  if (loading) return <div className="skeleton h-64 max-w-3xl" />;
+  if (loading) return <div className="skeleton h-64 max-w-3xl mx-auto" />;
 
-  const header = <PageHeader title={`Your last ${LOSSES} losses`} desktopOnly subtitle="What decided them, and what to work on first." />;
+  const header = <PageHeader title="Your last losses" desktopOnly subtitle="What decided them, and what to work on first." />;
   const chooser = classes.length > 1 && (
     <div className="flex gap-1.5 flex-wrap" role="radiogroup" aria-label="Time control">
       {classes.map((tc) => (
@@ -81,7 +81,7 @@ export default function Losses() {
 
   if (analysed.length < MIN_LOSSES) {
     return (
-      <div className="max-w-3xl space-y-3">
+      <div className="max-w-3xl mx-auto space-y-3">
         {header}
         {chooser}
         <Section>
@@ -118,7 +118,7 @@ export default function Losses() {
   for (const o of report.openings.slice(0, 2)) facts.push(`${of(o.n)} came from the ${o.name}.`);
 
   return (
-    <div className="max-w-3xl space-y-3">
+    <div className="max-w-3xl mx-auto space-y-3">
       {header}
       {chooser}
       {waiting.length > 0 && (

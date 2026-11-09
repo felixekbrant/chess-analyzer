@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { MiniBoard } from '../components/MiniBoard';
 import { BrandMark } from '../components/BrandMark';
 import { useNavigate } from 'react-router-dom';
@@ -16,8 +16,27 @@ import { PageHeader, Section } from '../components/ui';
 import { connectAccount } from '../lib/account';
 import { formatEta } from '../lib/format';
 import { Link } from 'react-router-dom';
+import { ratingSeries, trend, type AnalyzedGame } from '../lib/insights/compute';
+import { LOSSES, lossFocus, lossReport } from '../lib/insights/losses';
+import { mainTimeClass } from '../hooks/useSkills';
+import type { StoredGame } from '../lib/types';
+
+const HomeRating = lazy(() => import('../components/HomeRating'));
+
+/** True on large screens (the two-column layouts), following the window as it's resized. */
+function useWide() {
+  const [wide, setWide] = useState(() => typeof matchMedia !== 'undefined' && matchMedia('(min-width: 1024px)').matches);
+  useEffect(() => {
+    const mq = matchMedia('(min-width: 1024px)');
+    const on = () => setWide(mq.matches);
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
+  return wide;
+}
 
 export default function Dashboard() {
+  const wide = useWide();
   const settings = useSettings();
   const navigate = useNavigate();
   const { games, summaries, ag, loading } = useInsightData(DEFAULT_FILTERS);
@@ -29,6 +48,7 @@ export default function Dashboard() {
     [recentAg, games, summaries],
   );
   const recentGames = useMemo(() => games.slice(0, 5), [games]);
+  const ratings = useMemo(() => (wide ? ratingSeries(trend(games, summaries)) : { data: [], classes: [] }), [wide, games, summaries]);
   const doneCount = useMemo(() => games.filter((g) => g.analysisStatus === 'done').length, [games]);
   const open = (g: { id: string }) => navigate(`/game/${encodeURIComponent(g.id)}`);
 
@@ -36,7 +56,7 @@ export default function Dashboard() {
   if (loading) return <HomeSkeleton />;
 
   return (
-    <div className="space-y-4 max-w-[1300px]">
+    <div className="space-y-4 max-w-[1300px] mx-auto">
       <PageHeader title={settings.username ? `Hi, ${settings.username}` : 'Home'} desktopOnly />
       <ProgressCard analysed={doneCount} latest={games[0]} />
 
@@ -66,9 +86,38 @@ export default function Dashboard() {
               <GameCardList games={recentGames} onOpen={open} grouped={false} flush />
             </div>
           </Section>
+          {/* Large screens have room for how it's going; on phones these are a tap away (Insights, Weaknesses). */}
+          {wide && (
+            <div className="space-y-3">
+              <LossesCard ag={ag} games={games} />
+              {ratings.data.length > 1 && (
+                <Suspense fallback={<div className="skeleton h-56" />}>
+                  <HomeRating ratings={ratings} />
+                </Suspense>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
+  );
+}
+
+/** What your last losses say to work on, in one sentence, with the way to the full look. */
+function LossesCard({ ag, games }: { ag: AnalyzedGame[]; games: StoredGame[] }) {
+  const verdict = useMemo(() => {
+    const timeClass = mainTimeClass(games);
+    const ids = new Set(games.filter((g) => g.userResult === 'loss' && g.timeClass === timeClass).slice(0, LOSSES).map((g) => g.id));
+    const analysed = ag.filter((a) => ids.has(a.game.id));
+    return analysed.length >= 3 ? lossFocus(lossReport(analysed)) : undefined;
+  }, [ag, games]);
+  if (!verdict) return null;
+  return (
+    <Link to="/losses" className="panel p-4 block hover:brightness-110">
+      <div className="muted text-xs font-extrabold uppercase tracking-wider">From your last losses</div>
+      <p className="font-bold leading-snug mt-1">{verdict.headline}</p>
+      <p className="muted text-sm mt-1">What decided each one →</p>
+    </Link>
   );
 }
 
@@ -136,7 +185,7 @@ function ProfilePending({ analysed, timeClass }: { analysed: number; timeClass: 
 
 function HomeSkeleton() {
   return (
-    <div className="space-y-3 max-w-[1300px]" aria-busy="true">
+    <div className="space-y-3 max-w-[1300px] mx-auto" aria-busy="true">
       <div className="skeleton h-36" />
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[0, 1, 2, 3].map((i) => (

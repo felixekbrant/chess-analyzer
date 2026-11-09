@@ -45,7 +45,7 @@ export default function Weaknesses() {
     return m;
   }, [puzzles, settings.smallPuzzles]);
 
-  if (loading) return <div className="skeleton h-64 max-w-3xl" />;
+  if (loading) return <div className="skeleton h-64 max-w-3xl mx-auto" />;
 
   const header = (
     <PageHeader
@@ -61,7 +61,7 @@ export default function Weaknesses() {
 
   if (!skills.ready) {
     return (
-      <div className="max-w-3xl space-y-3">
+      <div className="max-w-3xl mx-auto space-y-3">
         {header}
         <Section>
           <EmptyState fen={EMPTY_FENS.mate} title="Not enough analysed games yet">
@@ -86,14 +86,14 @@ export default function Weaknesses() {
   };
 
   return (
-    <div className="max-w-3xl space-y-3">
+    <div className="max-w-3xl mx-auto space-y-3">
       {header}
       <Link to="/losses" state={backTo('Weaknesses')} className="panel p-3.5 flex items-center gap-3 hover:bg-[var(--panel-2)]">
         <span className="w-9 h-9 rounded-full bg-[var(--panel-2)] grid place-items-center shrink-0">
           <Icon name="target" size={18} />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block font-bold">Your last 10 losses</span>
+          <span className="block font-bold">Your last losses</span>
           <span className="block muted text-sm">What decided each one, and what to work on first.</span>
         </span>
         <Icon name="next" size={18} className="muted shrink-0" />
@@ -178,7 +178,9 @@ function WeaknessCard({
   const meta = SKILL_META[r.area];
   const tries = areaTries(log, r.area);
   const left = puzzles.filter((p) => !p.doneAt).length;
-  const ratio = r.typical ? r.cost / r.typical : undefined;
+  // What the order is built on: how much more than typical you lose, when that's clearly more
+  // (from the rounded figures shown on the bar, so the three numbers add up).
+  const extra = r.typical !== undefined && r.verdict === 'worse' ? Number(fmt(r.cost)) - Number(fmt(r.typical)) : undefined;
 
   return (
     <section className="panel p-4 space-y-3">
@@ -192,11 +194,16 @@ function WeaknessCard({
           </div>
           <p className="muted text-sm mt-0.5">{meta.about}</p>
         </div>
-        {ratio !== undefined && ratio >= 1.15 && (
-          <span className="shrink-0 text-sm font-extrabold tabular-nums" style={{ color: 'var(--attention-ink)' }} title="Compared with what's typical at your rating">
-            {ratio.toFixed(1)}×
+        {extra !== undefined ? (
+          <span className="shrink-0 text-right leading-tight" title="Win chance you lose per game here, beyond what's typical at your rating">
+            <b className="block text-sm font-extrabold tabular-nums" style={{ color: 'var(--attention-ink)' }}>
+              +{fmt(extra)}%
+            </b>
+            <span className="muted text-[11px]">vs typical</span>
           </span>
-        )}
+        ) : r.verdict === 'typical' ? (
+          <span className="shrink-0 muted text-[11px] text-right leading-tight">about typical</span>
+        ) : null}
       </div>
 
       <div>

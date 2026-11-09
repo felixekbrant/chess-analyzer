@@ -23,7 +23,7 @@ export default function Openings() {
   const stats = useMemo(() => [...openingStats(games, summaries, !detailed)].sort((a, b) => b.games - a.games), [games, summaries, detailed]);
 
   return (
-    <div className="space-y-4 max-w-[1300px]">
+    <div className="space-y-4 max-w-[1300px] mx-auto">
       <PageHeader
         title="Openings"
         actions={
@@ -96,16 +96,19 @@ function OpeningCards({ rows }: { rows: OpeningStat[] }) {
               <span className="muted text-xs tabular-nums shrink-0">
                 {r.games} game{r.games === 1 ? '' : 's'}
               </span>
-              {/* A small results bar; dimmed when there are too few games to mean much. */}
-              <span className={`w-16 sm:w-28 shrink-0 ${few ? 'opacity-30' : ''}`}>
-                <WDL w={r.wins} d={r.draws} l={r.losses} />
-              </span>
-              <b
-                className={`w-10 text-right text-sm tabular-nums shrink-0 ${few ? 'muted' : ''}`}
-                style={{ color: few ? undefined : r.score >= 55 ? 'var(--felt-ink)' : r.score < 40 ? 'var(--loss-ink)' : undefined }}
-              >
-                {fmtPct(r.score)}
-              </b>
+              {few ? (
+                // One or two games aren't a score: say how they went, without a bar or a percentage.
+                <span className="muted text-xs tabular-nums shrink-0 text-right">{fewResults(r)}</span>
+              ) : (
+                <>
+                  <span className="w-16 sm:w-28 shrink-0">
+                    <WDL w={r.wins} d={r.draws} l={r.losses} />
+                  </span>
+                  <b className="w-10 text-right text-sm tabular-nums shrink-0" style={{ color: r.score >= 55 ? 'var(--felt-ink)' : r.score < 40 ? 'var(--loss-ink)' : undefined }}>
+                    {fmtPct(r.score)}
+                  </b>
+                </>
+              )}
             </button>
             {isOpen && (
               <div className="pb-3 space-y-2 text-sm">
@@ -141,6 +144,16 @@ function OpeningCards({ rows }: { rows: OpeningStat[] }) {
     )}
     </>
   );
+}
+
+/** How one or two games went, in words: "won", "lost", "1 won, 1 lost". */
+function fewResults(r: OpeningStat): string {
+  const parts = [
+    [r.wins, 'won'],
+    [r.draws, 'drawn'],
+    [r.losses, 'lost'],
+  ].filter(([n]) => n) as [number, string][];
+  return r.games === 1 ? (parts[0]?.[1] ?? '') : parts.map(([n, w]) => `${n} ${w}`).join(', ');
 }
 
 function WDL({ w, d, l }: { w: number; d: number; l: number }) {
@@ -186,14 +199,17 @@ function MainOpening({ r }: { r: OpeningStat }) {
           {r.avgBookExit ? ` · out of book ~move ${r.avgBookExit.toFixed(0)}` : ''}
         </div>
         {r.commonErrors.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 items-center mt-auto">
-            {r.commonErrors.slice(0, 2).map((e, i) => (
-              <Link key={i} className="chip !py-0.5 !px-2" to={`/game/${encodeURIComponent(e.ref.gameId)}?ply=${e.ref.ply + 1}`} state={backTo('Openings')}>
-                {e.moveLabel}
-                {e.bestSan && <span className="muted font-normal"> → {e.bestSan}</span>}
-              </Link>
-            ))}
-            <Link className="btn btn-primary !py-0.5 !px-2.5 !text-xs" to={`/training?opening=${encodeURIComponent(r.name)}`}>
+          // Drill stays bottom right on every card; the move chips wrap in the space beside it.
+          <div className="flex items-end gap-1.5 mt-auto">
+            <div className="flex flex-wrap gap-1.5 flex-1 min-w-0">
+              {r.commonErrors.slice(0, 2).map((e, i) => (
+                <Link key={i} className="chip !py-0.5 !px-2" to={`/game/${encodeURIComponent(e.ref.gameId)}?ply=${e.ref.ply + 1}`} state={backTo('Openings')}>
+                  {e.moveLabel}
+                  {e.bestSan && <span className="muted font-normal"> → {e.bestSan}</span>}
+                </Link>
+              ))}
+            </div>
+            <Link className="btn btn-primary !py-0.5 !px-2.5 !text-xs shrink-0" to={`/training?opening=${encodeURIComponent(r.name)}`}>
               Drill
             </Link>
           </div>
