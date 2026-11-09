@@ -950,7 +950,7 @@ test('weaknesses: a deep look at your last losses, with what to focus on and the
   await openTab(page, 'Weaknesses');
   await page.getByRole('link', { name: /Your last losses/ }).click();
   await expect(page).toHaveURL(/#\/losses/);
-  await expect(page.getByText('What to focus on')).toBeVisible();
+  await expect(page.getByText('What they have in common')).toBeVisible();
   await expect(page.getByRole('heading', { name: /of your last \d+ losses/ })).toBeVisible();
   await expect(page.getByText('What decided each loss')).toBeVisible();
   if (process.env.E2E_SHOTS) await page.screenshot({ path: `${process.env.E2E_SHOTS}/losses.png`, fullPage: true });

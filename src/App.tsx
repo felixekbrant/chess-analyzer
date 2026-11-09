@@ -52,7 +52,7 @@ const TAB_COUNT = 4;
 const TITLES: [RegExp, string][] = [
   [/^\/$/, 'Home'],
   [/^\/games/, 'Games'],
-  [/^\/game\//, 'Game Review'],
+  [/^\/game\//, 'Game review'],
   [/^\/training/, 'Training'],
   [/^\/weaknesses/, 'Weaknesses'],
   [/^\/losses/, 'Your last losses'],

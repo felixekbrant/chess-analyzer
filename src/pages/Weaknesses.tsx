@@ -10,7 +10,8 @@ import { Comparison, CostBars, TrendChip } from '../components/Coaching';
 import { Icon } from '../components/Icon';
 import { EmptyState, EMPTY_FENS, PageHeader, Section } from '../components/ui';
 import { SKILL_META, type SkillArea, type SkillStat } from '../lib/insights/skills';
-import { chooseFocus, type AreaRank, type FocusStore } from '../lib/training/focus';
+import { chooseFocus, extraCost, type AreaRank, type FocusStore } from '../lib/training/focus';
+import { useLossVerdict } from '../hooks/useLossVerdict';
 import { FOCUS_KEY, puzzleArea } from '../lib/training/today';
 import { isSmall } from '../lib/training/puzzles';
 import { PUZZLE_LOG_KEY, areaTries, type PuzzleTry } from '../lib/training/puzzleLog';
@@ -30,6 +31,7 @@ export default function Weaknesses() {
   // All games (no filters), so it may also keep the weekly focus up to date, as Home does.
   const skills = useSkills(games, ag);
   const settings = useSettings();
+  const lossVerdict = useLossVerdict(games, ag);
   const puzzles = useLiveQuery(() => db.puzzles.toArray(), []);
   const log = useLiveQuery(async () => ((await db.kv.get(PUZZLE_LOG_KEY))?.value as PuzzleTry[] | undefined) ?? [], []);
   const playouts = useLiveQuery(async () => ((await db.kv.get(PLAYOUTS_KEY))?.value as Playout[] | undefined) ?? [], []);
@@ -94,7 +96,8 @@ export default function Weaknesses() {
         </span>
         <span className="min-w-0 flex-1">
           <span className="block font-bold">Your last losses</span>
-          <span className="block muted text-sm">What decided each one, and what to work on first.</span>
+          {/* What they have in common, when there is something; the page has each game. */}
+          <span className="block muted text-sm">{lossVerdict?.headline ?? 'What decided each one, and what they have in common.'}</span>
         </span>
         <Icon name="next" size={18} className="muted shrink-0" />
       </Link>
@@ -178,9 +181,8 @@ function WeaknessCard({
   const meta = SKILL_META[r.area];
   const tries = areaTries(log, r.area);
   const left = puzzles.filter((p) => !p.doneAt).length;
-  // What the order is built on: how much more than typical you lose, when that's clearly more
-  // (from the rounded figures shown on the bar, so the three numbers add up).
-  const extra = r.typical !== undefined && r.verdict === 'worse' ? Number(fmt(r.cost)) - Number(fmt(r.typical)) : undefined;
+  // What the order is built on: how much more than typical you lose, when that's clearly more.
+  const extra = extraCost(r);
 
   return (
     <section className="panel p-4 space-y-3">
@@ -226,7 +228,7 @@ function WeaknessCard({
                 >
                   <span className="font-bold tabular-nums shrink-0">{ex.san}</span>
                   <span className="muted text-sm line-clamp-2">{ex.label || 'Open the moment'}</span>
-                  <Icon name="external" size={12} className="muted shrink-0 ml-auto" />
+                  <Icon name="next" size={14} className="muted shrink-0 ml-auto" />
                 </Link>
               </li>
             ))}
@@ -265,7 +267,7 @@ function WeaknessCard({
       <div className="flex flex-wrap gap-2">
         {r.area !== 'time' ? (
           <Link className="btn btn-primary !py-2 !text-sm" to={`/training?area=${r.area}`}>
-            <Icon name="puzzle" size={16} /> Train it
+            <Icon name="puzzle" size={16} /> Train
           </Link>
         ) : (
           <p className="text-sm flex gap-1.5 w-full">

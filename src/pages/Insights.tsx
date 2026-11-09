@@ -147,8 +147,18 @@ export default function Insights() {
           {tab === 'mistakes' && (
           <>
           {data.motifs[0] && (
-            <Headline sub={`${data.motifs[0].count}× in ${ag.length} games`}>
-              <span style={{ color: 'var(--attention-ink)' }}>{MOTIF_LABEL[data.motifs[0].motif]}</span> costs you the most: {data.motifs[0].costPerGame.toFixed(0)}% win chance per game.
+            // By type of mistake: a statistic. What to work on first is the Weaknesses page's to say.
+            <Headline
+              sub={
+                <>
+                  {data.motifs[0].count}× in {ag.length} games, {data.motifs[0].costPerGame.toFixed(0)}% win chance per game.{' '}
+                  <Link className="underline" to="/weaknesses">
+                    What to work on first
+                  </Link>
+                </>
+              }
+            >
+              Your costliest type of mistake: <span style={{ color: 'var(--attention-ink)' }}>{MOTIF_LABEL[data.motifs[0].motif].toLowerCase()}</span>.
             </Headline>
           )}
           <div className="grid lg:grid-cols-2 gap-4">
@@ -190,7 +200,7 @@ export default function Insights() {
                           <span className="flex-1 min-w-0">
                             <span className="font-semibold block">{MOTIF_LABEL[m.motif]}</span>
                             <span className="muted text-xs tabular-nums">
-                              {m.count}× · −{m.costPerGame.toFixed(1)}% / game{where ? ` · mostly ${where} (${main.share.toFixed(0)}%)` : ''}
+                              {m.count}× · −{m.costPerGame.toFixed(1)}% / game{where ? ` · mostly ${where}` : ''}
                             </span>
                           </span>
                           <TrendArrow earlier={m.earlierRate} recent={m.recentRate} />

@@ -478,6 +478,7 @@ function Segmented<T extends string | number>({ value, options, onChange, label 
 function WhatsNew() {
   const [params] = useSearchParams();
   const highlight = params.get('whatsnew') === '1';
+  const [all, setAll] = useState(false);
   useEffect(() => {
     if (highlight) document.getElementById('whats-new')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, [highlight]);
@@ -485,7 +486,8 @@ function WhatsNew() {
     <div id="whats-new">
       <Group title="What's new">
         <div className="px-4 py-3 text-sm space-y-3">
-          {CHANGELOG.slice(0, 3).map((e) => (
+          {/* The latest update; earlier ones on request, so they don't push the rest of Settings away. */}
+          {CHANGELOG.slice(0, all ? 6 : 1).map((e) => (
             <div key={e.date}>
               <div className="muted text-xs font-bold mb-1">{e.date}</div>
               <ul className="space-y-1.5 list-disc pl-5">
@@ -495,6 +497,11 @@ function WhatsNew() {
               </ul>
             </div>
           ))}
+          {CHANGELOG.length > 1 && (
+            <button className="underline muted text-sm py-1" onClick={() => setAll((v) => !v)} aria-expanded={all}>
+              {all ? 'Hide earlier updates' : 'Show earlier updates'}
+            </button>
+          )}
           <p className="muted text-xs">
             Version {BUILD.version}
             {BUILD.date ? ` · ${BUILD.date}` : ''}

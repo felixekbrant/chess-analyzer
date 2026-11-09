@@ -53,6 +53,16 @@ export interface AreaRank {
   score: number;
 }
 
+const shown = (n: number) => Number(n >= 10 ? n.toFixed(0) : n.toFixed(1));
+
+/**
+ * How much more win chance per game an area costs you than is typical, when that's clearly more.
+ * From the rounded figures the bars show, so the numbers on screen add up.
+ */
+export function extraCost(r: Pick<AreaRank, 'cost' | 'typical' | 'verdict'>): number | undefined {
+  return r.typical !== undefined && r.verdict === 'worse' ? Math.round((shown(r.cost) - shown(r.typical)) * 10) / 10 : undefined;
+}
+
 /** Areas ordered by how much they hold you back compared with players at your rating. */
 export function rankAreas(profile: SkillProfile, timeClass: string, rating: number | undefined): AreaRank[] {
   return profile.stats

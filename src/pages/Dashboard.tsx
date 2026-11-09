@@ -17,8 +17,7 @@ import { connectAccount } from '../lib/account';
 import { formatEta } from '../lib/format';
 import { Link } from 'react-router-dom';
 import { ratingSeries, trend, type AnalyzedGame } from '../lib/insights/compute';
-import { LOSSES, lossFocus, lossReport } from '../lib/insights/losses';
-import { mainTimeClass } from '../hooks/useSkills';
+import { useLossVerdict } from '../hooks/useLossVerdict';
 import type { StoredGame } from '../lib/types';
 
 const HomeRating = lazy(() => import('../components/HomeRating'));
@@ -105,12 +104,7 @@ export default function Dashboard() {
 
 /** What your last losses say to work on, in one sentence, with the way to the full look. */
 function LossesCard({ ag, games }: { ag: AnalyzedGame[]; games: StoredGame[] }) {
-  const verdict = useMemo(() => {
-    const timeClass = mainTimeClass(games);
-    const ids = new Set(games.filter((g) => g.userResult === 'loss' && g.timeClass === timeClass).slice(0, LOSSES).map((g) => g.id));
-    const analysed = ag.filter((a) => ids.has(a.game.id));
-    return analysed.length >= 3 ? lossFocus(lossReport(analysed)) : undefined;
-  }, [ag, games]);
+  const verdict = useLossVerdict(games, ag);
   if (!verdict) return null;
   return (
     <Link to="/losses" className="panel p-4 block hover:brightness-110">

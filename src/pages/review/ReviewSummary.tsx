@@ -162,7 +162,7 @@ export function ReviewSummary({
 
             <div className="grid gap-2">
               <button className="btn btn-primary justify-center !py-3.5 !text-lg" onClick={() => onStart({ ply: 0 })}>
-                Start Review
+                Start review
               </button>
               <div className="grid grid-cols-2 gap-2">
                 <button className="btn justify-center !py-2.5" onClick={() => onStart({ keyOnly: true })} disabled={!keyCount}>

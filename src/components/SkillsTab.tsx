@@ -5,6 +5,7 @@ import { MIN_PROFILE_GAMES, type SkillsData } from '../hooks/useSkills';
 import { Headline } from './ui';
 import { SKILL_AREAS, SKILL_META, type SkillArea } from '../lib/insights/skills';
 import { Comparison, CostBars, TrendChip } from './Coaching';
+import { extraCost } from '../lib/training/focus';
 import { Icon } from './Icon';
 import { levelLabel } from '../lib/insights/baselines';
 import { Section } from './ui';
@@ -37,16 +38,26 @@ export function SkillsTab({ data }: { data: SkillsData }) {
   const byArea = new Map(ranked.map((r) => [r.area, r]));
   const max = Math.max(...ranked.map((r) => Math.max(r.cost, r.typical ?? 0)), 1);
   const focus = data.focus.current?.area;
-  // The biggest leak: the most win chance lost above what's typical (points, not ratio, so a big
-  // area that's well above typical beats a tiny one that's three times typical).
-  const leak = [...ranked].filter((r) => r.typical !== undefined && r.cost > r.typical * 1.15).sort((a, b) => b.cost - b.typical! - (a.cost - a.typical!))[0];
+  // The same answer as the Weaknesses page, which owns it: its first area (the ranking's top, when
+  // that clearly costs more than typical), in the same figure.
+  const leak = ranked.find((r) => r.score > 0 && extraCost(r) !== undefined);
+  const extra = leak && extraCost(leak);
 
   return (
     <div className="space-y-4">
-      <Headline sub={`Win chance lost per game, last ${profile.games} ${timeClass} games`}>
+      <Headline
+        sub={
+          <>
+            Win chance lost per game, last {profile.games} {timeClass} games.{' '}
+            <Link className="underline" to="/weaknesses">
+              What to work on first
+            </Link>
+          </>
+        }
+      >
         {leak ? (
           <>
-            <span style={{ color: 'var(--attention-ink)' }}>{SKILL_META[leak.area].label}</span> costs you {(leak.cost / leak.typical!).toFixed(1)}× what's typical.
+            <span style={{ color: 'var(--attention-ink)' }}>{SKILL_META[leak.area].label}</span> costs you {extra}% more per game than is typical.
           </>
         ) : (
           'No area costs you clearly more than players at your rating.'

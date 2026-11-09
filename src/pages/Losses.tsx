@@ -10,7 +10,7 @@ import { analysisQueue } from '../lib/engine/queue';
 import { backTo } from '../lib/backLink';
 import { relativeDay } from '../lib/format';
 import { formatPeak } from '../lib/games/thrown';
-import type { SkillArea } from '../lib/insights/skills';
+import { SKILL_META, type SkillArea } from '../lib/insights/skills';
 import { LOSSES, causeLabel, lossFocus, lossReport, type LossLook } from '../lib/insights/losses';
 import { chooseFocus, type FocusStore } from '../lib/training/focus';
 import { FOCUS_KEY } from '../lib/training/today';
@@ -18,8 +18,7 @@ import { ClassificationBadge } from '../components/ClassificationBadge';
 import { Icon } from '../components/Icon';
 import { EMPTY_FENS, EmptyState, PageHeader, Section, TimeClassIcon } from '../components/ui';
 
-/** Enough analysed losses to say something. */
-const MIN_LOSSES = 3;
+import { MIN_LOSSES } from '../hooks/useLossVerdict';
 
 const ENDING: Record<string, string> = { timeout: 'on time', checkmated: 'checkmated', resigned: 'resigned', abandoned: 'abandoned' };
 
@@ -98,6 +97,8 @@ export default function Losses() {
   const n = report.looks.length;
   const top = report.causes[0];
   const verdict = lossFocus(report);
+  const repeated = report.causes.filter((c) => c.looks.length >= 2);
+  const singles = report.causes.filter((c) => c.looks.length < 2);
   const focus = skills.focus.current?.area;
   const lossIds = analysed.map((a) => a.game.id).join(',');
   const makeFocus = async (area: SkillArea) => {
@@ -129,16 +130,32 @@ export default function Losses() {
 
       {/* The verdict and what to do about it. */}
       <section className="panel p-4 space-y-3">
-        <div className="muted text-xs font-extrabold uppercase tracking-wider">What to focus on</div>
+        <div className="muted text-xs font-extrabold uppercase tracking-wider">What they have in common</div>
         <h2 className="font-extrabold text-xl leading-snug">{verdict.headline}</h2>
         <p className="muted text-sm">{verdict.about}</p>
         <p className="text-sm flex gap-1.5">
           <Icon name="bulb" size={16} className="text-accent shrink-0 mt-0.5" /> {verdict.tip}
         </p>
+        {/* Your focus comes from all your games (the Weaknesses page); say how this relates to it. */}
+        {focus && verdict.area && (
+          <p className="muted text-sm">
+            {focus === verdict.area ? (
+              <>This is your focus this week.</>
+            ) : (
+              <>
+                Your focus this week is{' '}
+                <Link className="underline" to="/weaknesses">
+                  {SKILL_META[focus].label.toLowerCase()}
+                </Link>
+                , picked from all your games. This is what your losses alone point to.
+              </>
+            )}
+          </p>
+        )}
         <div className="flex flex-wrap gap-2">
           {verdict.area && verdict.area !== 'time' && (
             <Link className="btn btn-primary !py-2 !text-sm" to={`/training?area=${verdict.area}`}>
-              <Icon name="puzzle" size={16} /> Train it
+              <Icon name="puzzle" size={16} /> Train
             </Link>
           )}
           {toDo > 0 ? (
@@ -158,7 +175,7 @@ export default function Losses() {
 
       <Section title="What decided each loss">
         <ul className="space-y-2.5">
-          {report.causes.map((c) => (
+          {repeated.map((c) => (
             <li key={c.cause}>
               <div className="flex items-baseline gap-2 mb-1">
                 <span className="font-semibold">{causeLabel(c.cause)}</span>
@@ -173,6 +190,13 @@ export default function Losses() {
             </li>
           ))}
         </ul>
+        {/* One loss each isn't a pattern: a line, not a bar apiece. */}
+        {singles.length > 0 && (
+          <p className={`text-sm ${repeated.length ? 'muted mt-3' : ''}`}>
+            {repeated.length ? 'One each: ' : `Each loss was decided differently: `}
+            {singles.map((c) => causeLabel(c.cause).toLowerCase()).join(', ')}.
+          </p>
+        )}
       </Section>
 
       {facts.length > 0 && (
@@ -234,7 +258,7 @@ function LossRow({ l }: { l: LossLook }) {
           )}
           {l.lowClock && !l.flagged && <span className="chip">low on time</span>}
           {l.fast && <span className="chip">played fast</span>}
-          <Icon name="external" size={12} className="muted ml-auto" />
+          <Icon name="next" size={14} className="muted ml-auto" />
         </div>
         {d?.explanation ? (
           <p className="muted text-sm mt-1 line-clamp-2">{d.explanation}</p>

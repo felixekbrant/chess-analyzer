@@ -1050,7 +1050,7 @@ function PuzzleView({
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
                 {game && (
                   <Link className="underline muted inline-flex items-center gap-1 py-2.5 -my-2" to={`/game/${encodeURIComponent(game.id)}?ply=${puzzle.plies[puzzle.plies.length - 1] + 1}`} state={backTo('puzzle')}>
-                    Open game <Icon name="external" size={12} />
+                    Open game <Icon name="next" size={12} />
                   </Link>
                 )}
                 {leadUp.length > 0 && (
