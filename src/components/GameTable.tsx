@@ -141,9 +141,9 @@ export function ThrownMark({ g }: { g: StoredGame }) {
 
 /** Accuracy as a coloured pill (green = accurate, orange = rough game). */
 export function AccuracyPill({ value }: { value: number }) {
-  const color = value >= 90 ? '#81b64c' : value >= 80 ? '#96bc4b' : value >= 70 ? '#f7c631' : '#ffa459';
+  const color = value >= 90 ? '#7fe0a8' : value >= 80 ? '#a5dc8c' : value >= 70 ? '#f2c14e' : '#ff8e6e';
   return (
-    <span className="inline-flex items-center rounded-md px-1.5 py-0.5 text-xs font-bold tabular-nums text-[#1d1d1b]" style={{ background: color }}>
+    <span className="inline-flex items-center rounded-md px-1.5 py-0.5 text-xs font-bold tabular-nums text-[#0a1714]" style={{ background: color }}>
       {value.toFixed(1)}
     </span>
   );

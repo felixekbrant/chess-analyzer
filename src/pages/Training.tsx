@@ -843,7 +843,7 @@ function PuzzleView({
                       ? { from: attempt.uci.slice(0, 2), to: attempt.uci.slice(2, 4) }
                       : lastMove
                 }
-                lastMoveTint={attempt?.failed && !lineFen ? '#e5533d' : undefined}
+                lastMoveTint={attempt?.failed && !lineFen ? '#ff7a66' : undefined}
                 marker={lineFen ? undefined : marker}
                 highlight={highlight}
                 // After "what do they threaten?": their threat as a red arrow.
@@ -1091,8 +1091,8 @@ function KingIcon({ white }: { white: boolean }) {
     <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" className="shrink-0">
       <path
         d="M11 2h2v2h2v2h-2v2.2a4 4 0 012.9 6.3L18 19H6l2.1-4.5A4 4 0 0111 8.2V6H9V4h2zM5 20h14v2H5z"
-        fill={white ? '#f4f4f4' : '#2b2926'}
-        stroke={white ? '#1d1d1b' : '#a7a6a2'}
+        fill={white ? '#f1f7f3' : '#1a3530'}
+        stroke={white ? '#0a1714' : '#a9c4ba'}
         strokeWidth="1"
         strokeLinejoin="round"
       />

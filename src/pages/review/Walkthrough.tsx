@@ -444,14 +444,14 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
     if (explore) {
       if (explore.line) {
         const u = explore.line[explore.moves.length];
-        return u ? [{ from: u.slice(0, 2), to: u.slice(2, 4), color: 'rgba(129,182,76,0.6)' }] : [];
+        return u ? [{ from: u.slice(0, 2), to: u.slice(2, 4), color: 'rgba(255,159,67,0.6)' }] : [];
       }
       const u = settings.showSuggestions && live.settled ? live.result?.lines[0]?.pv[0] : undefined;
       return u ? [{ from: u.slice(0, 2), to: u.slice(2, 4), color: 'rgba(92,139,176,0.85)' }] : [];
     }
     // The review's own best-move arrow is part of the review (unless best moves are hidden, to look
     // for them yourself); the engine's suggestions are separate.
-    if (current?.bestUci && canBest && settings.showBestMoves) return [{ from: current.bestUci.slice(0, 2), to: current.bestUci.slice(2, 4), color: 'rgba(129,182,76,0.85)' }];
+    if (current?.bestUci && canBest && settings.showBestMoves) return [{ from: current.bestUci.slice(0, 2), to: current.bestUci.slice(2, 4), color: 'rgba(255,159,67,0.85)' }];
     return [];
   }, [retry, explore, live.settled, live.result, current, canBest, settings.showSuggestions, settings.showBestMoves]);
 
@@ -652,7 +652,7 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
               badge={badge}
               marker={marker}
               highlight={highlight}
-              lastMoveTint={retry?.state === 'wrong' && retry.attemptUci ? '#e5533d' : undefined}
+              lastMoveTint={retry?.state === 'wrong' && retry.attemptUci ? '#ff7a66' : undefined}
               onMove={onBoardMove}
             />
             <PlayerStrip {...bottom} fen={fen} />

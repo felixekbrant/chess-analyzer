@@ -17,16 +17,16 @@ export function EvalBar({ score, orientation = 'white', thinking }: { score?: Sc
   const label = formatScore(score).replace(/^[+-]/, '');
   return (
     <div
-      className="relative w-[22px] lg:w-7 rounded-lg shrink-0 overflow-hidden bg-[#1f1d1b] shadow-[0_0_0_3px_var(--board-frame)]"
+      className="relative w-[22px] lg:w-7 rounded-lg shrink-0 overflow-hidden bg-[#0a1714] shadow-[0_0_0_3px_var(--board-frame)]"
       style={{ alignSelf: 'stretch' }}
       role="img"
       aria-label={`Evaluation ${formatScore(score)}`}
     >
       <div
-        className="absolute left-0 right-0 bg-gradient-to-b from-white to-[#e9e7e2] transition-[height] duration-500 ease-out"
+        className="absolute left-0 right-0 bg-gradient-to-b from-[#f1f7f3] to-[#dfe8e2] transition-[height] duration-500 ease-out"
         style={whiteOnBottom ? { bottom: 0, height: `${white}%` } : { top: 0, height: `${white}%` }}
       />
-      <div className="absolute left-0 right-0 top-1/2 h-px bg-[#8b8987]/60" />
+      <div className="absolute left-0 right-0 top-1/2 h-px bg-[#6e8f84]/60" />
       <div
         className="absolute left-0 right-0 text-center text-[9px] lg:text-[11px] font-black tabular-nums leading-none tracking-tight transition-opacity"
         title={thinking ? 'Evaluating…' : undefined}
@@ -34,7 +34,7 @@ export function EvalBar({ score, orientation = 'white', thinking }: { score?: Sc
           opacity: thinking ? 0.5 : 1,
           ...(atBottom ? { bottom: 5 } : { top: 5 }),
           // Dark text on White's end, light text on Black's end.
-          color: whiteAhead ? '#1f1d1b' : '#f4f2ee',
+          color: whiteAhead ? '#0a1714' : '#f1f7f3',
         }}
       >
         {label}

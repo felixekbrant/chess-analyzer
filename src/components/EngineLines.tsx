@@ -20,7 +20,7 @@ export function EngineLines({ result, fen, onPlayLine }: { result: PositionEval 
           <div key={i} className="flex gap-2 items-start">
             <span
               className="font-bold tabular-nums rounded px-1.5 min-w-[3.2rem] text-center text-xs py-0.5"
-              style={positive ? { background: '#f4f4f4', color: '#1d1d1b' } : { background: '#403d39', color: '#f4f4f4' }}
+              style={positive ? { background: '#f1f7f3', color: '#0a1714' } : { background: '#244640', color: '#f1f7f3' }}
             >
               {formatScore(l.score)}
             </span>

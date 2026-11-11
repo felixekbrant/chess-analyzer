@@ -16,6 +16,8 @@ import { chooseFocus, type FocusStore } from '../lib/training/focus';
 import { FOCUS_KEY } from '../lib/training/today';
 import { ClassificationBadge } from '../components/ClassificationBadge';
 import { Icon } from '../components/Icon';
+import { BrandMark } from '../components/BrandMark';
+import { MiniBoard } from '../components/MiniBoard';
 import { EMPTY_FENS, EmptyState, PageHeader, Section, TimeClassIcon } from '../components/ui';
 
 import { MIN_LOSSES } from '../hooks/useLossVerdict';
@@ -106,17 +108,16 @@ export default function Losses() {
     await db.kv.put({ key: FOCUS_KEY, value: chooseFocus(latest, area, skills.ag) });
   };
 
-  const facts: string[] = [];
-  const of = (k: number) => `${k} of ${n}`;
-  if (report.oneBlow >= 2) facts.push(`${of(report.oneBlow)} were decided by a single move that cost 30% win chance or more.`);
-  if (report.thrown >= 2) facts.push(`In ${of(report.thrown)} you were clearly winning (+3 or better) before it went wrong.`);
-  if (report.lowClock >= 2) facts.push(`In ${of(report.lowClock)} the decisive move came with little time on your clock.`);
-  if (report.fast >= 2) facts.push(`In ${of(report.fast)} you played the decisive move in 3 seconds or less, with time to spare.`);
-  if (report.flagged >= 2) facts.push(`${of(report.flagged)} ended on time.`);
+  // What they have in common, as figures: how many of them, and what.
+  const facts: { k: number; text: string }[] = [];
+  if (report.oneBlow >= 2) facts.push({ k: report.oneBlow, text: 'decided by a single move (30% win chance or more)' });
+  if (report.thrown >= 2) facts.push({ k: report.thrown, text: 'you were clearly winning first (+3 or better)' });
+  if (report.lowClock >= 2) facts.push({ k: report.lowClock, text: 'decisive move with little time on your clock' });
+  if (report.fast >= 2) facts.push({ k: report.fast, text: 'decisive move played in 3 seconds or less' });
+  if (report.flagged >= 2) facts.push({ k: report.flagged, text: 'ended on time' });
   const phase = (Object.entries(report.phases) as [string, number][]).sort((a, b) => b[1] - a[1])[0];
-  if (phase && phase[1] >= Math.ceil(n / 2))
-    facts.push(`Most were decided in the ${phase[0]} (${of(phase[1])})${report.medianMove ? `, typically around move ${report.medianMove}` : ''}.`);
-  for (const o of report.openings.slice(0, 2)) facts.push(`${of(o.n)} came from the ${o.name}.`);
+  if (phase && phase[1] >= Math.ceil(n / 2)) facts.push({ k: phase[1], text: `decided in the ${phase[0]}${report.medianMove ? `, around move ${report.medianMove}` : ''}` });
+  for (const o of report.openings.slice(0, 2)) facts.push({ k: o.n, text: `came from the ${o.name}` });
 
   return (
     <div className="max-w-3xl mx-auto space-y-3">
@@ -129,9 +130,12 @@ export default function Losses() {
       )}
 
       {/* The verdict and what to do about it. */}
-      <section className="panel p-4 space-y-3">
-        <div className="muted text-xs font-extrabold uppercase tracking-wider">What they have in common</div>
-        <h2 className="font-extrabold text-xl leading-snug">{verdict.headline}</h2>
+      <section className="panel p-4 space-y-3 !rounded-[24px]">
+        <div className="flex items-center gap-2.5">
+          <BrandMark size={40} shape="disc" />
+          <div className="muted text-xs font-extrabold uppercase tracking-wider">What they have in common</div>
+        </div>
+        <h2 className="font-extrabold text-[22px] leading-snug tracking-tight">{verdict.headline}</h2>
         <p className="muted text-sm">{verdict.about}</p>
         <p className="text-sm flex gap-1.5">
           <Icon name="bulb" size={16} className="text-accent shrink-0 mt-0.5" /> {verdict.tip}
@@ -201,10 +205,13 @@ export default function Losses() {
 
       {facts.length > 0 && (
         <Section title="Patterns">
-          <ul className="space-y-1.5 text-sm">
+          <ul className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
             {facts.map((f) => (
-              <li key={f} className="flex gap-2">
-                <span className="text-accent">•</span> {f}
+              <li key={f.text} className="rounded-2xl bg-[var(--panel-2)] p-3">
+                <div className="font-extrabold text-2xl tabular-nums tracking-tight">
+                  {f.k} <span className="muted text-sm font-bold">of {n}</span>
+                </div>
+                <div className="muted text-xs font-semibold mt-0.5">{f.text}</div>
               </li>
             ))}
           </ul>
@@ -233,38 +240,50 @@ function LossRow({ l }: { l: LossLook }) {
       <Link
         to={`/game/${encodeURIComponent(g.id)}${ply ? `?ply=${ply}` : ''}`}
         state={backTo('your losses')}
-        className="block rounded-lg -mx-2 px-2 py-1.5 hover:bg-[var(--panel-2)]"
+        className="flex gap-3 items-start rounded-2xl -mx-2 px-2 py-2 hover:bg-[var(--panel-2)]"
       >
-        <div className="flex items-baseline gap-2 text-sm">
-          <span className="font-bold truncate">vs {opponent}</span>
-          {elo ? <span className="muted tabular-nums">{elo}</span> : null}
-          <span className="muted">· {ENDING[g.endReason] ?? g.endReason}</span>
-          <span className="ml-auto muted text-xs whitespace-nowrap">{relativeDay(g.endTime)}</span>
-        </div>
-        <div className="flex items-center gap-1.5 flex-wrap mt-1">
-          {d ? (
-            <span className="inline-flex items-center gap-1 font-bold">
-              <ClassificationBadge c={d.classification} size={16} />
-              {d.moveNumber}
-              {d.color === 'w' ? '.' : '...'}
-              {d.san}
-            </span>
-          ) : null}
-          <span className="chip">{causeLabel(l.cause)}</span>
-          {l.thrown && g.peakEval !== undefined && (
-            <span className="chip" style={{ color: 'var(--attention-ink)' }}>
-              had {formatPeak(g.peakEval)}
+        {/* The position where it was decided, with your move marked. */}
+        <span className="w-[72px] shrink-0 rounded-lg overflow-hidden">
+          {d?.fenBefore ? (
+            <MiniBoard fen={d.fenBefore} orientation={g.userColor === 'b' ? 'black' : 'white'} highlight={d.uci ? [d.uci.slice(0, 2), d.uci.slice(2, 4)] : []} />
+          ) : (
+            <span className="block aspect-square bg-[var(--panel-2)] grid place-items-center muted">
+              <Icon name={l.flagged ? 'rapid' : 'flip'} size={22} />
             </span>
           )}
-          {l.lowClock && !l.flagged && <span className="chip">low on time</span>}
-          {l.fast && <span className="chip">played fast</span>}
-          <Icon name="next" size={14} className="muted ml-auto" />
-        </div>
-        {d?.explanation ? (
-          <p className="muted text-sm mt-1 line-clamp-2">{d.explanation}</p>
-        ) : !d ? (
-          <p className="muted text-sm mt-1">{l.flagged ? 'Lost on time in a playable position.' : 'Still a game when it ended.'}</p>
-        ) : null}
+        </span>
+        <span className="min-w-0 flex-1 block">
+          <span className="flex items-baseline gap-2 text-sm">
+            <span className="font-bold truncate">vs {opponent}</span>
+            {elo ? <span className="muted tabular-nums">{elo}</span> : null}
+            <span className="ml-auto muted text-xs whitespace-nowrap">{relativeDay(g.endTime)}</span>
+          </span>
+          <span className="flex items-center gap-1.5 flex-wrap mt-1">
+            {d ? (
+              <span className="inline-flex items-center gap-1 font-extrabold text-base">
+                <ClassificationBadge c={d.classification} size={16} />
+                {d.moveNumber}
+                {d.color === 'w' ? '.' : '...'}
+                {d.san}
+              </span>
+            ) : null}
+            <span className="chip">{causeLabel(l.cause)}</span>
+            {l.thrown && g.peakEval !== undefined && (
+              <span className="chip" style={{ color: 'var(--attention-ink)' }}>
+                had {formatPeak(g.peakEval)}
+              </span>
+            )}
+            {l.lowClock && !l.flagged && <span className="chip">low on time</span>}
+            {l.fast && <span className="chip">played fast</span>}
+          </span>
+          {d?.explanation ? (
+            <span className="block muted text-sm mt-1 line-clamp-2">{d.explanation}</span>
+          ) : !d ? (
+            <span className="block muted text-sm mt-1">
+              {l.flagged ? 'Lost on time in a playable position.' : 'Still a game when it ended.'} <span className="whitespace-nowrap">({ENDING[g.endReason] ?? g.endReason})</span>
+            </span>
+          ) : null}
+        </span>
       </Link>
     </li>
   );

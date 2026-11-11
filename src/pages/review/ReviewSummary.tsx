@@ -121,8 +121,8 @@ export function ReviewSummary({
                   key={c}
                   className="pop rounded-xl p-3 text-center relative"
                   style={{
-                    background: c === 'w' ? '#f4f2ee' : '#1f1d1b',
-                    color: c === 'w' ? '#1f1d1b' : '#f4f2ee',
+                    background: c === 'w' ? '#f1f7f3' : '#0a1714',
+                    color: c === 'w' ? '#0a1714' : '#f1f7f3',
                     // Your card is the one that stands out, whichever colour you played.
                     boxShadow: me === c ? '0 0 0 2px var(--felt)' : undefined,
                     opacity: me && me !== c ? 0.85 : 1,
@@ -148,7 +148,7 @@ export function ReviewSummary({
                       return (
                         <div key={ph} className="flex items-center gap-1.5 text-[10px] font-bold tabular-nums">
                           <span className="w-[3.25rem] opacity-60 text-left">{PHASE_LABEL[ph]}</span>
-                          <span className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: c === 'w' ? '#dcdad5' : '#2b2926' }}>
+                          <span className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: c === 'w' ? '#d3ddd7' : '#1a3530' }}>
                             {v !== undefined && <span className="block h-full rounded-full" style={{ width: `${v}%`, background: v >= 80 ? 'var(--win)' : v >= 65 ? 'var(--brass)' : 'var(--attention)' }} />}
                           </span>
                           <span className="w-6 text-right opacity-80">{v !== undefined ? v.toFixed(0) : '–'}</span>

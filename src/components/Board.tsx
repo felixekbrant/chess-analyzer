@@ -182,7 +182,7 @@ function BoardImpl({ fen, orientation = 'white', arrows = [], lastMove, badge, m
     id,
     position: fen,
     boardOrientation: orientation,
-    arrows: arrows.map((a) => ({ startSquare: a.from, endSquare: a.to, color: a.color ?? 'rgba(129,182,76,0.85)' })),
+    arrows: arrows.map((a) => ({ startSquare: a.from, endSquare: a.to, color: a.color ?? 'rgba(255,159,67,0.85)' })),
     squareStyles,
     allowDragging: canMove,
     allowDrawingArrows: true,

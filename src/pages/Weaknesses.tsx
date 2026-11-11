@@ -8,6 +8,7 @@ import { MIN_PROFILE_GAMES, useSkills } from '../hooks/useSkills';
 import { useSettings } from '../hooks/useStores';
 import { Comparison, CostBars, TrendChip } from '../components/Coaching';
 import { Icon } from '../components/Icon';
+import { MiniBoard } from '../components/MiniBoard';
 import { EmptyState, EMPTY_FENS, PageHeader, Section } from '../components/ui';
 import { SKILL_META, type SkillArea, type SkillStat } from '../lib/insights/skills';
 import { chooseFocus, extraCost, type AreaRank, type FocusStore } from '../lib/training/focus';
@@ -185,9 +186,9 @@ function WeaknessCard({
   const extra = extraCost(r);
 
   return (
-    <section className="panel p-4 space-y-3">
+    <section className="panel p-4 space-y-3.5 !rounded-[24px]">
       <div className="flex items-start gap-3">
-        <span className="w-8 h-8 rounded-full bg-[var(--panel-2)] grid place-items-center font-extrabold shrink-0">{rank}</span>
+        <span className="w-9 h-9 rounded-full bg-[var(--panel-2)] grid place-items-center font-extrabold shrink-0">{rank}</span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
             <h2 className="font-extrabold text-lg leading-tight">{meta.label}</h2>
@@ -198,10 +199,10 @@ function WeaknessCard({
         </div>
         {extra !== undefined ? (
           <span className="shrink-0 text-right leading-tight" title="Win chance you lose per game here, beyond what's typical at your rating">
-            <b className="block text-sm font-extrabold tabular-nums" style={{ color: 'var(--attention-ink)' }}>
+            <b className="block text-2xl font-extrabold tabular-nums tracking-tight" style={{ color: 'var(--loss)' }}>
               +{fmt(extra)}%
             </b>
-            <span className="muted text-[11px]">vs typical</span>
+            <span className="muted text-[11px] font-semibold">vs typical</span>
           </span>
         ) : r.verdict === 'typical' ? (
           <span className="shrink-0 muted text-[11px] text-right leading-tight">about typical</span>
@@ -217,50 +218,77 @@ function WeaknessCard({
 
       {s.examples.length > 0 && (
         <div>
-          <div className="muted text-xs font-extrabold uppercase tracking-wider mb-1.5">From your games</div>
-          <ul className="space-y-1">
+          <div className="muted text-xs font-extrabold uppercase tracking-wider mb-2">From your games</div>
+          {/* The moments themselves: the position, with the move you played marked. Tap one to open it. */}
+          <ul className="grid grid-cols-3 gap-2.5 max-w-md">
             {s.examples.slice(0, 3).map((ex) => (
               <li key={ex.gameId + ex.ply}>
-                <Link
-                  to={`/game/${encodeURIComponent(ex.gameId)}?ply=${ex.ply + 1}`}
-                  state={backTo('Weaknesses')}
-                  className="flex gap-2 items-baseline rounded-lg -mx-2 px-2 py-2 hover:bg-[var(--panel-2)]"
-                >
-                  <span className="font-bold tabular-nums shrink-0">{ex.san}</span>
-                  <span className="muted text-sm line-clamp-2">{ex.label || 'Open the moment'}</span>
-                  <Icon name="next" size={14} className="muted shrink-0 ml-auto" />
+                <Link to={`/game/${encodeURIComponent(ex.gameId)}?ply=${ex.ply + 1}`} state={backTo('Weaknesses')} className="block group" title={ex.label || undefined} aria-label={`${ex.san}: open the moment`}>
+                  {ex.fen ? (
+                    <span className="block rounded-xl overflow-hidden group-hover:brightness-110">
+                      <MiniBoard fen={ex.fen} orientation={ex.color === 'b' ? 'black' : 'white'} highlight={ex.uci ? [ex.uci.slice(0, 2), ex.uci.slice(2, 4)] : []} />
+                    </span>
+                  ) : (
+                    <span className="block aspect-square rounded-xl bg-[var(--panel-2)]" />
+                  )}
+                  <span className="block font-bold text-sm tabular-nums mt-1.5 truncate">{ex.san}</span>
                 </Link>
               </li>
             ))}
           </ul>
+          {/* What went wrong in the first of them, in a sentence. */}
+          {s.examples[0].label && <p className="muted text-sm mt-2 line-clamp-2">{s.examples[0].label}</p>}
         </div>
       )}
 
-      <div className="rounded-lg bg-[var(--panel-2)] p-3 text-sm space-y-1">
-        <div className="muted text-xs font-extrabold uppercase tracking-wider">Progress</div>
-        <p>
-          <b>In your games:</b>{' '}
-          {s.recent !== undefined && s.earlier !== undefined
-            ? `${fmt(s.recent)}% per game in your last 10 games, ${fmt(s.earlier)}% in the 20 before.`
-            : 'shows once you have 20 analysed games.'}
-        </p>
-        <p>
-          <b>In training:</b>{' '}
-          {r.area === 'time'
-            ? "puzzles don't train the clock; the tip below is the exercise, in your next games."
-            : tries.recent.tries >= 3
-              ? // Every puzzle is new (none are repeated), so this measures applying the idea, not memory.
-                `${tries.recent.clean} of ${tries.recent.tries} new puzzles solved first time in the last 2 weeks${tries.before.tries >= 3 ? ` (before that: ${tries.before.clean} of ${tries.before.tries})` : ''}.`
-              : puzzles.length
-                ? `${left} new puzzle${left === 1 ? '' : 's'} from your games to do${puzzles.length > left ? `, ${puzzles.length - left} done` : ''}.`
-                : 'no puzzles from your games yet.'}
-          {r.area !== 'time' && tries.recent.tries >= 3 && left > 0 && ` ${left} new from your games to do.`}
-        </p>
+      {/* Progress as figures: your games, and your training. */}
+      <div className="grid grid-cols-2 gap-2.5">
+        <div className="rounded-2xl bg-[var(--panel-2)] p-3">
+          <div className="muted text-[11px] font-extrabold uppercase tracking-wider">In your games</div>
+          {s.recent !== undefined && s.earlier !== undefined ? (
+            <>
+              <div className="font-extrabold text-2xl tabular-nums tracking-tight mt-0.5" style={{ color: s.recent > s.earlier * 1.1 ? 'var(--loss)' : s.recent < s.earlier * 0.9 ? 'var(--felt)' : undefined }}>
+                {fmt(s.recent)}%
+              </div>
+              <div className="muted text-xs font-semibold">
+                per game in your last 10 · was {fmt(s.earlier)}%
+              </div>
+            </>
+          ) : (
+            <div className="muted text-sm mt-1">Shows once you have 20 analysed games.</div>
+          )}
+        </div>
+        <div className="rounded-2xl bg-[var(--panel-2)] p-3">
+          <div className="muted text-[11px] font-extrabold uppercase tracking-wider">In training</div>
+          {r.area === 'time' ? (
+            <div className="muted text-sm mt-1">Puzzles don't train the clock. The tip below is the exercise.</div>
+          ) : tries.recent.tries >= 3 ? (
+            // Every puzzle is new (none are repeated), so this measures applying the idea, not memory.
+            <>
+              <div className="font-extrabold text-2xl tabular-nums tracking-tight mt-0.5">
+                {tries.recent.clean} of {tries.recent.tries}
+              </div>
+              <div className="muted text-xs font-semibold">
+                new puzzles solved first time in 2 weeks{tries.before.tries >= 3 ? ` · before: ${tries.before.clean} of ${tries.before.tries}` : ''}
+                {left > 0 ? ` · ${left} to do` : ''}
+              </div>
+            </>
+          ) : puzzles.length ? (
+            <>
+              <div className="font-extrabold text-2xl tabular-nums tracking-tight mt-0.5">{left}</div>
+              <div className="muted text-xs font-semibold">
+                new puzzle{left === 1 ? '' : 's'} from your games to do{puzzles.length > left ? ` · ${puzzles.length - left} done` : ''}
+              </div>
+            </>
+          ) : (
+            <div className="muted text-sm mt-1">No puzzles from your games yet.</div>
+          )}
+        </div>
         {r.area === 'converting' && (
-          <p>
-            <b>Playing it out:</b>{' '}
-            {conv.tried ? `${conv.converted} of ${conv.tried} won positions converted against the engine.` : 'play a won position from your games against the engine.'}
-          </p>
+          <div className="rounded-2xl bg-[var(--panel-2)] p-3 col-span-2">
+            <div className="muted text-[11px] font-extrabold uppercase tracking-wider">Playing it out</div>
+            <div className="text-sm mt-1">{conv.tried ? `${conv.converted} of ${conv.tried} won positions converted against the engine.` : 'Play a won position from your games against the engine.'}</div>
+          </div>
         )}
       </div>
 

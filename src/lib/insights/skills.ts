@@ -227,6 +227,9 @@ export function skillProfile(ag: AnalyzedGame[], window = 50): SkillProfile {
           ply: m.ply,
           san: `${m.moveNumber}${m.color === 'w' ? '.' : '...'}${m.san}`,
           label: m.explanation ?? '',
+          fen: m.fenBefore,
+          uci: m.uci,
+          color: m.color,
         });
       }
     }

@@ -161,7 +161,7 @@ function WDL({ w, d, l }: { w: number; d: number; l: number }) {
   return (
     <div className="flex h-2 rounded-full overflow-hidden gap-px" title={`${w} wins, ${d} draws, ${l} losses`}>
       {w > 0 && <div style={{ width: `${(100 * w) / t}%`, background: 'var(--win)' }} />}
-      {d > 0 && <div style={{ width: `${(100 * d) / t}%`, background: '#a3a19c' }} />}
+      {d > 0 && <div style={{ width: `${(100 * d) / t}%`, background: 'var(--draw)' }} />}
       {l > 0 && <div style={{ width: `${(100 * l) / t}%`, background: 'var(--loss)' }} />}
     </div>
   );

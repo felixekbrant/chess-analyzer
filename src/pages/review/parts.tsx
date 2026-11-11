@@ -44,7 +44,7 @@ export function PlayerStrip({
         {/* An initial as the avatar, in the colour the player has on the board. */}
         <span
           className={`w-6 h-6 rounded-md shrink-0 grid place-items-center text-[11px] font-black ${isUser ? 'ring-2 ring-[var(--felt)]' : ''}`}
-          style={{ background: side === 'w' ? '#f4f2ee' : '#1f1d1b', color: side === 'w' ? '#1f1d1b' : '#f4f2ee' }}
+          style={{ background: side === 'w' ? '#f1f7f3' : '#0a1714', color: side === 'w' ? '#0a1714' : '#f1f7f3' }}
           aria-hidden="true"
         >
           {name.slice(0, 1).toUpperCase()}
@@ -56,7 +56,7 @@ export function PlayerStrip({
       {clock !== undefined && (
         // The clock of the side to move is lit, like a real clock.
         <span
-          className={`tabular-nums text-sm font-extrabold px-2.5 py-0.5 rounded-md transition-colors ${active ? 'bg-[#f4f2ee] text-[#1f1d1b] shadow' : 'bg-[var(--panel-2)] muted'}`}
+          className={`tabular-nums text-sm font-extrabold px-2.5 py-0.5 rounded-md transition-colors ${active ? 'bg-[#f1f7f3] text-[#0a1714] shadow' : 'bg-[var(--panel-2)] muted'}`}
         >
           {formatClock(clock)}
         </span>

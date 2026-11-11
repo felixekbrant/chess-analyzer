@@ -760,9 +760,9 @@ test('weaknesses: the top three, with moments from your games, training and focu
   await seed(page);
   await openTab(page, 'Weaknesses');
   // Three ranked cards, each with a way to train it (or a tip for time management).
-  const cards = page.locator('section', { has: page.getByText('Progress', { exact: true }) });
+  const cards = page.locator('section', { has: page.getByText('In your games', { exact: true }) });
   await expect(cards).toHaveCount(3);
-  await expect(cards.first().getByText('In your games:')).toBeVisible();
+  await expect(cards.first().getByText('In training', { exact: true })).toBeVisible();
   // A moment from your games opens the review, with the way back named.
   await cards.first().getByRole('link', { name: /^\d+\.{1,3}\S+/ }).first().click();
   await page.getByRole('button', { name: 'Back to Weaknesses' }).filter({ visible: true }).click();

@@ -150,6 +150,10 @@ export interface MoveRef {
   ply: number;
   san: string;
   label: string;
+  /** The position before the move and the move itself, where a page shows the moment on a board. */
+  fen?: string;
+  uci?: string;
+  color?: Color;
 }
 
 const ref = (a: AnalyzedGame, m: SummaryMove, label = ''): MoveRef => ({
