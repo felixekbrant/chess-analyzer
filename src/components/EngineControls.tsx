@@ -55,7 +55,7 @@ export function EngineControls({
 /** An on/off pill, as in the engine controls. */
 /** The Engine switch on its own in a page's top row: the same size as the filter pill beside it. */
 const topPill = (on: boolean) =>
-  `inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-bold transition ${on ? 'bg-primary text-white' : 'bg-[var(--panel-2)] hover:brightness-110'}`;
+  `inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-bold transition ${on ? 'bg-[var(--text)] text-[var(--bg)]' : 'bg-[var(--panel-2)] hover:brightness-110'}`;
 
 /** A display option: quiet when on (a tick), outlined when off, so it doesn't read as a main button. */
 const option = (on: boolean) =>
@@ -65,5 +65,5 @@ const option = (on: boolean) =>
 
 export const pill = (on: boolean) =>
   `inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold border transition ${
-    on ? 'bg-primary text-white border-transparent' : 'bg-[var(--panel-2)] border-[var(--border)] muted'
+    on ? 'bg-[var(--text)] text-[var(--bg)] border-transparent' : 'bg-[var(--panel-2)] border-[var(--border)] muted'
   }`;

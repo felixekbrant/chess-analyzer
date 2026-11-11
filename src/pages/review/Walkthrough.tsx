@@ -799,7 +799,7 @@ function MenuSwitch({ icon, label, hint, on, onClick }: { icon: Parameters<typeo
         {label}
         {hint && !on && <span className="block text-xs font-normal muted">{hint}</span>}
       </span>
-      <span className={`text-xs font-bold rounded-full px-2.5 py-1 ${on ? 'bg-primary text-white' : 'bg-[var(--panel-2)] muted'}`}>{on ? 'On' : 'Off'}</span>
+      <span className={`text-xs font-bold rounded-full px-2.5 py-1 ${on ? 'bg-[var(--text)] text-[var(--bg)]' : 'bg-[var(--panel-2)] muted'}`}>{on ? 'On' : 'Off'}</span>
     </button>
   );
 }

@@ -503,7 +503,7 @@ function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
             key={id}
             role="tab"
             aria-selected={tab === id}
-            className={`rounded-full px-2 py-1.5 text-sm font-bold transition-colors duration-200 ${tab === id ? 'bg-primary text-white shadow' : 'muted hover:text-[var(--text)]'}`}
+            className={`rounded-full px-2 py-1.5 text-sm font-bold transition-colors duration-200 ${tab === id ? 'bg-[var(--text)] text-[var(--bg)] shadow' : 'muted hover:text-[var(--text)]'}`}
             onClick={() => onChange(id)}
           >
             {label}

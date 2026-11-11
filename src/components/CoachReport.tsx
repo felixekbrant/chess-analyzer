@@ -14,7 +14,7 @@ export function CoachReport({ items: all, strengths, analysed, limit }: { items:
       {items.map((it, i) => (
         <div key={it.id} className="rounded-lg border border-[var(--border)] p-3">
           <div className="flex items-start gap-3">
-            <span className="shrink-0 w-7 h-7 rounded-full bg-primary text-white font-bold flex items-center justify-center text-sm">{i + 1}</span>
+            <span className="shrink-0 w-7 h-7 rounded-full bg-[var(--text)] text-[var(--bg)] font-bold flex items-center justify-center text-sm">{i + 1}</span>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-bold">{it.title}</span>

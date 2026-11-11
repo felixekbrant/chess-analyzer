@@ -2,8 +2,7 @@ import { describe, expect, it } from 'vitest';
 // Read as plain text (a normal CSS import is emptied in tests).
 const css = Object.values(import.meta.glob<string>('../../index.css', { query: '?raw', import: 'default', eager: true }))[0];
 
-// Every text colour must stay readable on the surfaces it is used on, in both themes (WCAG AA:
-// 4.5:1 for normal text). White labels on green buttons are bold and large-ish: 3:1.
+// Every text colour must stay readable on the surfaces it is used on, (WCAG AA: 4.5:1 for normal text).
 
 function block(selector: string): Record<string, string> {
   const start = css.indexOf(`${selector} {`);
@@ -23,10 +22,7 @@ const ratio = (a: string, b: string) => {
 const TEXT = ['text', 'muted', 'felt-ink', 'loss-ink', 'attention-ink', 'info-ink', 'brass-ink'];
 const SURFACES = ['bg', 'panel'];
 
-describe.each([
-  ['light', block(':root')],
-  ['dark', block('.dark')],
-])('%s theme contrast', (_name, t) => {
+describe.each([['forest', block(':root')]])('%s palette contrast', (_name, t) => {
   it.each(TEXT.flatMap((fg) => SURFACES.map((bg) => [fg, bg])))('%s on %s is at least 4.5:1', (fg, bg) => {
     expect(ratio(t[fg], t[bg])).toBeGreaterThanOrEqual(4.5);
   });
@@ -34,7 +30,8 @@ describe.each([
     expect(ratio(t.text, t['panel-2'])).toBeGreaterThanOrEqual(4.5);
     expect(ratio(t.muted, t['panel-2'])).toBeGreaterThanOrEqual(4.5);
   });
-  it('white button labels on primary green are at least 3:1', () => {
-    expect(ratio('#ffffff', t.primary)).toBeGreaterThanOrEqual(3);
+  it('labels on the orange and on the mint are at least 4.5:1', () => {
+    expect(ratio(t['on-primary'], t.primary)).toBeGreaterThanOrEqual(4.5);
+    expect(ratio(t['on-felt'], t.felt)).toBeGreaterThanOrEqual(4.5);
   });
 });

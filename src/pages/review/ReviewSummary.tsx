@@ -129,7 +129,7 @@ export function ReviewSummary({
                   }}
                 >
                   {me === c && (
-                    <span className="absolute -top-2 left-1/2 -translate-x-1/2 rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-white" style={{ background: 'var(--felt)' }}>
+                    <span className="absolute -top-2 left-1/2 -translate-x-1/2 rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider" style={{ background: 'var(--felt)', color: 'var(--on-felt)' }}>
                       You
                     </span>
                   )}

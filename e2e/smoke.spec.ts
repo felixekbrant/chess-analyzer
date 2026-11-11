@@ -195,7 +195,7 @@ test('training: solve a puzzle, reveal the next and see the full line', async ({
   await expect(page.getByRole('button', { name: 'More hint' })).toBeDisabled();
   await clickSquare(page, move.slice(0, 2));
   await clickSquare(page, move.slice(2, 4));
-  await expect(page.getByText(/^✔ /)).toBeVisible();
+  await expect(page.getByText(/^Solved/)).toBeVisible();
   const next = page.getByRole('button', { name: /Next puzzle/ });
   await expect(next).toBeVisible();
   // Auto-next may already move on; otherwise press Next.
@@ -533,13 +533,13 @@ test('dragging pieces: own pieces only, centred under the pointer, snaps back fr
   // Let go on an illegal square: it glides back and nothing is played.
   await expect.poll(() => page.evaluate(() => (window as unknown as { __snaps?: number }).__snaps ?? 0)).toBe(1);
   expect(await boardPlacement(page, 'puzzle')).toBe(placement);
-  await expect(page.getByText(/^✔ /)).toHaveCount(0);
+  await expect(page.getByText(/^Solved/)).toHaveCount(0);
 
   // Put back on its own square: still picked up, so a tap on a target finishes the move.
   await drag(page, from, from);
   await page.waitForTimeout(250); // a person's next tap; clicks right after a drag are ignored
   await clickSquare(page, move.slice(2, 4));
-  await expect(page.getByText(/^✔ /)).toBeVisible();
+  await expect(page.getByText(/^Solved/)).toBeVisible();
 });
 
 /** Answers Groq with a fake: only the key "gsk_test" works; every chat request is kept in `asked`. */
@@ -867,12 +867,12 @@ test('puzzles: a longer puzzle needs your second move too, after their reply', a
   await clickSquare(page, mine.slice(0, 2));
   await clickSquare(page, mine.slice(2, 4));
   // Not solved yet: their reply comes, then it's your move again.
-  await expect(page.getByText(/^✔ /)).toHaveCount(0);
+  await expect(page.getByText(/^Solved/)).toHaveCount(0);
   await expect.poll(() => page.locator(`[data-square="${reply.slice(2, 4)}"] [id^="puzzle-piece-"]`).count()).toBe(1);
   await page.waitForTimeout(400);
   await clickSquare(page, second.slice(0, 2));
   await clickSquare(page, second.slice(2, 4));
-  await expect(page.getByText(/^✔ /)).toBeVisible();
+  await expect(page.getByText(/^Solved/)).toBeVisible();
 });
 
 test('puzzles: spot the threat first, then find your move', async ({ page }) => {
@@ -974,11 +974,12 @@ test('home: your last game leads, with its decisive moment and its puzzles', asy
   await seed(page);
   await openTab(page, 'Home');
   const card = page.getByRole('region', { name: 'Your last game' });
-  await expect(card.getByText(/^It turned on \d+/)).toBeVisible();
+  // The move it turned on is the headline.
+  await expect(card.getByRole('heading', { name: /^\d+\.+\S+$/ })).toBeVisible();
   // The better move isn't given away here: the review and the puzzle show it.
   await expect(card.getByText(/ was better/)).toHaveCount(0);
   // One tap to the board at that move, and back.
-  await card.getByRole('link', { name: 'See the moment' }).click();
+  await card.getByRole('link', { name: 'Show me the moment' }).click();
   await expect(page).toHaveURL(/#\/game\/.*ply=\d+/);
   await page.getByRole('button', { name: 'Back to Home' }).filter({ visible: true }).click();
   // Its puzzles, labelled as this game's.

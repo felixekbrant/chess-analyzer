@@ -69,15 +69,14 @@ export function PlayerStrip({
 export function CoachBubble({ children, tone = 'neutral', color }: { children: ReactNode; tone?: 'neutral' | 'good' | 'bad'; color?: string }) {
   const border = color ?? (tone === 'good' ? 'var(--win)' : tone === 'bad' ? 'var(--loss)' : 'var(--border)');
   return (
-    <div className="flex gap-2 items-start">
-      <BrandMark size={40} shape="disc" />
-      {/* A steady minimum height, so the board and buttons don't jump as comments change length. */}
-      <div className="relative flex-1 min-w-0 panel p-3 text-sm min-h-[56px]" style={{ borderColor: border }}>
-        <span
-          className="absolute -left-1.5 top-3 w-3 h-3 rotate-45 bg-[var(--panel)] border-l border-b"
-          style={{ borderColor: border }}
-          aria-hidden="true"
-        />
+    <div className="flex gap-2.5 items-start">
+      <BrandMark size={42} shape="disc" />
+      {/* A speech bubble: one tight corner towards the coach. A steady minimum height, so the board
+          and buttons don't jump as comments change length. */}
+      <div
+        className="flex-1 min-w-0 bg-[var(--panel)] px-3.5 py-3 text-sm min-h-[56px] rounded-[20px] rounded-bl-[6px]"
+        style={{ border: `2px solid ${color || tone !== 'neutral' ? border : 'transparent'}` }}
+      >
         {children}
       </div>
     </div>
@@ -266,7 +265,7 @@ export function ActionButton({
       aria-label={label ?? title}
       className={`flex-1 min-h-12 mb-[3px] rounded-xl flex flex-col items-center justify-center gap-0.5 text-[11px] font-bold transition-[transform,box-shadow] duration-75 disabled:opacity-35 active:enabled:translate-y-[2px] ${
         primary
-          ? 'bg-primary text-white shadow-[0_3px_0_var(--primary-edge)] active:enabled:shadow-[0_1px_0_var(--primary-edge)]'
+          ? 'bg-primary text-[var(--on-primary)] shadow-[0_3px_0_var(--primary-edge)] active:enabled:shadow-[0_1px_0_var(--primary-edge)]'
           : 'bg-[var(--btn)] shadow-[0_3px_0_var(--btn-edge)] active:enabled:shadow-[0_1px_0_var(--btn-edge)] hover:brightness-110'
       }`}
     >

@@ -2,7 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { HashRouter } from 'react-router-dom';
 import App from './App';
-import '@fontsource-variable/figtree/wght.css';
+import '@fontsource-variable/plus-jakarta-sans/wght.css';
 import './index.css';
 import { registerServiceWorker } from './pwa/register';
 

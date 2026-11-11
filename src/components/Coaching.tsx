@@ -110,7 +110,7 @@ export function TodayCard({ games, focus, minutes, quiet }: { games: StoredGame[
               <Link to={itemLink(i)} className="flex items-center gap-3 rounded-lg px-2 py-2 -mx-2 hover:bg-[var(--panel-2)]">
                 <span
                   className={`w-7 h-7 rounded-full shrink-0 flex items-center justify-center border-2 ${
-                    i.done ? 'bg-primary border-transparent text-white' : 'border-[var(--muted)]/40'
+                    i.done ? 'bg-[var(--felt)] border-transparent text-[var(--on-felt)]' : 'border-[var(--muted)]/40'
                   }`}
                   aria-label={i.done ? 'Done' : 'To do'}
                 >
@@ -277,7 +277,7 @@ export function FocusCard({
         </div>
         <div className="flex flex-col gap-1.5 shrink-0">
           {f.area !== 'time' && (
-            <Link className="btn btn-primary !py-1.5 !px-3 !text-sm justify-center" to={`/training?area=${f.area}`}>
+            <Link className="btn !py-1.5 !px-3 !text-sm justify-center" to={`/training?area=${f.area}`}>
               Train
             </Link>
           )}

@@ -39,7 +39,7 @@ export function Filters({ value, onChange }: { value: InsightFilters; onChange: 
             key={o.value}
             role="radio"
             aria-checked={o.value === current}
-            className={`rounded-full px-3 py-1.5 text-sm font-bold transition-colors ${o.value === current ? 'bg-primary text-white' : 'bg-[var(--panel-2)] hover:brightness-110'}`}
+            className={`rounded-full px-3 py-1.5 text-sm font-bold transition-colors ${o.value === current ? 'bg-[var(--text)] text-[var(--bg)]' : 'bg-[var(--panel-2)] hover:brightness-110'}`}
             onClick={() => set(o.value)}
           >
             {o.label}

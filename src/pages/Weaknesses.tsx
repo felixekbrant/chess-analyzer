@@ -266,7 +266,7 @@ function WeaknessCard({
 
       <div className="flex flex-wrap gap-2">
         {r.area !== 'time' ? (
-          <Link className="btn btn-primary !py-2 !text-sm" to={`/training?area=${r.area}`}>
+          <Link className={`btn ${rank === 1 ? 'btn-primary' : ''} !py-2 !text-sm`} to={`/training?area=${r.area}`}>
             <Icon name="puzzle" size={16} /> Train
           </Link>
         ) : (

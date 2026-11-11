@@ -430,7 +430,7 @@ const hasThreat = (p: Puzzle) => !p.lichess && p.motifs.includes('ignored_threat
 function FocusItem({ active, onClick, label, count, sub }: { active: boolean; onClick: () => void; label: string; count?: number; sub?: string }) {
   return (
     <button
-      className={`flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-left font-semibold ${active ? 'bg-primary text-white' : 'hover:bg-[var(--panel-2)]'}`}
+      className={`flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-left font-semibold ${active ? 'bg-[var(--text)] text-[var(--bg)]' : 'hover:bg-[var(--panel-2)]'}`}
       onClick={onClick}
     >
       <span>
@@ -884,20 +884,30 @@ function PuzzleView({
           </div>
         )}
         {/* Right under the board on phones: what to do, and the buttons. */}
-        {/* The state of the puzzle as a banner: neutral, a green flash when right, a red shake when wrong. */}
-        {!engine && (
+        {/* Solved: the moment gets a card of its own, with the move as the headline. */}
+        {!engine && state === 'solved' && (
+          <div key="solved" role="status" className="pop-wide relative overflow-hidden rounded-[24px] px-[18px] py-4 flex flex-col gap-1.5" style={{ background: 'var(--felt)', color: 'var(--on-felt)' }}>
+            <span aria-hidden="true" className="absolute -right-7 -top-7 w-[120px] h-[120px] rounded-full" style={{ background: 'color-mix(in srgb, var(--felt) 70%, white)' }} />
+            <span aria-hidden="true" className="absolute right-[54px] top-[58px] w-[26px] h-[26px] rounded-full bg-primary" />
+            <span aria-hidden="true" className="absolute right-[22px] top-[22px] w-12 h-12 rounded-full grid place-items-center" style={{ background: 'var(--on-felt)', color: 'var(--felt)' }}>
+              <Icon name="check" size={26} strokeWidth={3.2} />
+            </span>
+            <div className="relative text-[13px] font-extrabold">{clean ? 'Solved first try' : 'Solved'}</div>
+            <div className="relative font-extrabold text-[40px] leading-none tracking-tight">{solutionSan[0]}!</div>
+            <p className="relative text-[15px] font-semibold leading-snug max-w-[250px]">
+              {/* A note about the move you found ("Also good!"), else what it was worth and what you played in the game. */}
+              {note && note !== 'Solved.' && note !== 'Correct!'
+                ? note
+                : [stakeLabel(puzzle) && `${stakeLabel(puzzle)}.`, puzzle.playedSan && !puzzle.lichess && `In your game you played ${puzzle.playedSan}.`].filter(Boolean).join(' ') || 'Correct!'}
+            </p>
+          </div>
+        )}
+        {/* Otherwise the state of the puzzle as a banner: neutral, or a red shake when wrong. */}
+        {!engine && state !== 'solved' && (
           <div
             key={`${state}-${mistakes}`}
-            className={`rounded-xl px-3.5 py-3 text-sm font-bold ${state === 'wrong' ? 'shake' : state === 'solved' ? 'pop-wide' : ''}`}
-            style={{
-              background:
-                state === 'wrong'
-                  ? 'color-mix(in srgb, var(--loss) 18%, var(--panel))'
-                  : state === 'solved'
-                    ? 'color-mix(in srgb, var(--win) 20%, var(--panel))'
-                    : 'var(--panel)',
-              boxShadow: `inset 3px 0 0 ${state === 'wrong' ? 'var(--loss)' : state === 'solved' ? 'var(--win)' : 'var(--border)'}`,
-            }}
+            className={`rounded-2xl px-3.5 py-3 text-sm font-bold ${state === 'wrong' ? 'shake' : ''}`}
+            style={{ background: state === 'wrong' ? 'color-mix(in srgb, var(--loss) 22%, var(--panel))' : 'var(--panel)' }}
             role="status"
           >
             {status}

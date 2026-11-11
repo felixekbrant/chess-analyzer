@@ -9,7 +9,7 @@ import type { AnalyzedGame } from '../lib/insights/compute';
 import { lastGameMoment, moveLabel } from '../lib/insights/lastGame';
 import { isSmall } from '../lib/training/puzzles';
 import { hideBestMove } from '../lib/review/hideBest';
-import { ClassificationBadge } from './ClassificationBadge';
+import { BrandMark } from './BrandMark';
 import { Icon } from './Icon';
 import { MiniBoard } from './MiniBoard';
 
@@ -60,47 +60,56 @@ export function LastGameCard({ a }: { a: AnalyzedGame }) {
   const acc = a.summary.accuracy?.[a.color];
   const why = d?.explanation ? hideBestMove(d.explanation, d.bestSan) : undefined;
   const momentHref = d ? `${gameHref}?ply=${d.ply + 1}` : gameHref;
+  const lost = g.userResult === 'loss';
+  // What the coach says about it, in a sentence.
+  const says = !d ? m.headline : lost ? 'Your last game turned on one move. Want to see it?' : 'One move in your last game nearly let it slip. Want to see it?';
   return (
-    <section className="panel p-4 space-y-3" aria-label="Your last game">
-      <div className="flex gap-3">
+    <section className="bg-[var(--panel)] rounded-[24px] p-4 space-y-3.5" aria-label="Your last game">
+      <div className="flex items-center gap-2.5">
+        <BrandMark size={40} shape="disc" />
+        <p className="bg-[var(--panel-2)] rounded-2xl rounded-bl-[4px] px-3 py-2 text-sm font-semibold leading-snug">{says}</p>
+      </div>
+      <div className="flex gap-3.5 items-center">
         {d?.fenBefore && (
           // The position where it happened, with the move you played marked.
-          <Link to={momentHref} state={backTo('Home')} className="w-24 sm:w-28 shrink-0" aria-label={`Open the game at ${moveLabel(d)}`}>
+          <Link to={momentHref} state={backTo('Home')} className="w-[124px] sm:w-36 shrink-0 rounded-xl overflow-hidden" aria-label={`Open the game at ${moveLabel(d)}`}>
             <MiniBoard fen={d.fenBefore} orientation={a.color === 'b' ? 'black' : 'white'} highlight={d.uci ? [d.uci.slice(0, 2), d.uci.slice(2, 4)] : []} />
           </Link>
         )}
         <div className="min-w-0 flex-1">
-          <div className="muted text-xs font-extrabold uppercase tracking-wider">Your last game · {relativeDay(g.endTime)}</div>
-          <h2 className="font-extrabold text-lg leading-tight mt-0.5 truncate">{title}</h2>
-          <p className="font-semibold text-sm mt-1.5 flex items-center gap-1.5 flex-wrap">
-            {d && <ClassificationBadge c={d.classification} size={16} />}
-            {m.headline}
-          </p>
-          <div className="flex flex-wrap gap-1 mt-1.5">
-            {acc !== undefined && <span className="chip tabular-nums">{acc.toFixed(0)}% accuracy</span>}
+          <div className="muted text-xs font-bold">
+            {result} · {relativeDay(g.endTime)}
+          </div>
+          {/* The move is the headline; without one, the result is. */}
+          <h2 className="font-extrabold text-[38px] leading-[1.05] tracking-tight" style={{ color: d ? (lost ? 'var(--loss)' : 'var(--attention)') : color }}>
+            {d ? moveLabel(d) : result}
+          </h2>
+          <div className="muted text-[13px] font-semibold mt-0.5 truncate">vs {opponentName(g)}</div>
+          <div className="flex flex-wrap gap-1.5 mt-2">
             {m.tags.map((t) => (
-              <span key={t} className="chip">
+              <span key={t} className="chip !py-1 !px-2.5">
                 {t}
               </span>
             ))}
+            {acc !== undefined && <span className="chip !py-1 !px-2.5 tabular-nums">{acc.toFixed(0)}% accuracy</span>}
           </div>
         </div>
       </div>
       {/* What went wrong, without the better move: that is for the review and the puzzle to show. */}
       {why && <p className="muted text-sm line-clamp-2">{why}</p>}
       <div className="flex flex-wrap gap-2">
-        <Link className="btn btn-primary !py-2 !text-sm" to={momentHref} state={backTo('Home')}>
-          <Icon name="play" size={16} /> {d ? 'See the moment' : 'Review the game'}
+        <Link className="btn btn-primary flex-1 justify-center !py-3.5 !text-base !rounded-2xl whitespace-nowrap" to={momentHref} state={backTo('Home')}>
+          {d ? 'Show me the moment' : 'Review the game'}
         </Link>
         {d && (
           // Phones: the same review is the first line of Today, just below.
-          <Link className="btn !py-2 !text-sm hidden sm:inline-flex" to={gameHref} state={backTo('Home')}>
+          <Link className="btn !py-3.5 !rounded-2xl hidden sm:inline-flex" to={gameHref} state={backTo('Home')}>
             Full review
           </Link>
         )}
         {!!left && (
-          <Link className="btn !py-2 !text-sm" to={puzzlesHref}>
-            <Icon name="puzzle" size={16} /> Puzzles from it ({left})
+          <Link className="btn !py-3.5 !text-[15px] !rounded-2xl whitespace-nowrap" to={puzzlesHref} aria-label={`Puzzles from it (${left})`}>
+            {left} puzzle{left === 1 ? '' : 's'}
           </Link>
         )}
       </div>

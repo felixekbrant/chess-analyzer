@@ -1,17 +1,19 @@
 import type { Classification } from './types';
 
 export const CLASS_META: Record<Classification, { label: string; symbol: string; color: string }> = {
-  brilliant: { label: 'Brilliant', symbol: '!!', color: '#26b8a6' },
-  great: { label: 'Great', symbol: '!', color: '#5b8fc4' },
-  best: { label: 'Best', symbol: '★', color: '#81b64c' },
-  excellent: { label: 'Excellent', symbol: '👍', color: '#96bc4b' },
-  good: { label: 'Good', symbol: '✓', color: '#95b776' },
-  book: { label: 'Book', symbol: '📖', color: '#b48b64' },
-  forced: { label: 'Forced', symbol: '□', color: '#96af8b' },
-  inaccuracy: { label: 'Inaccuracy', symbol: '?!', color: '#f7c631' },
-  mistake: { label: 'Mistake', symbol: '?', color: '#ffa459' },
-  miss: { label: 'Miss', symbol: '✗', color: '#ff7769' },
-  blunder: { label: 'Blunder', symbol: '??', color: '#fa412d' },
+  // Tuned to the Forest palette: each reads as text on the dark surfaces and carries a dark glyph
+  // as a badge. Orange is the main button's, so a mistake is coral and a blunder a deeper red.
+  brilliant: { label: 'Brilliant', symbol: '!!', color: '#4fd6c4' },
+  great: { label: 'Great', symbol: '!', color: '#7fb4e6' },
+  best: { label: 'Best', symbol: '★', color: '#7fe0a8' },
+  excellent: { label: 'Excellent', symbol: '👍', color: '#a5dc8c' },
+  good: { label: 'Good', symbol: '✓', color: '#a8cdb0' },
+  book: { label: 'Book', symbol: '📖', color: '#d2a981' },
+  forced: { label: 'Forced', symbol: '□', color: '#a9c4ba' },
+  inaccuracy: { label: 'Inaccuracy', symbol: '?!', color: '#f2c14e' },
+  mistake: { label: 'Mistake', symbol: '?', color: '#ff8e6e' },
+  miss: { label: 'Miss', symbol: '✗', color: '#ff7a8a' },
+  blunder: { label: 'Blunder', symbol: '??', color: '#ff5a4d' },
 };
 
 export const CLASS_ORDER: Classification[] = [

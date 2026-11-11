@@ -253,7 +253,7 @@ function BoardImpl({ fen, orientation = 'white', arrows = [], lastMove, badge, m
             {marker && square === marker.square && (
               <div key={marker.square + marker.kind} className="pop" style={{ position: 'absolute', top: -6, right: -6, zIndex: 20, pointerEvents: 'none' }}>
                 <span
-                  className="inline-flex items-center justify-center rounded-full text-white font-bold"
+                  className="inline-flex items-center justify-center rounded-full text-[#10231f] font-bold"
                   style={{ width: 22, height: 22, fontSize: 13, background: marker.kind === 'correct' ? 'var(--win)' : 'var(--loss)', boxShadow: '0 1px 2px rgba(0,0,0,.35)' }}
                 >
                   {marker.kind === 'correct' ? '✓' : '✗'}

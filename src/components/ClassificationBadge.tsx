@@ -55,13 +55,13 @@ export function ClassificationBadge({ c, size = 18 }: { c: Classification; size?
       title={meta.label}
       role="img"
       aria-label={meta.label}
-      className="inline-flex items-center justify-center rounded-full text-white shrink-0 select-none"
+      className="inline-flex items-center justify-center rounded-full text-[#10231f] shrink-0 select-none"
       style={{
         width: size,
         height: size,
         // A little depth: lighter at the top, a darker rim at the bottom, and a soft drop shadow.
-        background: `linear-gradient(180deg, rgba(255,255,255,.2), rgba(255,255,255,0) 55%), ${meta.color}`,
-        boxShadow: `inset 0 ${-Math.max(1, size / 14)}px 0 rgba(0,0,0,.2), 0 1px 2px rgba(0,0,0,.35)`,
+        background: meta.color,
+        boxShadow: `inset 0 ${-Math.max(1, size / 14)}px 0 rgba(0,0,0,.18), 0 1px 2px rgba(0,0,0,.35)`,
       }}
     >
       <svg

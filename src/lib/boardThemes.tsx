@@ -1,7 +1,8 @@
 import type { BoardTheme, PieceSet } from './types';
 
 export const BOARD_THEMES: Record<BoardTheme, { label: string; light: string; dark: string }> = {
-  green: { label: 'Green', light: '#ebecd0', dark: '#779556' },
+  // The first is the app's own board, made for the Forest palette.
+  green: { label: 'Forest', light: '#eef2e2', dark: '#7fa37a' },
   brown: { label: 'Brown', light: '#f0d9b5', dark: '#b58863' },
   blue: { label: 'Blue', light: '#dee3e6', dark: '#8ca2ad' },
   gray: { label: 'Gray', light: '#e8e8e8', dark: '#9a9a9a' },

@@ -126,7 +126,7 @@ function OpeningCards({ rows }: { rows: OpeningStat[] }) {
                         {e.count > 1 ? ` ×${e.count}` : ''}
                       </Link>
                     ))}
-                    <Link className="btn btn-primary !py-1 !px-3 !text-xs" to={`/training?opening=${encodeURIComponent(r.name)}`}>
+                    <Link className="btn !py-1 !px-3 !text-xs" to={`/training?opening=${encodeURIComponent(r.name)}`}>
                       Drill
                     </Link>
                   </div>
@@ -209,7 +209,7 @@ function MainOpening({ r }: { r: OpeningStat }) {
                 </Link>
               ))}
             </div>
-            <Link className="btn btn-primary !py-0.5 !px-2.5 !text-xs shrink-0" to={`/training?opening=${encodeURIComponent(r.name)}`}>
+            <Link className="btn !py-0.5 !px-2.5 !text-xs shrink-0" to={`/training?opening=${encodeURIComponent(r.name)}`}>
               Drill
             </Link>
           </div>

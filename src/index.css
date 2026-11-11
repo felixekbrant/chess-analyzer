@@ -3,99 +3,67 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --color-accent: #81b64c;
-  --color-accent-strong: #6a9e36;
-  /* Fills that carry white text (buttons, selected chips): 3:1 with white, the bright felt green is 2.4:1. */
+  --color-accent: #7fe0a8;
+  --color-accent-strong: #5cc98c;
+  /* Fills for the main action and for what's selected; their text is --on-primary. */
   --color-primary: var(--primary);
   --color-win: var(--win);
   --color-loss: var(--loss);
   --color-brass: var(--brass);
-  --font-sans: "Figtree Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-mono: "Figtree Variable", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-sans: "Plus Jakarta Sans Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "Plus Jakarta Sans Variable", ui-monospace, "SF Mono", Menlo, monospace;
 }
 
 /*
- * "The club room": one palette where every colour has one job.
+ * "Coach Forest": one dark palette where every colour has one job.
  *  Surfaces get brighter as they come closer: canvas (page) < surface (cards) < raised (controls)
- *  < overlay (sheets). Green = good / win / your move; one red = loss and blunders; orange = needs
- *  attention; brass = achievements only. "-ink" variants are the same hues tuned for small text
- *  (4.5:1 on the surfaces they sit on; checked by src/lib/__tests__/contrast.test.ts).
+ *  < overlay (sheets). Orange = the one thing to do next (the coach, main buttons, where you are);
+ *  mint = good / solved / progress; coral = loss and mistakes; amber = needs attention; brass =
+ *  achievements only. "-ink" variants are the same hues tuned for small text (4.5:1 on the surfaces
+ *  they sit on; checked by src/lib/__tests__/contrast.test.ts). There is no light theme.
  */
 :root {
   /* Status bar height plus a small clearance on phones that have one (see .safe-top). */
   --status-gap: calc(env(safe-area-inset-top) + min(env(safe-area-inset-top), 12px));
   /* Captured pieces beside the players: a hairline halo on the pieces that match the background. */
-  --captured-w-halo: drop-shadow(0 0 0.6px rgba(34, 33, 31, 0.55)) drop-shadow(0 0.5px 0.8px rgba(34, 33, 31, 0.25));
-  --captured-b-halo: none;
-  --bg: #f4f3f0;
-  --panel: #ffffff;
-  --panel-2: #ebe9e4;
-  --overlay: #ffffff;
-  --text: #22211f;
-  --muted: #686660;
-  --border: #e1dfda;
-  --shadow: 0 1px 2px rgba(34, 33, 31, 0.06), 0 1px 1px rgba(34, 33, 31, 0.04);
-  --lift: 0 12px 32px rgba(34, 33, 31, 0.18);
-  --btn: #e6e4df;
-  --btn-edge: #c9c6bf;
-  --primary: #6fa33f;
-  --primary-edge: #45753c;
-  --felt: #81b64c;
-  --felt-ink: #3e7424;
-  --win: #81b64c;
-  --loss: #d4442e;
-  --loss-ink: #c03a25;
-  --draw: #a3a19c;
-  --attention: #d67f2c;
-  --attention-ink: #a85a14;
-  --info: #5c8bb0;
-  --info-ink: #3d6b92;
-  --brass: #c9a24a;
-  --brass-ink: #8a6a1f;
-  --board-frame: #d9d6cf;
-  --series-1: #81b64c;
-  --series-2: #d4442e;
-  --series-3: #a3a19c;
-  --series-4: #c9a24a;
-  --grid: #e6e4df;
-  color-scheme: light;
-}
-
-/* The default look: chess.com-like warm dark greys. */
-.dark {
   --captured-w-halo: none;
-  --captured-b-halo: drop-shadow(0 0 0.6px rgba(244, 242, 238, 0.7)) drop-shadow(0 0 1.2px rgba(244, 242, 238, 0.3));
-  --bg: #262421;
-  --panel: #302e2b;
-  --panel-2: #3c3a37;
-  --overlay: #3a3835;
-  --text: #f4f2ee;
-  --muted: #a7a49e;
-  --border: #3f3d39;
+  --captured-b-halo: drop-shadow(0 0 0.6px rgba(241, 247, 243, 0.7)) drop-shadow(0 0 1.2px rgba(241, 247, 243, 0.3));
+  --bg: #10231f;
+  --rail: #0c1b18;
+  --panel: #1a3530;
+  --panel-2: #244640;
+  --overlay: #1f3d37;
+  --text: #f1f7f3;
+  --muted: #a9c4ba;
+  --border: #2f574f;
   --shadow: none;
   --lift: 0 16px 40px rgba(0, 0, 0, 0.5);
-  --btn: #45423e;
-  --btn-edge: #2b2926;
-  --primary: #6fa33f;
-  --primary-edge: #45753c;
-  --felt: #81b64c;
-  --felt-ink: #8fc35a;
-  --win: #81b64c;
-  --loss: #e5533d;
-  --loss-ink: #f27b67;
-  --draw: #a3a19c;
-  --attention: #e5913c;
-  --attention-ink: #e5913c;
-  --info: #5c8bb0;
-  --info-ink: #7fa9cf;
-  --brass: #c9a24a;
-  --brass-ink: #c9a24a;
-  --board-frame: #1c1a18;
-  --series-1: #81b64c;
-  --series-2: #e5533d;
-  --series-3: #77746e;
-  --series-4: #c9a24a;
-  --grid: #3a3835;
+  --btn: #244640;
+  --btn-edge: #0a1714;
+  --primary: #ff9f43;
+  --primary-edge: #c97422;
+  /* Text and icons on the orange. */
+  --on-primary: #2b1600;
+  --felt: #7fe0a8;
+  --felt-ink: #7fe0a8;
+  /* Text on the mint. */
+  --on-felt: #0b2a1a;
+  --win: #7fe0a8;
+  --loss: #ff7a66;
+  --loss-ink: #ff8e7c;
+  --draw: #9db3aa;
+  --attention: #f2c14e;
+  --attention-ink: #f2c14e;
+  --info: #6fa8dc;
+  --info-ink: #8fc0ea;
+  --brass: #d9b45a;
+  --brass-ink: #d9b45a;
+  --board-frame: #0a1714;
+  --series-1: #7fe0a8;
+  --series-2: #ff7a66;
+  --series-3: #6e8f84;
+  --series-4: #d9b45a;
+  --grid: #244640;
   color-scheme: dark;
 }
 
@@ -150,7 +118,7 @@
   .panel {
     background: var(--panel);
     border: 1px solid transparent;
-    border-radius: 0.75rem;
+    border-radius: 1.25rem;
     box-shadow: var(--shadow);
   }
 
@@ -163,9 +131,9 @@
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
-    border-radius: 0.6rem;
-    padding: 0.5rem 0.95rem;
-    font-weight: 700;
+    border-radius: 0.9rem;
+    padding: 0.55rem 1rem;
+    font-weight: 800;
     font-size: 0.875rem;
     background: var(--btn);
     color: var(--text);
@@ -193,8 +161,7 @@
   .btn-primary {
     background: var(--primary);
     box-shadow: 0 3px 0 var(--primary-edge);
-    color: white;
-    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.15);
+    color: var(--on-primary);
   }
   .btn-primary:active:not(:disabled) {
     box-shadow: 0 1px 0 var(--primary-edge);
@@ -277,7 +244,7 @@
     background: var(--panel-2);
     border: 1px solid transparent;
     font-weight: 600;
-    border-radius: 0.5rem;
+    border-radius: 0.75rem;
     padding: 0.45rem 0.7rem;
     font-size: 0.875rem;
     color: var(--text);
@@ -292,8 +259,8 @@
     align-items: center;
     gap: 0.25rem;
     font-size: 0.75rem;
-    font-weight: 600;
-    padding: 0.1rem 0.5rem;
+    font-weight: 700;
+    padding: 0.15rem 0.6rem;
     border-radius: 999px;
     background: var(--panel-2);
   }
@@ -308,7 +275,7 @@
   }
   .tab[aria-selected="true"] {
     color: var(--text);
-    border-bottom-color: var(--color-accent);
+    border-bottom-color: var(--primary);
   }
 
   table.data {
@@ -346,7 +313,7 @@
     justify-content: center;
     min-width: 44px;
     min-height: 44px;
-    border-radius: 0.6rem;
+    border-radius: 999px;
     color: var(--text);
   }
   .icon-btn:hover {
@@ -371,7 +338,7 @@
 
   /* Space for the fixed bottom navigation on phones (plus the iPhone home indicator). */
   .pb-nav {
-    padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
+    padding-bottom: calc(5.75rem + env(safe-area-inset-bottom));
   }
   @media (min-width: 768px) {
     .pb-nav {
@@ -400,7 +367,7 @@
     background: linear-gradient(90deg, var(--panel-2) 25%, var(--border) 50%, var(--panel-2) 75%);
     background-size: 200% 100%;
     animation: shimmer 1.4s ease-in-out infinite;
-    border-radius: 0.5rem;
+    border-radius: 0.9rem;
   }
   @keyframes shimmer {
     to { background-position: -200% 0; }

@@ -8,19 +8,22 @@ import { Resvg } from '@resvg/resvg-js';
  * bleed); `scale` shrinks the artwork, so maskable icons keep it inside Android's circular safe zone.
  */
 function iconSvg(rounded, scale = 1) {
-  const green = '#81b64c';
+  // Coach Forest: the dark green ground, the board's light squares, and the coach's orange for the glass.
+  const ground = '#10231f';
+  const orange = '#ff9f43';
+  const light = '#eef2e2';
   const squares = [];
   for (let r = 0; r < 4; r++)
     for (let c = 0; c < 4; c++)
       squares.push(
-        `<rect x="${128 + c * 64}" y="${112 + r * 64}" width="64" height="64" fill="#ffffff" fill-opacity="${(r + c) % 2 ? 0.28 : 1}"/>`,
+        `<rect x="${128 + c * 64}" y="${112 + r * 64}" width="64" height="64" fill="${light}" fill-opacity="${(r + c) % 2 ? 0.28 : 1}"/>`,
       );
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <rect width="512" height="512" rx="${rounded}" fill="${green}"/>
+  <rect width="512" height="512" rx="${rounded}" fill="${ground}"/>
   <g transform="translate(256 256) scale(${scale}) translate(-256 -256)">
   ${squares.join('\n  ')}
-  <circle cx="352" cy="336" r="76" fill="${green}" stroke="#ffffff" stroke-width="30"/>
-  <line x1="408" y1="392" x2="452" y2="436" stroke="#ffffff" stroke-width="36" stroke-linecap="round"/>
+  <circle cx="352" cy="336" r="76" fill="${ground}" stroke="${orange}" stroke-width="30"/>
+  <line x1="408" y1="392" x2="452" y2="436" stroke="${orange}" stroke-width="36" stroke-linecap="round"/>
   </g>
 </svg>`;
 }

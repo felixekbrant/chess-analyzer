@@ -247,18 +247,6 @@ export default function SettingsPage() {
             playSound('move');
           }
         })}
-        <Row label="Theme">
-          <Segmented
-            label="Theme"
-            value={settings.theme}
-            options={[
-              ['dark', 'Dark'],
-              ['light', 'Light'],
-              ['system', 'Auto'],
-            ]}
-            onChange={(t) => saveSettings({ theme: t })}
-          />
-        </Row>
       </Group>
 
       <InstallSection />
@@ -346,7 +334,7 @@ export default function SettingsPage() {
           <a className="underline" href="https://database.lichess.org/#puzzles" target="_blank" rel="noopener noreferrer">
             Lichess puzzle database
           </a>{' '}
-          (CC0). Pieces: Merida by Armando Hernandez Marroquin (GPLv2+) and Chessnut by Alexis Luengas (Apache 2.0), via Lichess. Typeface: Figtree (OFL).
+          (CC0). Pieces: Merida by Armando Hernandez Marroquin (GPLv2+) and Chessnut by Alexis Luengas (Apache 2.0), via Lichess. Typeface: Plus Jakarta Sans (OFL).
         </p>
       </div>
     </div>
@@ -464,7 +452,7 @@ function Segmented<T extends string | number>({ value, options, onChange, label 
           key={String(v)}
           role="radio"
           aria-checked={value === v}
-          className={`rounded-full px-3 py-2 text-xs font-bold transition-colors duration-200 ${value === v ? 'bg-primary text-white shadow' : 'muted hover:text-[var(--text)]'}`}
+          className={`rounded-full px-3 py-2 text-xs font-bold transition-colors duration-200 ${value === v ? 'bg-[var(--text)] text-[var(--bg)] shadow' : 'muted hover:text-[var(--text)]'}`}
           onClick={() => onChange(v)}
         >
           {label}

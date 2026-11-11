@@ -71,7 +71,7 @@ export default function Losses() {
   const chooser = classes.length > 1 && (
     <div className="flex gap-1.5 flex-wrap" role="radiogroup" aria-label="Time control">
       {classes.map((tc) => (
-        <button key={tc} role="radio" aria-checked={tc === timeClass} className={`chip !py-1.5 !px-3 inline-flex items-center gap-1.5 capitalize ${tc === timeClass ? '!bg-primary !text-white' : ''}`} onClick={() => setPicked(tc)}>
+        <button key={tc} role="radio" aria-checked={tc === timeClass} className={`chip !py-1.5 !px-3 inline-flex items-center gap-1.5 capitalize ${tc === timeClass ? '!bg-[var(--text)] !text-[var(--bg)]' : ''}`} onClick={() => setPicked(tc)}>
           <TimeClassIcon tc={tc} size={14} /> {tc}
         </button>
       ))}

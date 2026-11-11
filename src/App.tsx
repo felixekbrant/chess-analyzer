@@ -135,7 +135,7 @@ function Logo() {
 /** Desktop and tablet navigation. */
 function Sidebar({ path }: { path: string }) {
   return (
-    <aside className="hidden md:flex md:flex-col md:w-56 md:h-screen md:sticky md:top-0 border-r border-[var(--border)] bg-[var(--panel)]">
+    <aside className="hidden md:flex md:flex-col md:w-56 md:h-screen md:sticky md:top-0 bg-[var(--rail)]">
       <div className="px-4 py-5 flex items-center gap-2 font-extrabold text-lg">
         <Logo />
         Chess Analyzer
@@ -151,8 +151,8 @@ function Sidebar({ path }: { path: string }) {
           <NavLink
             key={n.to}
             to={n.to}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold ${
-              isActive(n, path) ? 'bg-[var(--panel-2)] text-[var(--text)]' : 'muted hover:bg-[var(--panel-2)]'
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-[14px] text-sm ${
+              isActive(n, path) ? 'bg-[var(--panel)] text-[var(--primary)] font-extrabold' : 'muted font-bold hover:bg-[var(--panel)]'
             }`}
           >
             <Icon name={n.icon} size={18} />
@@ -211,13 +211,12 @@ function BottomNav({ path }: { path: string }) {
   const more = NAV.slice(TAB_COUNT);
   const moreActive = more.some((n) => isActive(n, path));
   const tabClass = (active: boolean) =>
-    `flex-1 flex flex-col items-center justify-center gap-0.5 h-14 text-[11px] font-semibold ${active ? 'text-accent' : 'muted'}`;
+    `flex-1 flex flex-col items-center justify-center gap-0.5 h-[60px] text-[11px] font-bold ${active ? 'text-[var(--primary)]' : 'muted'}`;
   return (
     <>
-      <nav
-        className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-[var(--panel)]/95 backdrop-blur border-t border-[var(--border)] safe-bottom flex"
-        aria-label="Main"
-      >
+      {/* A pill floating over the page; the strip behind it keeps scrolling text from showing around it. */}
+      <div className="md:hidden fixed bottom-0 inset-x-0 z-40 px-3 pt-2 pb-[calc(env(safe-area-inset-bottom)+10px)] bg-gradient-to-t from-[var(--bg)] from-60% to-transparent pointer-events-none">
+      <nav className="pointer-events-auto bg-[var(--panel)] rounded-[22px] flex shadow-[0_6px_20px_rgba(0,0,0,0.35)]" aria-label="Main">
         {tabs.map((n) => (
           <NavLink key={n.to} to={n.to} className={tabClass(isActive(n, path))} aria-current={isActive(n, path) ? 'page' : undefined}>
             <Icon name={n.icon} size={22} />
@@ -229,6 +228,7 @@ function BottomNav({ path }: { path: string }) {
           More
         </button>
       </nav>
+      </div>
       <Sheet open={moreOpen} onClose={() => setMoreOpen(false)} title="More">
         <div className="grid gap-1">
           {more.map((n) => (
