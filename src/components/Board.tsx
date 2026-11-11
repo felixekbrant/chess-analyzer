@@ -6,7 +6,7 @@ import { ClassificationBadge } from './ClassificationBadge';
 import { CLASS_META } from '../lib/classificationMeta';
 import { BOARD_THEMES, pieceRenderers } from '../lib/boardThemes';
 
-const BOARD_RADIUS = 8;
+const BOARD_RADIUS = 14;
 import { useSettings } from '../hooks/useStores';
 import { playSound, setSoundEnabled, soundForSan } from '../lib/sound';
 

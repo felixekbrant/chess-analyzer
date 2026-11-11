@@ -9,6 +9,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: '11 Nov 2026',
+    items: [
+      'A new look for the whole app: dark forest green, with orange for the one thing to do next, mint for what you solved and coral for mistakes. There is one look now, so the light theme and its setting are gone. The board has its own green; your other board colours are still in Settings.',
+      'The coach speaks in a bubble, Home opens on the move your last game turned on, and solving a puzzle or finishing the day gets a moment of its own.',
+      'Weaknesses and your last losses show the positions on boards and your progress as figures, instead of paragraphs of text.',
+    ],
+  },
+  {
     date: '9 Nov 2026',
     items: [
       'Home opens on your last game: the position where it turned, what went wrong (without giving away the better move), and one tap to that moment or to the puzzles from the game. Once you\'ve reviewed it, only its puzzles remain; with those done, Today leads again.',

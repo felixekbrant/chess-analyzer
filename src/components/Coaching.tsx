@@ -131,9 +131,15 @@ export function TodayCard({ games, focus, minutes, quiet }: { games: StoredGame[
       )}
 
       {plan.done ? (
-        <p className="text-sm mt-3 font-bold inline-flex items-center gap-1.5">
-          <Icon name="check" size={16} className="text-accent" /> Done for today.
-        </p>
+        // The day's plan done: a moment of its own, like a solved puzzle.
+        <div className="pop-wide relative overflow-hidden rounded-[20px] px-4 py-3.5 mt-3" style={{ background: 'var(--felt)', color: 'var(--on-felt)' }}>
+          <span aria-hidden="true" className="absolute -right-6 -top-8 w-24 h-24 rounded-full" style={{ background: 'color-mix(in srgb, var(--felt) 70%, white)' }} />
+          <span aria-hidden="true" className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full grid place-items-center" style={{ background: 'var(--on-felt)', color: 'var(--felt)' }}>
+            <Icon name="check" size={22} strokeWidth={3.2} />
+          </span>
+          <div className="relative font-extrabold text-xl tracking-tight">Done for today</div>
+          <div className="relative text-sm font-semibold">{days > 1 ? `${days} days in a row. See you tomorrow.` : 'See you tomorrow.'}</div>
+        </div>
       ) : (
         next && (
           <button className={`btn ${quiet ? '' : 'btn-primary'} w-full justify-center mt-3 !py-3 !text-base`} onClick={() => navigate(itemLink(next))}>

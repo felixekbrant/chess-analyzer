@@ -889,7 +889,7 @@ function PuzzleView({
           <div key="solved" role="status" className="pop-wide relative overflow-hidden rounded-[24px] px-[18px] py-4 flex flex-col gap-1.5" style={{ background: 'var(--felt)', color: 'var(--on-felt)' }}>
             <span aria-hidden="true" className="absolute -right-7 -top-7 w-[120px] h-[120px] rounded-full" style={{ background: 'color-mix(in srgb, var(--felt) 70%, white)' }} />
             <span aria-hidden="true" className="absolute right-[54px] top-[58px] w-[26px] h-[26px] rounded-full bg-primary" />
-            <span aria-hidden="true" className="absolute right-[22px] top-[22px] w-12 h-12 rounded-full grid place-items-center" style={{ background: 'var(--on-felt)', color: 'var(--felt)' }}>
+            <span aria-hidden="true" className="pop absolute right-[22px] top-[22px] w-12 h-12 rounded-full grid place-items-center" style={{ background: 'var(--on-felt)', color: 'var(--felt)', animationDelay: '0.12s' }}>
               <Icon name="check" size={26} strokeWidth={3.2} />
             </span>
             <div className="relative text-[13px] font-extrabold">{clean ? 'Solved first try' : 'Solved'}</div>

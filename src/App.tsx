@@ -90,6 +90,8 @@ export default function App() {
         <main className={`flex-1 px-4 pt-3 md:p-6 ${fullScreen ? 'pb-28 md:pb-6' : 'pb-nav'}`}>
           <ErrorBoundary resetKey={location.pathname}>
             <Suspense fallback={<PageSkeleton />}>
+              {/* Each page eases in when you move between sections (not between screens of one page). */}
+              <div key={location.pathname.split('/')[1] ?? ''} className="page-in">
               <Routes>
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/games" element={<Games />} />
@@ -102,6 +104,7 @@ export default function App() {
                 <Route path="/training" element={<Training />} />
                 <Route path="/settings" element={<SettingsPage />} />
               </Routes>
+              </div>
             </Suspense>
           </ErrorBoundary>
         </main>

@@ -214,6 +214,16 @@
   .rise {
     animation: rise 0.2s ease-out both;
   }
+  /* A page arriving: a short fade. Opacity only: a transform would unpin the bars a page fixes to
+     the screen (the review's buttons) for as long as it runs. */
+  @keyframes page-in {
+    from {
+      opacity: 0;
+    }
+  }
+  .page-in {
+    animation: page-in 0.2s ease-out;
+  }
   @keyframes shake {
     0%,
     100% {
@@ -235,6 +245,7 @@
     .pop,
     .pop-wide,
     .rise,
+    .page-in,
     .shake {
       animation: none;
     }
