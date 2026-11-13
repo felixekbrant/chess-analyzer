@@ -190,11 +190,14 @@ function WeaknessCard({
       <div className="flex items-start gap-3">
         <span className="w-9 h-9 rounded-full bg-[var(--panel-2)] grid place-items-center font-extrabold shrink-0">{rank}</span>
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h2 className="font-extrabold text-lg leading-tight">{meta.label}</h2>
-            {isFocus && <span className="chip">this week's focus</span>}
-            <TrendChip trend={s.trend} />
-          </div>
+          {/* The title shares its row with the figure; the chips get a row of their own under it. */}
+          <h2 className="font-extrabold text-lg leading-tight">{meta.label}</h2>
+          {(isFocus || s.trend === 'improving' || s.trend === 'worsening') && (
+            <div className="flex items-center gap-2 flex-wrap mt-1.5">
+              {isFocus && <span className="chip whitespace-nowrap">this week's focus</span>}
+              <TrendChip trend={s.trend} />
+            </div>
+          )}
           <p className="muted text-sm mt-0.5">{meta.about}</p>
         </div>
         {extra !== undefined ? (
