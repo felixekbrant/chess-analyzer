@@ -208,8 +208,7 @@ export function GameCardList({
                   onClick={(e) => openPlain(e, () => onOpen(g))}
                   data-game-id={g.id}
                 >
-                  {/* The result as a thin stripe and a word; your accuracy leads the row. */}
-                  <span className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r" style={{ background: resultColor(g) }} aria-hidden="true" />
+                  {/* Your accuracy leads the row; the result is the word on the right, in its colour. */}
                   <span className="w-12 shrink-0 flex justify-center">
                     <CardStatus g={g} />
                   </span>
