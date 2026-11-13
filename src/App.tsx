@@ -2,10 +2,8 @@ import { Suspense, lazy, useEffect, useState } from 'react';
 import { backfillPeakEval, upgradeStoredAnalyses } from './lib/analysis/upgrade';
 import { backfillPuzzleStakes } from './lib/training/puzzles';
 import { useBackLabel } from './lib/backLink';
-import { db, getSettings, saveSettings } from './db/schema';
+import { db, saveSettings } from './db/schema';
 import { NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
-import { useApplyTheme } from './hooks/useTheme';
-import { useSettings } from './hooks/useStores';
 import { syncManager } from './lib/syncManager';
 import { analysisQueue } from './lib/engine/queue';
 import Dashboard from './pages/Dashboard';
@@ -65,9 +63,7 @@ const TITLES: [RegExp, string][] = [
 const isActive = (item: NavItem, path: string) => (item.match ? item.match.test(path) : item.to === '/' ? path === '/' : path.startsWith(item.to));
 
 export default function App() {
-  const settings = useSettings();
   const location = useLocation();
-  useApplyTheme(settings.theme);
 
   useEffect(() => {
     syncManager.start();
@@ -76,7 +72,7 @@ export default function App() {
     void upgradeStoredAnalyses()
     .then(() => backfillPeakEval())
     .then(() => backfillPuzzleStakes());
-    void adoptDarkLook();
+    void oneTimeChanges();
   }, []);
 
   // A game review is a full-screen view on phones with its own bottom action bar.
@@ -115,13 +111,8 @@ export default function App() {
   );
 }
 
-/** The app's look became dark by default; switch existing installs over once (Settings can change it back). */
-async function adoptDarkLook() {
-  if (!(await db.kv.get('look-v2'))) {
-    const s = await getSettings();
-    if (s.theme === 'system') await saveSettings({ theme: 'dark' });
-    await db.kv.put({ key: 'look-v2', value: true });
-  }
+/** Setting changes made once on existing installs. */
+async function oneTimeChanges() {
   // Solved puzzles now stay on screen until you press Next (it can be switched back on in Settings).
   if (!(await db.kv.get('auto-next-off'))) {
     await saveSettings({ autoNextPuzzle: false });
