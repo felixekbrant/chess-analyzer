@@ -1,6 +1,8 @@
 import { test as base, expect, type BrowserContext, type Page } from '@playwright/test';
 import { SEED_FILE, USERNAME, mockChessCom, openTab, pick, seed } from './helpers';
 import { readFileSync } from 'node:fs';
+import { Chess } from 'chess.js';
+import { SOLUTION_VERSION } from '../src/lib/training/puzzles';
 
 // Click-through tests of the main flows at phone size. Every test starts with an empty browser;
 // most load e2e/fixtures/seed.json (29 analysed games) first. chess.com is answered from fixtures.
@@ -679,6 +681,10 @@ test('puzzles: a wrong move shows in red for a moment, then goes back by itself'
 });
 
 test("Today: a game review counts once you've reached its end, not when you open it", async ({ page }) => {
+  // Today offers games from the last 14 days for review, so "now" is the day after the newest seed
+  // game; on the real date the seed games grow too old and the plan has no review in it.
+  const newest = Math.max(...(JSON.parse(readFileSync(SEED_FILE, 'utf8')).games as { endTime: number }[]).map((g) => g.endTime));
+  await page.clock.setFixedTime(newest + 86_400_000);
   await seed(page);
   await openTab(page, 'Home');
   const today = page.locator('section', { has: page.getByRole('heading', { name: 'Today', exact: true }) });
@@ -811,6 +817,13 @@ test('play from here: a decisive lead ends as converted, and you can keep playin
   expect(saved).toBe(1);
 });
 
+/** The piece placement (first field of a FEN) after playing moves from a position. */
+function placementAfter(fen: string, moves: string[]): string {
+  const c = new Chess(fen);
+  for (const m of moves) c.move({ from: m.slice(0, 2), to: m.slice(2, 4), promotion: m[4] });
+  return c.fen().split(' ')[0];
+}
+
 /** Makes one puzzle the only one due, straight in the app's IndexedDB. */
 function onlyDue(page: Page, id: string) {
   return page.evaluate(
@@ -833,9 +846,10 @@ test('puzzles: a longer puzzle needs your second move too, after their reply', a
   await seed(page);
   // Older puzzles get their longer solutions in the background, a moment after loading.
   await page.goto('./#/training');
-  // A tactic one (not a small positional one, and without the threat question first).
-  const isLong = (p: { solutionUci: string[]; motifs?: string[] }) =>
-    p.solutionUci.length >= 3 && !!p.motifs?.some((m) => m === 'allowed_tactic' || m === 'hung_piece') && !p.motifs.includes('ignored_threat');
+  // A tactic one (not a small positional one, and without the threat question first), whose line
+  // has already been rebuilt: one still waiting may get a longer line after it's read here.
+  const isLong = (p: { solutionUci: string[]; motifs?: string[]; solutionV?: number }) =>
+    p.solutionV === SOLUTION_VERSION && p.solutionUci.length >= 3 && !!p.motifs?.some((m) => m === 'allowed_tactic' || m === 'hung_piece') && !p.motifs.includes('ignored_threat');
   await expect.poll(async () => (await readPuzzles(page)).filter(isLong).length, { timeout: 15000 }).toBeGreaterThan(0);
   const id = (await readPuzzles(page)).find(isLong)!.id;
   // Only that puzzle is due.
@@ -863,15 +877,18 @@ test('puzzles: a longer puzzle needs your second move too, after their reply', a
   );
   await page.waitForTimeout(300);
   expect(await boardPlacement(page, 'puzzle')).toBe(placement);
-  const [mine, reply, second] = current.solutionUci;
-  await clickSquare(page, mine.slice(0, 2));
-  await clickSquare(page, mine.slice(2, 4));
-  // Not solved yet: their reply comes, then it's your move again.
-  await expect(page.getByText(/^Solved/)).toHaveCount(0);
-  await expect.poll(() => page.locator(`[data-square="${reply.slice(2, 4)}"] [id^="puzzle-piece-"]`).count()).toBe(1);
-  await page.waitForTimeout(400);
-  await clickSquare(page, second.slice(0, 2));
-  await clickSquare(page, second.slice(2, 4));
+  // Every move of yours in the line (it may be longer than two). After each but the last: not
+  // solved yet, their reply comes, then it's your move again.
+  const line = current.solutionUci;
+  for (let i = 0; i < line.length; i += 2) {
+    await clickSquare(page, line[i].slice(0, 2));
+    await clickSquare(page, line[i].slice(2, 4));
+    if (i + 1 >= line.length) break;
+    await expect(page.getByText(/^Solved/)).toHaveCount(0);
+    // Wait for the whole position after their reply: the square it lands on may already hold your piece.
+    await expect.poll(() => boardPlacement(page, 'puzzle')).toBe(placementAfter(current.fen, line.slice(0, i + 2)));
+    await page.waitForTimeout(400);
+  }
   await expect(page.getByText(/^Solved/)).toBeVisible();
 });
 
