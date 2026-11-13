@@ -12,6 +12,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     date: '13 Nov 2026',
     items: [
       'Insights shows its key numbers as large figures in tiles, like Weaknesses: accuracy per game phase, time trouble and rushed errors, and how many winning positions you converted and lost ones you saved.',
+      'A game\'s summary has one big button, "Start review", with "Next game" as a link under the others. On the phone, game lists show the result as a word only, without the coloured edge.',
     ],
   },
   {

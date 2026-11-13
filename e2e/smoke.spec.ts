@@ -458,7 +458,7 @@ test('review edges: missing game, end of game, next game, offline message', asyn
   // At the end of a game Next becomes Summary; the summary offers the next game to review.
   await page.goto('./#/games');
   await page.locator('[data-game-id]').first().click();
-  await expect(page.getByRole('button', { name: /^Next game · / })).toBeVisible();
+  await expect(page.getByRole('link', { name: /^Next game · / })).toBeVisible();
   await page.getByRole('button', { name: 'Start review' }).click();
   await page.keyboard.press('ArrowDown');
   await page.getByRole('button', { name: 'Summary', exact: true }).click();

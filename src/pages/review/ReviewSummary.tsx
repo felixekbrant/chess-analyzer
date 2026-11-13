@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/schema';
 import { opponentName } from '../../lib/games/build';
@@ -181,9 +181,13 @@ export function ReviewSummary({
                 </button>
               )}
               {nextGame && (
-                <button className="btn justify-center !py-2.5" onClick={() => navigate(`/game/${encodeURIComponent(nextGame.id)}`)}>
-                  Next game · {opponentName(nextGame)} <Icon name="next" size={16} />
-                </button>
+                // Moving on is not an action on this game: a quiet link under the buttons, not another button.
+                <Link
+                  className="mx-auto inline-flex items-center gap-1 min-h-11 px-2 text-sm font-semibold muted underline underline-offset-2 hover:text-[var(--text)]"
+                  to={`/game/${encodeURIComponent(nextGame.id)}`}
+                >
+                  Next game · {opponentName(nextGame)} <Icon name="next" size={14} />
+                </Link>
               )}
             </div>
 
