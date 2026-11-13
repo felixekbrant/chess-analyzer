@@ -91,7 +91,8 @@ function OpeningCards({ rows }: { rows: OpeningStat[] }) {
         const isOpen = open === r.key;
         return (
           <li key={r.key} className="px-1">
-            <button className="w-full text-left py-2.5 flex items-center gap-3" onClick={() => setOpen(isOpen ? null : r.key)} aria-expanded={isOpen}>
+            {/* At least 44 px tall: a comfortable tap target. */}
+            <button className="w-full text-left min-h-11 py-2.5 flex items-center gap-3" onClick={() => setOpen(isOpen ? null : r.key)} aria-expanded={isOpen}>
               <span className="font-bold leading-snug truncate flex-1 min-w-0">{r.name}</span>
               <span className="muted text-xs tabular-nums shrink-0">
                 {r.games} game{r.games === 1 ? '' : 's'}
