@@ -9,6 +9,12 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: '13 Nov 2026',
+    items: [
+      'Insights shows its key numbers as large figures in tiles, like Weaknesses: accuracy per game phase, time trouble and rushed errors, and how many winning positions you converted and lost ones you saved.',
+    ],
+  },
+  {
     date: '11 Nov 2026',
     items: [
       'A new look for the whole app: dark forest green, with orange for the one thing to do next, mint for what you solved and coral for mistakes. There is one look now, so the light theme and its setting are gone. The board has its own green; your other board colours are still in Settings.',

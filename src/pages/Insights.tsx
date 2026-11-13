@@ -165,10 +165,10 @@ export default function Insights() {
             <Section title="Game phases" id="phases">
               <div className="grid grid-cols-3 gap-2" title="Book moves are excluded. Errors = mistakes and blunders per 100 moves. Share = how much of the win chance you lost happened in that phase.">
                 {data.phases.map((p) => (
-                  <Link key={p.phase} to={`/training?phase=${p.phase}`} className="rounded-lg bg-[var(--panel-2)] p-2.5 text-center hover:brightness-110">
-                    <div className="muted text-xs font-bold capitalize">{p.phase}</div>
-                    <div className="text-xl font-black tabular-nums">{fmtPct(p.accuracy)}</div>
-                    <div className="muted text-[11px] tabular-nums leading-snug">
+                  <Link key={p.phase} to={`/training?phase=${p.phase}`} className="rounded-2xl bg-[var(--panel-2)] p-3 hover:brightness-110 min-w-0">
+                    <div className="muted text-[11px] font-extrabold uppercase tracking-wider truncate">{p.phase}</div>
+                    <div className="font-extrabold text-2xl tabular-nums tracking-tight mt-0.5">{fmtPct(p.accuracy)}</div>
+                    <div className="muted text-[11px] font-semibold tabular-nums leading-snug mt-0.5">
                       {p.errorsPer100.toFixed(1)} errors/100
                       <br />
                       {fmtPct(p.shareOfLoss)} of losses
@@ -366,17 +366,9 @@ export default function Insights() {
           <div id="results" className="grid lg:grid-cols-3 gap-4 scroll-mt-16">
             <Section title="Winning & losing positions">
               <div className="space-y-3 text-sm">
-                <div>
-                  <div className="muted text-xs">Converted winning positions (≈+3)</div>
-                  <div className="text-xl font-bold">
-                    {data.conv.converted} / {data.conv.hadWinning} <span className="text-sm muted">({fmtPct(data.conv.conversionRate)})</span>
-                  </div>
-                </div>
-                <div>
-                  <div className="muted text-xs">Saved lost positions (≈−3)</div>
-                  <div className="text-xl font-bold">
-                    {data.conv.saved} / {data.conv.hadLosing} <span className="text-sm muted">({fmtPct(data.conv.saveRate)})</span>
-                  </div>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <MiniStat label="Winning (≈+3)" value={`${data.conv.converted} of ${data.conv.hadWinning}`} hint={`converted · ${fmtPct(data.conv.conversionRate)}`} />
+                  <MiniStat label="Losing (≈−3)" value={`${data.conv.saved} of ${data.conv.hadLosing}`} hint={`saved · ${fmtPct(data.conv.saveRate)}`} />
                 </div>
                 {thrown.length > 0 && (
                   <div>
@@ -450,10 +442,14 @@ const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 function MiniStat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className="rounded-lg bg-[var(--panel-2)] p-3">
-      <div className="muted text-xs">{label}</div>
-      <div className="text-lg font-bold tabular-nums">{value}</div>
-      {hint && <div className="muted text-xs">{hint}</div>}
+    // The same tile as on Weaknesses: label in small capitals, the figure large.
+    // The figures sit at the bottom, so tiles side by side line up when a label wraps.
+    <div className="rounded-2xl bg-[var(--panel-2)] p-3 min-w-0 flex flex-col">
+      <div className="muted text-[11px] font-extrabold uppercase tracking-wider leading-tight">{label}</div>
+      <div className="mt-auto pt-0.5">
+        <div className="font-extrabold text-2xl tabular-nums tracking-tight">{value}</div>
+        {hint && <div className="muted text-xs font-semibold">{hint}</div>}
+      </div>
     </div>
   );
 }
