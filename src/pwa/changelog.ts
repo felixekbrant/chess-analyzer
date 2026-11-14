@@ -17,6 +17,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       'Buttons that used to spill onto extra rows on the phone fit again: after a puzzle "Full line", "Why it fails" and "Play it out" share one row; after a retry in a review the two lines sit side by side; your last losses have "Train" and the puzzle count together; and the game summary shows its counts as small badges.',
       'On a computer, press ? on the Train tab or in a game review to see its keyboard shortcuts. The Train tab also has a small keyboard button beside Engine, and the review lists them in its menu.',
       'When you solve a puzzle with a different move that is just as good ("Also good!"), the card now shows the move you played, not the one the engine had in mind.',
+      'A lost game\'s "You were +4.9 and let it slip" now shows your real biggest advantage, including one your opponent handed you with a mistake you then missed. It used to count only the positions right after your own moves. More games may now show as thrown ("had +…"), and your games are re-checked once to pick this up.',
     ],
   },
   {

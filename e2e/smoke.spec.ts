@@ -427,16 +427,16 @@ test('thrown games: lost from +3 or better, as a filter, in Insights and as puzz
   await seed(page);
   // The biggest advantage is filled in for restored games in the background.
   await page.goto('./#/games');
-  await expect(page.getByText(/^had \+\d+\.\d$/).filter({ visible: true })).toHaveCount(2, { timeout: 30_000 });
+  await expect(page.getByText(/^had \+\d+\.\d$/).filter({ visible: true })).toHaveCount(5, { timeout: 30_000 });
 
   await pick(page, 'Result', 'Thrown games (lost from +3)');
-  await expect(page.locator('[data-game-id]')).toHaveCount(2);
-  await expect(page.getByText('had +7.5').filter({ visible: true })).toBeVisible();
+  await expect(page.locator('[data-game-id]')).toHaveCount(5);
+  await expect(page.getByText('had +8.1').filter({ visible: true })).toBeVisible();
 
   await page.goto('./#/insights?tab=results');
   await expect(page.getByText('Thrown games · lost from +3 or better')).toBeVisible();
-  await page.getByRole('link', { name: 'All 2' }).click();
-  await expect(page.locator('[data-game-id]')).toHaveCount(2);
+  await page.getByRole('link', { name: 'All 5' }).click();
+  await expect(page.locator('[data-game-id]')).toHaveCount(5);
 
   // Their review says what happened.
   await page.locator('[data-game-id]').first().click();
