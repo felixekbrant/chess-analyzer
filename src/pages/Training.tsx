@@ -42,6 +42,7 @@ import { ClassificationBadge } from '../components/ClassificationBadge';
 import { Icon } from '../components/Icon';
 import { BrandMark } from '../components/BrandMark';
 import { Sheet } from '../components/Sheet';
+import { KeyboardShortcuts, PUZZLE_SHORTCUTS, ShortcutsButton, useShortcutsKey } from '../components/KeyboardShortcuts';
 import { hintText, threatOf } from '../lib/training/hint';
 import { isSmall, puzzlePriority, stakeLabel } from '../lib/training/puzzles';
 import { logPuzzleTry } from '../lib/training/puzzleLog';
@@ -732,6 +733,11 @@ function PuzzleView({
   // The Engine switch sits in the page's top row, beside the filter.
   const [toolsEl, setToolsEl] = useState<HTMLElement | null>(null);
   useEffect(() => setToolsEl(document.getElementById('puzzle-tools')), []);
+  // The keyboard shortcuts, listed: from a small button beside the Engine switch, or with "?".
+  const [keysOpen, setKeysOpen] = useState(false);
+  const openKeys = useStableCallback(() => setKeysOpen(true));
+  const closeKeys = useStableCallback(() => setKeysOpen(false));
+  useShortcutsKey(openKeys);
 
   const toggleEngine = () => {
     if (engine) return setEngine(null);
@@ -967,7 +973,15 @@ function PuzzleView({
             )}
           </div>
         )}
-        {toolsEl && createPortal(<EngineControls open={!!engine} onToggle={toggleEngine} show="toggle" />, toolsEl)}
+        {toolsEl &&
+          createPortal(
+            <>
+              <ShortcutsButton onClick={openKeys} />
+              <EngineControls open={!!engine} onToggle={toggleEngine} show="toggle" />
+            </>,
+            toolsEl,
+          )}
+        <KeyboardShortcuts open={keysOpen} onClose={closeKeys} groups={PUZZLE_SHORTCUTS} />
         {/* The engine's display options and its lines in one card. */}
         {engine && (
           <div className="panel p-3 space-y-2.5">

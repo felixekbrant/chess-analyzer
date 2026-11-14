@@ -37,6 +37,7 @@ import { EngineLines } from '../../components/EngineLines';
 import { ClassificationBadge } from '../../components/ClassificationBadge';
 import { Icon } from '../../components/Icon';
 import { Sheet } from '../../components/Sheet';
+import { KeyboardShortcuts, REVIEW_SHORTCUTS, keyboardOnly, useShortcutsKey } from '../../components/KeyboardShortcuts';
 import {
   ActionBar,
   ActionButton,
@@ -106,6 +107,11 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
   const settings = useSettings();
   const [panelTab, setPanelTab] = useState<'moves' | 'report'>('moves');
   const [menuOpen, setMenuOpen] = useState(false);
+  // The keyboard shortcuts, listed: from the menu, or with "?".
+  const [keysOpen, setKeysOpen] = useState(false);
+  const openKeys = useStableCallback(() => setKeysOpen(true));
+  const closeKeys = useStableCallback(() => setKeysOpen(false));
+  useShortcutsKey(openKeys);
   const navigate = useNavigate();
   // Plays an engine line ("Why it fails", "Best line") move by move.
   const [linePlaying, setLinePlaying] = useState(false);
@@ -620,6 +626,7 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
       <MenuSwitch icon="chart" label="Engine: eval bar" on={settings.showEvalBar} onClick={() => void saveSettings({ showEvalBar: !settings.showEvalBar })} />
       <MenuSwitch icon="engine" label="Engine: suggested moves" on={settings.showSuggestions} onClick={() => void saveSettings({ showSuggestions: !settings.showSuggestions })} />
       {game.url && <MenuItem icon="external" label="Open on chess.com" onClick={() => window.open(game.url, '_blank', 'noopener')} />}
+      <MenuItem icon="keyboard" label="Keyboard shortcuts" onClick={openKeys} className={keyboardOnly} />
       {analysis && game.analysisStatus === 'done' && (
         <MenuItem
           icon="sync"
@@ -729,6 +736,7 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
       <Sheet open={menuOpen} onClose={() => setMenuOpen(false)} title="Review options">
         <div onClick={() => setMenuOpen(false)}>{menuItems}</div>
       </Sheet>
+      <KeyboardShortcuts open={keysOpen} onClose={closeKeys} groups={REVIEW_SHORTCUTS} />
     </div>
   );
 }
@@ -781,9 +789,9 @@ function RepeatNote({ r }: { r: Repeat }) {
   );
 }
 
-function MenuItem({ icon, label, onClick }: { icon: Parameters<typeof Icon>[0]['name']; label: string; onClick: () => void }) {
+function MenuItem({ icon, label, onClick, className = '' }: { icon: Parameters<typeof Icon>[0]['name']; label: string; onClick: () => void; className?: string }) {
   return (
-    <button className="flex items-center gap-3 px-3 py-3 rounded-lg font-semibold text-left hover:bg-[var(--panel-2)]" onClick={onClick}>
+    <button className={`flex items-center gap-3 px-3 py-3 rounded-lg font-semibold text-left hover:bg-[var(--panel-2)] ${className}`} onClick={onClick}>
       <Icon name={icon} />
       {label}
     </button>
