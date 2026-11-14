@@ -205,7 +205,7 @@ test('training: solve a puzzle, reveal the next and see the full line', async ({
 
   // Reveal: show the solution and step through the full line.
   await page.getByRole('button', { name: /Solution/ }).click();
-  await expect(page.getByText(/^Solution:/)).toBeVisible();
+  await expect(page.getByText('The move was', { exact: true })).toBeVisible();
   const full = page.getByRole('button', { name: 'Full line', exact: true });
   if (await full.isVisible()) {
     await full.click();
@@ -338,7 +338,7 @@ test('focus drill: tops up with Lichess puzzles and plays one', async ({ page })
   await expect(page.getByTitle('Lichess puzzle rating')).toBeVisible();
   if (process.env.E2E_SHOTS) await page.screenshot({ path: `${process.env.E2E_SHOTS}/lichess-puzzle.png`, fullPage: true });
   await page.getByRole('button', { name: /Solution/ }).click();
-  await expect(page.getByText(/^Solution:/)).toBeVisible();
+  await expect(page.getByText('The move was', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: /Next puzzle/ }).click();
   // The Lichess puzzle counts towards today's drill.
   await openTab(page, 'Home');

@@ -11,6 +11,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     date: '14 Nov 2026',
     items: [
+      'A puzzle you open the solution for gets a calm card of its own: "The move was", the move, and what comes next. Finishing a set of puzzles ends with the coach, how many you solved first time, and the way back to Home.',
       'Buttons that used to spill onto extra rows on the phone fit again: after a puzzle "Full line", "Why it fails" and "Play it out" share one row; after a retry in a review the two lines sit side by side; your last losses have "Train" and the puzzle count together; and the game summary shows its counts as small badges.',
     ],
   },

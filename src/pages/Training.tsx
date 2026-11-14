@@ -40,6 +40,7 @@ import {
 import { Board } from '../components/Board';
 import { ClassificationBadge } from '../components/ClassificationBadge';
 import { Icon } from '../components/Icon';
+import { BrandMark } from '../components/BrandMark';
 import { Sheet } from '../components/Sheet';
 import { hintText, threatOf } from '../lib/training/hint';
 import { isSmall, puzzlePriority, stakeLabel } from '../lib/training/puzzles';
@@ -60,7 +61,7 @@ const QUIET: Motif[] = ['positional', 'threw_advantage', 'time_trouble', 'rushed
  * with the same puzzle, in the same state (solved, hints used, line open), and the same session.
  */
 const RESUME_MS = 30 * 60_000;
-let pageMemo: { search: string; at: number; skipped: string[]; session: { solved: number; failed: number; streak: number; best: number }; pinned?: string; idea?: string } | null = null;
+let pageMemo: { search: string; at: number; skipped: string[]; session: { solved: number; failed: number; streak: number; best: number; clean?: number }; pinned?: string; idea?: string } | null = null;
 interface PuzzleMemo {
   id: string;
   at: number;
@@ -97,7 +98,7 @@ export default function Training() {
   const [memo] = useState(() => (pageMemo && pageMemo.search === params.toString() && Date.now() - pageMemo.at < RESUME_MS ? pageMemo : null));
   // After a miss: the idea to practise next, in a new position (never the same puzzle again).
   const [idea, setIdea] = useState<string | undefined>(memo?.idea);
-  const [session, setSession] = useState(memo?.session ?? { solved: 0, failed: 0, streak: 0, best: 0 });
+  const [session, setSession] = useState(memo?.session ?? { solved: 0, failed: 0, streak: 0, best: 0, clean: 0 });
   const [skipped, setSkipped] = useState<string[]>(memo?.skipped ?? []);
   const [focusOpen, setFocusOpen] = useState(false);
   const settings = useSettings();
@@ -324,14 +325,17 @@ export default function Training() {
       ) : !puzzles ? (
         <div className="skeleton aspect-square max-w-[560px]" />
       ) : inSession && !current ? (
-        <Section>
-          <EmptyState fen={EMPTY_FENS.mate} title={sess.stage === 'done' ? "Today's puzzles are done" : 'Nothing left in this part'}>
-            Solved {session.solved}, missed {session.failed}. Missed ones come back soon.
-            <Link className="btn btn-primary" to="/">
-              Back to Today
-            </Link>
-          </EmptyState>
-        </Section>
+        session.solved + session.failed > 0 ? (
+          <SessionFinish title={sess.stage === 'done' ? "Today's puzzles are done" : 'Nothing left in this part'} session={session} />
+        ) : (
+          <Section>
+            <EmptyState fen={EMPTY_FENS.mate} title={sess.stage === 'done' ? "Today's puzzles are done" : 'Nothing left in this part'}>
+              <Link className="btn btn-primary" to="/">
+                Back to Home
+              </Link>
+            </EmptyState>
+          </Section>
+        )
       ) : !current && fromGames ? (
         // Done once each: nothing to repeat here; new losses bring new ones.
         <Section>
@@ -346,15 +350,11 @@ export default function Training() {
             </Link>
           </EmptyState>
         </Section>
+      ) : !current && session.solved + session.failed > 0 ? (
+        <SessionFinish title={`All done${focusLabel !== 'All puzzles' ? ` for ${focusLabel}` : ''}`} session={session} />
       ) : !current ? (
         <Section>
           <EmptyState fen={EMPTY_FENS.mate} title={`All done${focusLabel !== 'All puzzles' ? ` for ${focusLabel}` : ''}`}>
-            {session.solved + session.failed > 0 && (
-              <span>
-                Solved {session.solved}, missed {session.failed}
-                {session.best > 1 ? `, best streak ${session.best}` : ''}.
-              </span>
-            )}
             <span>
               Every puzzle is done once, so there's nothing to repeat. New ones come from your next games, and Today's focus drill adds
               new positions on your weak spots.
@@ -397,6 +397,8 @@ export default function Training() {
                 failed: s.failed + (grade === 'again' ? 1 : 0),
                 streak,
                 best: Math.max(s.best, streak),
+                // Solved first time: no wrong move, no hint.
+                clean: (s.clean ?? 0) + (clean ? 1 : 0),
               };
             });
           }}
@@ -408,6 +410,42 @@ export default function Training() {
         />
       )}
     </div>
+  );
+}
+
+/**
+ * The end of a session: the coach, how many you solved first time out of how many you did, and the
+ * way back to Home.
+ */
+function SessionFinish({ title, session }: { title: string; session: { solved: number; failed: number; best: number; clean?: number } }) {
+  const done = session.solved + session.failed;
+  const clean = session.clean ?? 0;
+  const says =
+    clean === done
+      ? 'Every one first time. Well played.'
+      : clean * 2 > done
+        ? 'Most of them first time. Good session.'
+        : 'The ones you missed are done too. Look for their ideas in the next puzzles.';
+  return (
+    <section className="max-w-md mx-auto bg-[var(--panel)] rounded-[24px] p-5 space-y-4" aria-label="Session finished">
+      <div className="flex items-center gap-2.5">
+        <BrandMark size={40} shape="disc" />
+        <p className="bg-[var(--panel-2)] rounded-2xl rounded-bl-[4px] px-3 py-2 text-sm font-semibold leading-snug">{says}</p>
+      </div>
+      <div>
+        <h2 className="font-extrabold text-lg">{title}</h2>
+        {/* The headline is the number itself. */}
+        <div className="font-extrabold text-[44px] leading-none tracking-tight tabular-nums mt-2" style={{ color: clean ? 'var(--felt)' : undefined }}>
+          {clean} of {done}
+        </div>
+        <div className="muted text-sm font-semibold mt-1">
+          solved first time{session.best > 1 ? ` · best streak ${session.best}` : ''}
+        </div>
+      </div>
+      <Link className="btn btn-primary w-full justify-center !py-3.5 !text-base" to="/">
+        Back to Home
+      </Link>
+    </section>
   );
 }
 
@@ -788,10 +826,6 @@ function PuzzleView({
       <span style={{ color: 'var(--loss-ink)' }}>✗ {note}</span>
     ) : state === 'solved' ? (
       <span style={{ color: 'var(--felt-ink)' }}>✔ {note}</span>
-    ) : state === 'revealed' ? (
-      <span>
-        Solution: <b>{solutionSan.join(' ')}</b>
-      </span>
     ) : (
       <span className="inline-flex items-center gap-2">
         <KingIcon white={toMove === 'white'} />
@@ -902,8 +936,22 @@ function PuzzleView({
             </p>
           </div>
         )}
+        {/* Missed ("Solution"): a card in the same shape, on a calm surface. Not a punishment: the move,
+            and what comes next. */}
+        {!engine && state === 'revealed' && (
+          <div key="missed" role="status" className="pop-wide rounded-[24px] px-[18px] py-4 flex flex-col gap-1.5 bg-[var(--panel-2)]">
+            <div className="text-[13px] font-extrabold muted">The move was</div>
+            <div className="font-extrabold text-[40px] leading-none tracking-tight">{solutionSan[0]}</div>
+            {solutionSan.length > 1 && <div className="muted text-sm font-semibold">The line: {solutionSan.join(' ')}</div>}
+            <p className="text-[15px] font-semibold leading-snug">
+              {missedNote ??
+                ([stakeLabel(puzzle) && `${stakeLabel(puzzle)}.`, puzzle.playedSan && !puzzle.lichess && `In your game you played ${puzzle.playedSan}.`].filter(Boolean).join(' ') ||
+                  'Every puzzle is done once: the next one is a new position.')}
+            </p>
+          </div>
+        )}
         {/* Otherwise the state of the puzzle as a banner: neutral, or a red shake when wrong. */}
-        {!engine && state !== 'solved' && (
+        {!engine && state !== 'solved' && state !== 'revealed' && (
           <div
             key={`${state}-${mistakes}`}
             className={`rounded-2xl px-3.5 py-3 text-sm font-bold ${state === 'wrong' ? 'shake' : ''}`}
