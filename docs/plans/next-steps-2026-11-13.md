@@ -289,6 +289,12 @@ move, that move becomes the recommendation.
 Done when: the owner has the measurements, has answered, and (if yes) a unit test covers the new
 path and a phone run of the smoke tests is no slower than before.
 
+**Decided 14 Nov 2026: not built.** Measured on the 88 mistake positions (Stockfish 19 lite, one
+thread, Apple M3): the depth-22 best move differed in 10, by half a pawn or more in 3 (each about 3
+win-chance points), and `betterLine` as written would have changed 2. It cost about 11 s per game
+(median; mean 16 s, max 62 s), against 13 to 17 s for the normal analysis of a whole game. The owner
+chose to skip it. Do not propose it again.
+
 ### Step 6. Check that what the app says is right
 
 These are audits. Each produces a list of concrete faults, then fixes, then tests for the fixes.
@@ -369,6 +375,8 @@ Do not ask about these again, and do not undo them.
 - The eval display uses chess.com's scale (11.25% per pawn, capped at 95%).
 - Analysis stays as fast as it is on phones, even at the cost of small differences between
   devices.
+- No deeper second look at mistake positions on laptops either (step 5, measured and declined on
+  14 Nov 2026).
 
 ## 7. Things that are not known
 
