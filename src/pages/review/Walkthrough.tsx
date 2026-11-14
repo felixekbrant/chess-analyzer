@@ -891,19 +891,20 @@ function Coach({
         )}
         {(retry.state === 'right' || retry.state === 'shown') && (onRetryBest || onRetryRefute || onRetryPlay) && (
           // As after a puzzle: the lines to step through, with the arrows or the buttons below the board.
+          // The two lines side by side, playing on under them. Plain buttons: "Continue" in the bar is the main one.
           <div className="flex flex-wrap gap-2 mt-2.5">
             {onRetryBest && (
-              <button className="btn !py-1.5 !text-sm" onClick={onRetryBest}>
-                <Icon name="play" size={14} /> See the full line
+              <button className="btn flex-1 justify-center whitespace-nowrap !px-2.5 !py-1.5 !text-sm" title="See the full line" onClick={onRetryBest}>
+                <Icon name="play" size={14} /> Full line
               </button>
             )}
             {onRetryRefute && (
-              <button className="btn !py-1.5 !text-sm" onClick={onRetryRefute}>
-                <Icon name="play" size={14} /> What {m.san} allowed
+              <button className="btn flex-1 justify-center whitespace-nowrap !px-2.5 !py-1.5 !text-sm" title={`What ${m.san} allowed`} onClick={onRetryRefute}>
+                <Icon name="play" size={14} /> Why it fails
               </button>
             )}
             {onRetryPlay && (
-              <button className="btn btn-primary !py-1.5 !text-sm" onClick={onRetryPlay}>
+              <button className="btn basis-full justify-center !py-1.5 !text-sm" onClick={onRetryPlay}>
                 <Icon name="engine" size={14} /> Play on from here
               </button>
             )}

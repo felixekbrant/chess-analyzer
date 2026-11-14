@@ -992,20 +992,22 @@ function PuzzleView({
 
         {/* Once it's done: the lines and playing on, under "Next puzzle" so that button never moves out of reach. */}
         {!engine && !threatAsk && done && !lineView && lines && (lines.best || lines.refute) && (
-          <div className="flex flex-wrap gap-2">
+          // Short labels, so all three fit on one row on a phone; the full meaning is in each tooltip.
+          <div className="flex gap-2">
             {lines.best && (
-              <button className="btn !py-2 !text-sm" onClick={() => setLineView({ kind: 'best', index: 1 })}>
-                <Icon name="play" size={14} /> See the full line
+              <button className="btn flex-1 justify-center whitespace-nowrap !px-2.5 !py-2 !text-sm" title="See the full line" onClick={() => setLineView({ kind: 'best', index: 1 })}>
+                <Icon name="play" size={14} /> Full line
               </button>
             )}
             {lines.refute && (
-              <button className="btn !py-2 !text-sm" onClick={() => setLineView({ kind: 'refute', index: 0 })}>
-                <Icon name="play" size={14} /> What {puzzle.playedSan} allowed
+              <button className="btn flex-1 justify-center whitespace-nowrap !px-2.5 !py-2 !text-sm" title={`What ${puzzle.playedSan} allowed`} onClick={() => setLineView({ kind: 'refute', index: 0 })}>
+                <Icon name="play" size={14} /> Why it fails
               </button>
             )}
             {/* Solving it is the start: play on until the win is in the bag. */}
             <Link
-              className="btn !py-2 !text-sm"
+              className="btn flex-1 justify-center whitespace-nowrap !px-2.5 !py-2 !text-sm"
+              title="Play on against the engine from the end of the solution"
               to={playHref(playUci(puzzle.fen, puzzle.solutionUci).fens.at(-1) ?? puzzle.fen, puzzle.fen.split(' ')[1] as Color, `puzzle:${puzzle.id}`)}
               state={backTo('puzzle')}
             >

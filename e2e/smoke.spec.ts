@@ -117,9 +117,9 @@ test('game review: summary, walkthrough and the line viewer', async ({ page }) =
   await expect(page.getByRole('button', { name: 'Start review' })).toBeVisible();
   await expect(page.getByText('accuracy').first()).toBeVisible();
 
-  // Find a game with a mistake of the user's: try games until "Retry mistakes (n>0)" is enabled.
+  // Find a game with a mistake of the user's: try games until "Retry mistakes n" (n > 0) is enabled.
   for (let i = 0; ; i++) {
-    if (await page.getByRole('button', { name: /Retry mistakes \(([1-9]\d*)\)/ }).isEnabled().catch(() => false)) break;
+    if (await page.getByRole('button', { name: /^Retry mistakes [1-9]\d*$/ }).isEnabled().catch(() => false)) break;
     expect(i, 'a fixture game with mistakes').toBeLessThan(10);
     await page.goBack();
     await games.nth(i + 1).click();
@@ -206,7 +206,7 @@ test('training: solve a puzzle, reveal the next and see the full line', async ({
   // Reveal: show the solution and step through the full line.
   await page.getByRole('button', { name: /Solution/ }).click();
   await expect(page.getByText(/^Solution:/)).toBeVisible();
-  const full = page.getByRole('button', { name: 'See the full line' });
+  const full = page.getByRole('button', { name: 'Full line', exact: true });
   if (await full.isVisible()) {
     await full.click();
     await expect(page.getByText(/^The full line after/)).toBeVisible();
@@ -736,7 +736,7 @@ test('puzzles: open the game, then back to the puzzle where you left it', async 
   await openTab(page, 'Train');
   await expect(page.getByText(/to move$/)).toBeVisible();
   await page.getByRole('button', { name: /Solution/ }).click();
-  await page.getByRole('button', { name: /See the full line/ }).click();
+  await page.getByRole('button', { name: 'Full line', exact: true }).click();
   const line = (await page.locator('#puzzle-line').textContent())!;
   await page.getByRole('link', { name: /Open game/ }).click();
   // The review says where back goes.
@@ -753,12 +753,12 @@ test('review: after a retry, step through the lines and come back to it', async 
   await page.getByRole('link', { name: /Open game/ }).click();
   await page.getByRole('button', { name: 'Retry', exact: true }).filter({ visible: true }).click();
   await page.getByRole('button', { name: 'Show', exact: true }).filter({ visible: true }).click();
-  await page.getByRole('button', { name: 'See the full line' }).filter({ visible: true }).click();
+  await page.getByRole('button', { name: 'Full line', exact: true }).filter({ visible: true }).click();
   await expect(page.getByText(/^The full line after /).filter({ visible: true })).toBeVisible();
   await page.keyboard.press('ArrowRight');
   // Closing the line goes back to the finished retry, with its other line.
   await page.keyboard.press('Escape');
-  await expect(page.getByRole('button', { name: /^What .+ allowed$/ }).filter({ visible: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Why it fails', exact: true }).filter({ visible: true })).toBeVisible();
   await expect(page.getByText(/^The best move was /).filter({ visible: true })).toBeVisible();
 });
 
@@ -978,7 +978,7 @@ test('weaknesses: a deep look at your last losses, with what to focus on and the
   await expect(page.getByRole('button', { name: 'Back to your losses' }).filter({ visible: true })).toBeVisible();
   await page.getByRole('button', { name: 'Back to your losses' }).filter({ visible: true }).click();
   // Puzzles from those games.
-  await page.getByRole('link', { name: /Puzzles from these losses \(\d+\)/ }).click();
+  await page.getByRole('link', { name: /^\d+ puzzles?$/ }).click();
   await expect(page.getByRole('button', { name: /From your last losses/ })).toBeVisible();
   // Each is done once: once finished, it's marked done and won't come back.
   await expect(page.getByText(/to move$/)).toBeVisible();

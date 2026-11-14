@@ -165,11 +165,12 @@ export function ReviewSummary({
                 Start review
               </button>
               <div className="grid grid-cols-2 gap-2">
-                <button className="btn justify-center !py-2.5" onClick={() => onStart({ keyOnly: true })} disabled={!keyCount}>
-                  <Icon name="star" size={16} /> Key moments ({keyCount})
+                {/* The counts as small badges, so each label stays on one line on a small phone. */}
+                <button className="btn justify-center whitespace-nowrap !px-2.5 !py-2.5" onClick={() => onStart({ keyOnly: true })} disabled={!keyCount}>
+                  <Icon name="star" size={16} /> Key moments <CountBadge n={keyCount} />
                 </button>
-                <button className="btn justify-center !py-2.5" onClick={() => onStart({ retry: true })} disabled={!errorCount}>
-                  <Icon name="retry" size={16} /> Retry mistakes ({errorCount})
+                <button className="btn justify-center whitespace-nowrap !px-2.5 !py-2.5" onClick={() => onStart({ retry: true })} disabled={!errorCount}>
+                  <Icon name="retry" size={16} /> Retry mistakes <CountBadge n={errorCount} />
                 </button>
               </div>
               {playFrom && (
@@ -284,4 +285,9 @@ function MoveBreakdown({ analysis, me }: { analysis: GameAnalysis; me: Color }) 
       </div>
     </div>
   );
+}
+
+/** A count on a button, in a small round badge. */
+function CountBadge({ n }: { n: number }) {
+  return <span className="min-w-5 h-5 px-1.5 rounded-full bg-[var(--panel)] text-xs font-extrabold tabular-nums inline-grid place-items-center">{n}</span>;
 }

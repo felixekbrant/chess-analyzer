@@ -163,8 +163,9 @@ export default function Losses() {
             </Link>
           )}
           {toDo > 0 ? (
-            <Link className="btn !py-2 !text-sm" to={`/training?games=${encodeURIComponent(lossIds)}`}>
-              <Icon name="retry" size={16} /> Puzzles from these losses ({toDo})
+            // Short, so it shares a row with Train on a phone; the card already says they're from these losses.
+            <Link className="btn !py-2 !text-sm" title="Puzzles from these losses" to={`/training?games=${encodeURIComponent(lossIds)}`}>
+              <Icon name="retry" size={16} /> {toDo} puzzle{toDo === 1 ? '' : 's'}
             </Link>
           ) : lossPuzzles?.length ? (
             <span className="muted text-sm self-center">Puzzles from these losses: all done. New losses bring new ones.</span>
