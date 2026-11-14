@@ -16,6 +16,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       'A puzzle you open the solution for gets a calm card of its own: "The move was", the move, and what comes next. Finishing a set of puzzles ends with the coach, how many you solved first time, and the way back to Home.',
       'Buttons that used to spill onto extra rows on the phone fit again: after a puzzle "Full line", "Why it fails" and "Play it out" share one row; after a retry in a review the two lines sit side by side; your last losses have "Train" and the puzzle count together; and the game summary shows its counts as small badges.',
       'On a computer, press ? on the Train tab or in a game review to see its keyboard shortcuts. The Train tab also has a small keyboard button beside Engine, and the review lists them in its menu.',
+      'When you solve a puzzle with a different move that is just as good ("Also good!"), the card now shows the move you played, not the one the engine had in mind.',
     ],
   },
   {

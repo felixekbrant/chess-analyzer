@@ -77,6 +77,7 @@ interface PuzzleMemo {
   peeked: boolean;
   lineView: { kind: 'best' | 'refute'; index: number } | null;
   startedAt: number;
+  foundSan?: string;
 }
 let puzzleMemo: PuzzleMemo | null = null;
 
@@ -527,6 +528,8 @@ function PuzzleView({
   const takeBack = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(takeBack.current), []);
   const [note, setNote] = useState(resume?.note ?? '');
+  // The first move you found, when it isn't the stored one ("Also good!", or another mate): the solved card's headline.
+  const [foundSan, setFoundSan] = useState<string | undefined>(resume?.foundSan);
   const started = useRef(resume?.startedAt ?? Date.now());
   const settings = useSettings();
   // The engine: free moves from the position on the board, with live analysis. Opening it before the
@@ -583,8 +586,8 @@ function PuzzleView({
   const [lineView, setLineView] = useState<{ kind: 'best' | 'refute'; index: number } | null>(resume?.lineView ?? null);
   useEffect(() => {
     if (!finished.current)
-      puzzleMemo = { id: puzzle.id, at: Date.now(), fen, step, state, mistakes, hintLevel, lastMove, marker, note, peeked, lineView, startedAt: started.current };
-  }, [puzzle.id, fen, step, state, mistakes, hintLevel, lastMove, marker, note, peeked, lineView]);
+      puzzleMemo = { id: puzzle.id, at: Date.now(), fen, step, state, mistakes, hintLevel, lastMove, marker, note, peeked, lineView, startedAt: started.current, foundSan };
+  }, [puzzle.id, fen, step, state, mistakes, hintLevel, lastMove, marker, note, peeked, lineView, foundSan]);
   const shownLine = lineView && lines ? lines[lineView.kind] : undefined;
   const lineFen = useMemo(
     () => (shownLine && lineView ? (lineView.index ? playUci(shownLine.start, shownLine.uci.slice(0, lineView.index)).fens.at(-1) : shownLine.start) : undefined),
@@ -645,6 +648,7 @@ function PuzzleView({
     setMarker(undefined);
     // Any mate is as good as the stored one.
     if (c.isCheckmate()) {
+      if (step === 0) setFoundSan(c.history()[0]);
       apply(uci);
       solved(uci, mistakes || hint ? 'Solved.' : 'Correct!');
       return true;
@@ -672,6 +676,7 @@ function PuzzleView({
         // there), except in a mating puzzle, where the point is the mate.
         if ((puzzle.solutionUci.length === 1 || puzzle.stake?.mate !== 'missed') && win >= puzzle.bestWin - 3) {
           setAttempt(null);
+          if (step === 0) setFoundSan(c.history()[0]);
           apply(uci);
           solved(uci, step > 0 ? 'Also good! That keeps the win just as well.' : 'Also good! The engine rates this about as highly as its own choice.');
         } else {
@@ -933,7 +938,7 @@ function PuzzleView({
               <Icon name="check" size={26} strokeWidth={3.2} />
             </span>
             <div className="relative text-[13px] font-extrabold">{clean ? 'Solved first try' : 'Solved'}</div>
-            <div className="relative font-extrabold text-[40px] leading-none tracking-tight">{solutionSan[0]}!</div>
+            <div className="relative font-extrabold text-[40px] leading-none tracking-tight">{foundSan ?? solutionSan[0]}!</div>
             <p className="relative text-[15px] font-semibold leading-snug max-w-[250px]">
               {/* A note about the move you found ("Also good!"), else what it was worth and what you played in the game. */}
               {note && note !== 'Solved.' && note !== 'Correct!'
