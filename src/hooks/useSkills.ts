@@ -6,6 +6,8 @@ import { skillProfile, type SkillProfile } from '../lib/insights/skills';
 import { userElo } from '../lib/games/build';
 import { EMPTY_FOCUS, rankAreas, updateFocus, type AreaRank, type FocusStore } from '../lib/training/focus';
 import { FOCUS_KEY } from '../lib/training/today';
+import { ANALYSIS_MODEL } from '../lib/analysis/analyzeGame';
+import { ANALYSIS_MODEL_KEY } from '../lib/analysis/upgrade';
 import type { StoredGame } from '../lib/types';
 
 /** Fewer analysed games than this and the profile is too noisy to act on. */
@@ -55,6 +57,9 @@ export function currentRating(games: StoredGame[], timeClass: string): number | 
  */
 export function useSkills(games: StoredGame[], ag: AnalyzedGame[], manageFocus = true): SkillsData {
   const stored = useLiveQuery(async () => ((await db.kv.get(FOCUS_KEY))?.value as FocusStore | undefined) ?? EMPTY_FOCUS, [], undefined);
+  // Stored analyses are rebuilt in the background when the rules change: a focus picked meanwhile
+  // would come from the old grading and then stick for a week.
+  const upToDate = useLiveQuery(async () => (await db.kv.get(ANALYSIS_MODEL_KEY))?.value === ANALYSIS_MODEL, [], false);
   const data = useMemo(() => {
     const timeClass = mainTimeClass(games);
     // Costs differ a lot between bullet and rapid, so the profile sticks to one time class when
@@ -67,7 +72,7 @@ export function useSkills(games: StoredGame[], ag: AnalyzedGame[], manageFocus =
   }, [games, ag]);
 
   useEffect(() => {
-    if (!manageFocus || !stored || !data.ready) return;
+    if (!manageFocus || !stored || !data.ready || !upToDate) return;
     if (updateFocus(stored, data.ranked, data.ag) === stored) return;
     // Update what's stored now, not the copy read earlier: a focus you just picked yourself
     // ("Change") must not be overwritten by an update computed from the old one.
@@ -76,7 +81,7 @@ export function useSkills(games: StoredGame[], ag: AnalyzedGame[], manageFocus =
       const next = updateFocus(latest, data.ranked, data.ag);
       if (next !== latest) await db.kv.put({ key: FOCUS_KEY, value: next });
     });
-  }, [stored, data, manageFocus]);
+  }, [stored, data, manageFocus, upToDate]);
 
   return { ...data, focus: stored ?? EMPTY_FOCUS };
 }

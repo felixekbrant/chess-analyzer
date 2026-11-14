@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { mockChessCom, seed } from './helpers';
+import { mockChessCom, seed, upgraded } from './helpers';
 
 // Reference screenshots of the main screens (phone, dark), so a later change can't quietly break
 // the look. The clock is fixed so relative dates ("Friday", "Synced 19 h ago") don't change, and
@@ -14,6 +14,7 @@ async function ready(page: Page) {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await mockChessCom(page.context());
   await seed(page);
+  await upgraded(page);
   // Let the post-restore work (model check, biggest-advantage fill-in) finish, and clear the notice.
   await page.goto('./#/games');
   await expect(page.getByText(/^had \+/).filter({ visible: true }).first()).toBeVisible({ timeout: 30_000 });

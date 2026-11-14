@@ -14,21 +14,26 @@ export interface IdeaOptions {
   forcing?: boolean;
   /** Leave out the material won along the line (said elsewhere). */
   noGain?: boolean;
+  /** For a reply: the square the move before it captured on, so taking back there is said as such. */
+  recaptureOn?: string;
+  /** For a reply: the position before the move it answers, so material is counted from there (a recapture wins nothing back). */
+  gainFrom?: string;
 }
 
-/** "a pawn", "2 points", "a piece", "a rook", "a queen" (2 points is often the exchange). */
+/** "a pawn", "2 points", "a piece", "a rook", "a queen", "more than a queen" (2 points is often the exchange). */
 export function materialWord(n: number): string {
-  return n >= 9 ? 'a queen' : n >= 5 ? 'a rook' : n >= 3 ? 'a piece' : n >= 2 ? `${Math.round(n)} points` : 'a pawn';
+  return n >= 12 ? 'more than a queen' : n >= 9 ? 'a queen' : n >= 5 ? 'a rook' : n >= 3 ? 'a piece' : n >= 2 ? `${Math.round(n)} points` : 'a pawn';
 }
 
 const uciMove = (u: string) => ({ from: u.slice(0, 2), to: u.slice(2, 4), promotion: u[4] || undefined });
 
-/** "your bishop on e5", "their rook on a8", "their queen" (a queen or king needs no square). */
+/** "your bishop on e5", "their rook on a8", "their queen" (a queen or king needs no square, and
+ *  "undefended" says nothing about a queen: attacked, it has to move anyway). */
 function nameOf(type: string, square: string, owner: Color, me: Color, undefended = false): string {
   const whose = owner === me ? 'your' : 'their';
   const piece = PIECE_NAME[type];
   if (type === 'k') return `${whose} king`;
-  return `${whose} ${undefended ? 'undefended ' : ''}${piece}${type === 'q' ? '' : ` on ${square}`}`;
+  return `${whose} ${undefended && type !== 'q' ? 'undefended ' : ''}${piece}${type === 'q' ? '' : ` on ${square}`}`;
 }
 
 function listWords(xs: string[]): string {
@@ -40,10 +45,13 @@ function listWords(xs: string[]): string {
 
 const PLURAL: Record<string, string> = { p: 'pawns', n: 'knights', b: 'bishops', r: 'rooks', q: 'queens' };
 
-/** Material the mover wins along the line, judged where it's quiet (not right after a capture), and the moves up to there. */
-function lineGain(fen: string, line: string[], mover: Color): { gain: number; sans: string[] } {
+/**
+ * Material the mover wins along the line, judged where it's quiet (not right after a capture), and
+ * the moves up to there. Counted from `from` when given (the position before the move being answered).
+ */
+function lineGain(fen: string, line: string[], mover: Color, from = fen): { gain: number; sans: string[] } {
   const c = new Chess(fen);
-  const start = materialBalance(fen, mover);
+  const start = materialBalance(from, mover);
   const fens: string[] = [];
   const moves: Move[] = [];
   for (const u of line.slice(0, 7)) {
@@ -104,7 +112,13 @@ export function moveIdea(fen: string, line: string[], me: Color, opts: IdeaOptio
   const check = mv.san.includes('+');
   let gainSaid = 0;
 
-  if (mv.captured) {
+  // Capturing something that can simply be taken back: the other side will, so what the capturing
+  // piece attacks from there doesn't count.
+  let traded = false;
+  if (mv.captured && opts.recaptureOn === mv.to) {
+    // Taking back what the move before it took: no material won, whatever was captured.
+    clauses.push(`takes back on ${mv.to}`);
+  } else if (mv.captured) {
     const recapture = attackersOf(after, mv.to, opp).length > 0;
     const victim = nameOf(mv.captured, mv.to, opp, me);
     if (!recapture) {
@@ -113,14 +127,19 @@ export function moveIdea(fen: string, line: string[], me: Color, opts: IdeaOptio
     } else if (PIECE_VALUE[mv.captured] > PIECE_VALUE[mv.piece]) {
       clauses.push(`wins ${victim} for ${mv.piece === 'p' ? 'a pawn' : `a ${PIECE_NAME[mv.piece]}`}`);
       gainSaid = PIECE_VALUE[mv.captured] - PIECE_VALUE[mv.piece];
-    } else if (mv.captured === mv.piece && mv.piece !== 'p') clauses.push(`trades ${PLURAL[mv.piece]}`);
-    else clauses.push(`takes ${victim}`);
+    } else if (mv.captured === mv.piece && mv.piece !== 'p' && (line.length < 2 || line[1].slice(2, 4) === mv.to)) {
+      // A trade only when the line takes back: when it doesn't, not being able to is the point.
+      clauses.push(`trades ${PLURAL[mv.piece]}`);
+      traded = true;
+    } else clauses.push(`takes ${victim}`);
   }
   if (mv.promotion) clauses.push(`promotes to a ${PIECE_NAME[mv.promotion]}`);
 
   // The king first, then the most valuable.
   const forked = forkTargets(after, mv.to, opp).sort((a, b) => (b.type === 'k' ? 99 : PIECE_VALUE[b.type]) - (a.type === 'k' ? 99 : PIECE_VALUE[a.type]));
-  if (forked.length >= 2) {
+  if (traded) {
+    // Nothing: after the recapture the capturing piece is gone.
+  } else if (forked.length >= 2) {
     // "forks their king and rook on h1": the owner said once.
     clauses.push(`forks ${listWords(forked.map((f, i) => nameOf(f.type, f.square, opp, me).replace(i ? /^(your|their) / : /^$/, '')))}`);
   } else {
@@ -137,7 +156,9 @@ export function moveIdea(fen: string, line: string[], me: Color, opts: IdeaOptio
         if (fresh.length) {
           const t = fresh[0];
           const undefended = attackersOf(again, t.to, opp).length === 0;
-          clauses.push(`attacks ${nameOf(t.captured!, t.to, opp, me, undefended)}`);
+          // Another piece's attack, opened by moving out of its way: a discovered attack.
+          const uncovered = !fresh.some((f) => f.to === t.to && f.from === mv.to) && !mv.flags.includes('k') && !mv.flags.includes('q');
+          clauses.push(`${uncovered ? 'uncovers an attack on' : 'attacks'} ${nameOf(t.captured!, t.to, opp, me, undefended)}`);
         }
       }
     }
@@ -169,7 +190,8 @@ export function moveIdea(fen: string, line: string[], me: Color, opts: IdeaOptio
     const backRank = mover === 'w' ? '1' : '8';
     const king = piecesOf(fen, mover).find((p) => p.type === 'k');
     if (mv.flags.includes('k') || mv.flags.includes('q')) clauses.push(`castles, bringing ${kingSide} king to safety`);
-    else if (mv.piece === 'p' && king && boxedIn(fen, king.square, mover) && Math.abs(mv.from.charCodeAt(0) - king.square.charCodeAt(0)) <= 1)
+    // Not with check: then the check is the point.
+    else if (!check && mv.piece === 'p' && king && boxedIn(fen, king.square, mover) && Math.abs(mv.from.charCodeAt(0) - king.square.charCodeAt(0)) <= 1)
       clauses.push(`gives ${kingSide} king an escape square`);
     else if (mv.piece === 'p' && isPassed(after, mv.to, mover)) clauses.push('pushes the passed pawn');
     else if (opts.phase === 'opening' && (mv.piece === 'n' || mv.piece === 'b') && mv.from[1] === backRank) clauses.push(`develops the ${PIECE_NAME[mv.piece]}`);
@@ -183,7 +205,7 @@ export function moveIdea(fen: string, line: string[], me: Color, opts: IdeaOptio
   clauses.splice(2);
 
   if (!opts.noGain) {
-    const { gain, sans } = lineGain(fen, line, mover);
+    const { gain, sans } = lineGain(fen, line, mover, opts.gainFrom);
     if (gain >= 1 && gain >= gainSaid + 1)
       clauses.push(clauses.length ? `in the end wins ${materialWord(gain)}` : `starts a line that wins ${materialWord(gain)} (${sans.join(' ')})`);
   }

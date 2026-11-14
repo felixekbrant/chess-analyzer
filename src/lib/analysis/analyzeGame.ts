@@ -35,7 +35,7 @@ import { materialWord, moveIdea } from './explain';
 export const THRESHOLDS = { excellent: 2, good: 5, inaccuracy: 10, mistake: 20 } as const;
 
 /** Bumped whenever classification or accuracy changes, so stored analyses get rebuilt. */
-export const ANALYSIS_MODEL = 6;
+export const ANALYSIS_MODEL = 7;
 
 export function phaseOf(fen: string, ply: number): Phase {
   if (nonPawnMaterial(fen) <= 26) return 'endgame';
@@ -184,10 +184,14 @@ export function classify(c: ClassifyInput): Classification {
   // chess.com: a Miss is failing to cash in on the opponent's mistake. It replaces mistake or
   // blunder as long as you are not worse off than before their error.
   const opponentJustErred = c.prevWinLoss >= THRESHOLDS.inaccuracy;
-  if (winLoss >= THRESHOLDS.good && opponentJustErred && winBefore >= 60 && winAfter >= 35) return 'miss';
-  if (winLoss >= THRESHOLDS.mistake) return 'blunder';
-  if (winLoss >= THRESHOLDS.inaccuracy) return 'mistake';
-  if (winLoss >= THRESHOLDS.good) return 'inaccuracy';
+  // The engine's own first choice is never an error: a drop in the score after it is the next
+  // search seeing further, not something you could have done better.
+  if (!isBest) {
+    if (winLoss >= THRESHOLDS.good && opponentJustErred && winBefore >= 60 && winAfter >= 35) return 'miss';
+    if (winLoss >= THRESHOLDS.mistake) return 'blunder';
+    if (winLoss >= THRESHOLDS.inaccuracy) return 'mistake';
+    if (winLoss >= THRESHOLDS.good) return 'inaccuracy';
+  }
 
   if (winLoss < THRESHOLDS.excellent && isSacrifice(ply) && winAfter >= 50 && winBefore < 97) return 'brilliant';
 
@@ -232,6 +236,9 @@ interface MotifInput {
   replyUci: string[];
   phase?: Phase;
 }
+
+/** Whether the move captured something (en passant included). */
+const readonlyCapture = (p: ParsedPly) => p.san.includes('x');
 
 const mateFor = (s: Score, c: Color) => s.kind === 'mate' && (c === 'w' ? s.v > 0 : s.v < 0);
 
@@ -306,13 +313,20 @@ export function detectMotifs(x: MotifInput): { motifs: Motif[]; explanation: str
       }
     }
     if (!motifs.includes('hung_piece') && !motifs.includes('ignored_threat')) {
-      const forked = forkTargets(reply.fens[0], r1.to, me);
+      // The king first, then the most valuable, as elsewhere ("forks your king and rook").
+      const forked = forkTargets(reply.fens[0], r1.to, me).sort((a, b) => (b.type === 'k' ? 99 : PIECE_VALUE[b.type]) - (a.type === 'k' ? 99 : PIECE_VALUE[a.type]));
+      const queens = reply.moves.slice(0, plies).findIndex((m) => m.color === opp && m.promotion);
       if (forked.length >= 2) {
         motifs.push('allowed_fork');
         notes.push(`${r1.san} forks your ${forked.map((f) => PIECE_NAME[f.type]).join(' and ')}.`);
+      } else if (queens >= 0) {
+        // The material is a new queen: say that, not a sum of points.
+        motifs.push('allowed_tactic');
+        notes.push(`This lets their ${reply.moves[queens].from[0]}-pawn queen: ${reply.sans.slice(0, queens + 1).join(' ')}.`);
       } else {
         motifs.push('allowed_tactic');
-        notes.push(`After ${reply.sans.slice(0, plies).join(' ')} you lose material (${lost} points).`);
+        const word = materialWord(lost);
+        notes.push(`After ${reply.sans.slice(0, plies).join(' ')} you lose ${word.endsWith('points') ? `${word} of material` : word}.`);
       }
     }
   }
@@ -330,10 +344,15 @@ export function detectMotifs(x: MotifInput): { motifs: Motif[]; explanation: str
       const tookAnyway = Math.max(0, materialBalance(p.fenAfter, me) - balBefore);
       if (gained - tookAnyway >= 2 && lost < 2) {
         motifs.push('missed_win');
-        const idea = moveIdea(p.fenBefore, x.bestUci, me, { phase: x.phase, noGain: true });
+        // Won by queening a pawn: that is the idea, whatever the first move takes or attacks.
+        const queens = best.moves.slice(0, n).findIndex((m) => m.color === me && m.promotion);
+        if (queens >= 0) {
+          notes.push(`${best.sans[0]} would have let your ${best.moves[queens].from[0]}-pawn queen (${best.sans.slice(0, queens + 1).join(' ')}).`);
+        }
+        const idea = queens >= 0 ? undefined : moveIdea(p.fenBefore, x.bestUci, me, { phase: x.phase, noGain: true });
         // "Bxg4 would have won their queen for free", not "would have won a queen: it wins their queen".
         const what = idea?.startsWith('wins ') && !idea.includes(' and ') ? idea.slice(5) : `${materialWord(gained - tookAnyway)}${idea ? `: it ${idea}` : ''}`;
-        notes.push(`${best.sans[0]} would have won ${what} (${best.sans.slice(0, n).join(' ')}).`);
+        if (queens < 0) notes.push(`${best.sans[0]} would have won ${what} (${best.sans.slice(0, n).join(' ')}).`);
       }
     }
   }
@@ -362,8 +381,12 @@ export function detectMotifs(x: MotifInput): { motifs: Motif[]; explanation: str
       const best = playUci(p.fenBefore, x.bestUci.slice(0, 1)).sans[0];
       if (!notes.length) {
         // What their best reply does to you, then what the better move does ("Why it fails" shows the moves).
-        const replyIdea = r1 ? moveIdea(p.fenAfter, x.replyUci, me, { phase: x.phase, forcing: true }) : undefined;
-        notes.push(replyIdea ? `After this, ${r1!.san} ${replyIdea}.` : 'Gives your opponent the better game.');
+        // Taking back what your move took is said as such, and material is counted from before your move.
+        const tookOn = readonlyCapture(p) ? p.uci.slice(2, 4) : undefined;
+        const replyIdea = r1 ? moveIdea(p.fenAfter, x.replyUci, me, { phase: x.phase, forcing: true, recaptureOn: tookOn, gainFrom: p.fenBefore }) : undefined;
+        // Without a concrete idea, say what the move did to the balance from where you stood.
+        const plain = x.winBefore >= 60 ? 'This lets your advantage slip.' : x.winBefore <= 40 ? 'This makes a difficult position worse.' : 'Gives your opponent the better game.';
+        notes.push(replyIdea ? `After this, ${r1!.san} ${replyIdea}.` : plain);
         if (best) {
           const idea = moveIdea(p.fenBefore, x.bestUci, me, { phase: x.phase });
           notes.push(idea ? `${best} was better: it ${idea}.` : `${best} was better.`);
@@ -375,14 +398,17 @@ export function detectMotifs(x: MotifInput): { motifs: Motif[]; explanation: str
   return { motifs, explanation: notes.join(' ') };
 }
 
-function timeMotifs(p: ParsedPly, parsed: ParsedGame, medianSpent: number, cls: Classification): Motif[] {
+export function timeMotifs(p: ParsedPly, parsed: ParsedGame, medianSpent: number, cls: Classification): Motif[] {
   const tc = parsed.timeControl;
   if (!tc || p.timeSpent === undefined) return [];
   const out: Motif[] = [];
   const clockBefore = (p.clock ?? 0) + p.timeSpent - tc.increment;
   const isError = cls === 'mistake' || cls === 'blunder' || cls === 'miss';
   if (clockBefore <= Math.max(0.1 * tc.base, 10)) out.push('time_trouble');
-  else if (isError && p.timeSpent <= Math.max(1.5, 0.01 * tc.base) && tc.base >= 180 && p.ply >= 16) out.push('rushed');
+  // Rushed: fast for the time control, and faster than your own pace in this game (a move that took
+  // longer than you usually take wasn't rushed, however quick it looks on the clock).
+  else if (isError && p.timeSpent <= Math.max(1.5, 0.01 * tc.base) && (p.timeSpent <= 1.5 || p.timeSpent < medianSpent) && tc.base >= 180 && p.ply >= 16)
+    out.push('rushed');
   if (p.timeSpent >= Math.max(3 * medianSpent, 0.1 * tc.base) && p.timeSpent >= 10) out.push('long_think');
   return out;
 }

@@ -9,7 +9,7 @@ import { useQueueProgress, useSettings } from '../../hooks/useStores';
 import { EngineControls } from '../../components/EngineControls';
 import { hideBestMove } from '../../lib/review/hideBest';
 import { hintText } from '../../lib/training/hint';
-import { moveIdeaSan } from '../../lib/analysis/explain';
+import { moveIdea, moveIdeaSan } from '../../lib/analysis/explain';
 import { betterLine, saveBetterLine } from '../../lib/analysis/refine';
 import { toast } from '../../lib/toast';
 import { findRepeat, kindText, type Repeat } from '../../lib/training/repeats';
@@ -28,7 +28,7 @@ import type { ParsedGame } from '../../lib/pgn/parse';
 import { CLASS_META } from '../../lib/classificationMeta';
 import { MOTIF_LABEL } from '../../lib/insights/compute';
 import { playSound } from '../../lib/sound';
-import type { Color, GameAnalysis, MoveAnalysis, StoredGame } from '../../lib/types';
+import type { Color, GameAnalysis, MoveAnalysis, Phase, StoredGame } from '../../lib/types';
 import { Board, type BoardArrow } from '../../components/Board';
 import { EvalBar } from '../../components/EvalBar';
 import { EvalGraph } from '../../components/EvalGraph';
@@ -980,11 +980,14 @@ function Coach({
       ? hideBest
         ? 'Your chance: can you find how to punish it?'
         : `Your chance${current.replyLineSan[0] ? `: ${current.replyLineSan[0]} punishes it${punish ? `, as it ${punish}` : ''}` : ''}.`
-      : isError || special
-        ? hideBest && isError
-          ? hideBestMove(current.explanation, current.bestSan)
-          : current.explanation
-        : undefined;
+      : !yours && current.classification === 'great' && me
+        ? // Their great move, in your words: the stored sentence is written from the mover's side.
+          theirGreat(current.fenBefore, current.bestLineUci.length ? current.bestLineUci : [current.uci], me, current.phase)
+        : isError || special
+          ? hideBest && isError
+            ? hideBestMove(current.explanation, current.bestSan)
+            : current.explanation
+          : undefined;
   const findIt = hideBest && yours && isError && onRetry;
   // Chips only when there's no sentence saying the same thing.
   const motifs = isError && !explanation
@@ -1041,4 +1044,10 @@ function Coach({
       ) : null}
     </CoachBubble>
   );
+}
+
+/** "The only good move here: it forks your king and rook", for the opponent's great move. */
+function theirGreat(fen: string, line: string[], me: Color, phase: Phase | undefined): string {
+  const idea = moveIdea(fen, line, me, { phase });
+  return idea ? `The only good move here: it ${idea}.` : 'The only good move here.';
 }

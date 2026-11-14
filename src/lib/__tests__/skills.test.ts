@@ -214,3 +214,14 @@ describe('main time control', () => {
     expect(mainTimeClass([])).toBe('blitz');
   });
 });
+
+describe('areaOf: what the step 6 audit found', () => {
+  const move = { motifs: [], phase: 'middlegame' as const, winBefore: 50, winLoss: 8 };
+  it("doesn't charge a move that wasn't an error, whatever its score did", () => {
+    expect(areaOf({ ...move, classification: 'inaccuracy' })).toBe('middlegame');
+    // The engine's own best move whose score dropped a little, a forced move, a book move.
+    expect(areaOf({ ...move, classification: 'best' })).toBeNull();
+    expect(areaOf({ ...move, classification: 'forced' })).toBeNull();
+    expect(areaOf({ ...move, classification: 'book' })).toBeNull();
+  });
+});

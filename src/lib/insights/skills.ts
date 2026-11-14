@@ -99,6 +99,7 @@ export const SKILL_META: Record<SkillArea, SkillMeta> = {
   },
 };
 
+const ERRORS = new Set(['inaccuracy', 'mistake', 'blunder', 'miss']);
 const TIME: Motif[] = ['time_trouble', 'rushed'];
 const BLUNDER: Motif[] = ['hung_piece', 'ignored_threat'];
 const OPP_TACTICS: Motif[] = ['allowed_mate', 'back_rank', 'allowed_fork', 'allowed_tactic', 'king_safety'];
@@ -111,7 +112,9 @@ type AreaMove = Pick<SummaryMove, 'classification' | 'motifs' | 'phase' | 'winBe
  * games, where clock motifs mean nothing; those moves fall through to the next area.
  */
 export function areaOf(m: AreaMove, timed = true): SkillArea | null {
-  if (m.winLoss < MIN_LOSS) return null;
+  // Only errors (an inaccuracy or worse): a best, forced or book move whose score dropped is the
+  // engine seeing further, not something to train.
+  if (m.winLoss < MIN_LOSS || !ERRORS.has(m.classification)) return null;
   const has = (ms: Motif[]) => m.motifs.some((x) => ms.includes(x));
   if (timed && has(TIME)) return 'time';
   if (has(BLUNDER)) return 'blunder_check';

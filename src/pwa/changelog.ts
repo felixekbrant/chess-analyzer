@@ -11,6 +11,8 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     date: '14 Nov 2026',
     items: [
+      'Clearer explanations of your mistakes: a piece that steps aside and opens an attack says so, taking back is called taking back, a win that comes from queening a pawn says that, and losses are in plain words ("you lose a piece"). Your opponent\'s great moves are described from your side ("forks your king and rook"). Your games are re-checked once to pick this up.',
+      'A move is only counted as rushed when you played it faster than your usual pace in that game, and the engine\'s own first choice is never marked as an error. This moves some mistakes out of Time management, so your weaknesses and this week\'s focus may change. The comparison with players at your rating uses the same rules.',
       'A puzzle you open the solution for gets a calm card of its own: "The move was", the move, and what comes next. Finishing a set of puzzles ends with the coach, how many you solved first time, and the way back to Home.',
       'Buttons that used to spill onto extra rows on the phone fit again: after a puzzle "Full line", "Why it fails" and "Play it out" share one row; after a retry in a review the two lines sit side by side; your last losses have "Train" and the puzzle count together; and the game summary shows its counts as small badges.',
     ],

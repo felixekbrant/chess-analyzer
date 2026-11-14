@@ -5,6 +5,9 @@ import { Chess } from 'chess.js';
 import { db } from '../../db/schema';
 import { saveBetterLine } from './refine';
 import { upsertPuzzlesFromAnalysis } from '../training/puzzles';
+import { rebuildAnalysis } from './analyzeGame';
+import { ensureOpenings } from '../openings/eco';
+import { parsePgn } from '../pgn/parse';
 import type { GameAnalysis, StoredGame } from '../types';
 
 describe('saveBetterLine', () => {
@@ -26,10 +29,13 @@ describe('saveBetterLine', () => {
     const next = (await db.analyses.get(g.id))!;
     expect(next.moves[ply].bestUci).toBe(pv[0]);
     expect(next.moves[ply].bestSan).toBe(other.san);
-    // Scores, classifications and accuracy are those of the analysis; only the recommendation changes.
+    // Scores, classifications and accuracy are those of the analysis (under the current rules: the
+    // seed was graded by older ones); only the recommendation changes.
+    await ensureOpenings();
+    const base = rebuildAnalysis(a, parsePgn(g.pgn));
     expect(next.moves[ply].evalBefore).toEqual(m.evalBefore);
-    expect(next.moves.map((x) => x.classification)).toEqual(a.moves.map((x) => x.classification));
-    expect(next.accuracy).toEqual(a.accuracy);
+    expect(next.moves.map((x) => x.classification)).toEqual(base.moves.map((x) => x.classification));
+    expect(next.accuracy).toEqual(base.accuracy);
     // The puzzle from that mistake now asks for the new move.
     const puzzle = (await db.puzzles.toArray()).find((p) => p.gameIds.includes(g.id) && p.plies.includes(ply));
     if (puzzle) expect(puzzle.solutionUci[0]).toBe(pv[0]);

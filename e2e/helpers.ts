@@ -1,6 +1,7 @@
 import { expect, type BrowserContext, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { ANALYSIS_MODEL } from '../src/lib/analysis/analyzeGame';
 
 const here = (f: string) => fileURLToPath(new URL(f, import.meta.url));
 
@@ -54,4 +55,27 @@ export async function openTab(page: Page, name: 'Home' | 'Games' | 'Train' | 'We
   } else {
     await nav.getByRole('link', { name }).click();
   }
+}
+
+/**
+ * Waits until the restored analyses have been rebuilt with the current rules (the app does this in
+ * the background after a restore), so what a test sees doesn't depend on how far it got.
+ */
+export async function upgraded(page: Page) {
+  await expect
+    .poll(
+      () =>
+        page.evaluate(
+          () =>
+            new Promise<unknown>((resolve) => {
+              const q = indexedDB.open('chess-analyzer');
+              q.onsuccess = () => {
+                const g = q.result.transaction('kv').objectStore('kv').get('analysisModel');
+                g.onsuccess = () => resolve(g.result?.value);
+              };
+            }),
+        ),
+      { timeout: 30_000 },
+    )
+    .toBe(ANALYSIS_MODEL);
 }

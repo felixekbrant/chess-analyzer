@@ -39,6 +39,13 @@ const gameId = seed.games.find((g) => (g.white + g.black).includes('Alex_aus')).
     await page.goto(BASE + '#/settings');
     await page.locator('input[type="file"]').setInputFiles(path.join(ROOT, 'e2e/fixtures/seed.json'));
     await page.getByText(/\d+ games restored/).waitFor();
+    // The restored analyses are rebuilt with the current rules in the background: wait for it.
+    const { ANALYSIS_MODEL } = { ANALYSIS_MODEL: Number(/ANALYSIS_MODEL = (\d+)/.exec(fs.readFileSync(path.join(ROOT, 'src/lib/analysis/analyzeGame.ts'), 'utf8'))[1]) };
+    await page.waitForFunction(
+      (model) => new Promise((res) => { const q = indexedDB.open('chess-analyzer'); q.onsuccess = () => { const g = q.result.transaction('kv').objectStore('kv').get('analysisModel'); g.onsuccess = () => res(g.result?.value === model); }; }),
+      ANALYSIS_MODEL,
+      { timeout: 60000, polling: 500 },
+    );
     await page.goto(BASE + '#/games');
     await page.waitForTimeout(3500);
     await page.getByRole('button', { name: 'Dismiss' }).click({ timeout: 1500 }).catch(() => {});

@@ -73,7 +73,7 @@ export function playUci(fen: string, ucis: string[]): { sans: string[]; fens: st
       const m = chess.move({ from: u.slice(0, 2), to: u.slice(2, 4), promotion: u[4] });
       sans.push(m.san);
       fens.push(chess.fen());
-      moves.push({ from: m.from, to: m.to, piece: m.piece, captured: m.captured, san: m.san, color: m.color as Color });
+      moves.push({ from: m.from, to: m.to, piece: m.piece, captured: m.captured, ...(m.promotion ? { promotion: m.promotion } : {}), san: m.san, color: m.color as Color });
     } catch {
       break;
     }
@@ -86,6 +86,8 @@ export interface MoveInfo {
   to: string;
   piece: string;
   captured?: string;
+  /** The piece a pawn promotes to. */
+  promotion?: string;
   san: string;
   color: Color;
 }
