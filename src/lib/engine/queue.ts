@@ -17,7 +17,7 @@ export interface QueueStatus {
   active: Record<string, number>;
   pending: number;
   workers: number;
-  /** Rolling average wall time per game, in seconds (per worker). */
+  /** Rolling average engine time per game, in seconds (per worker; waiting not counted). */
   avgSeconds?: number;
   /** Estimated seconds until the queue is empty. */
   etaSeconds?: number;
@@ -27,6 +27,9 @@ export interface QueueStatus {
 }
 
 type Listener = (s: QueueStatus) => void;
+
+/** The longest a game position is searched, in ms. */
+const MOVETIME = 4000;
 
 /**
  * Engine workers for each speed setting. Each worker is a single-threaded Stockfish on its own core.
@@ -100,9 +103,7 @@ class AnalysisQueue {
     this.status = { ...this.status, ...patch };
     const avg = this.durations.length ? this.durations.reduce((a, b) => a + b, 0) / this.durations.length : undefined;
     this.status.avgSeconds = avg;
-    // One game is too few to estimate from.
-    this.status.etaSeconds =
-      avg !== undefined && this.durations.length >= 2 ? (avg * this.status.pending) / Math.max(1, this.status.workers) : undefined;
+    this.status.etaSeconds = queueEta(this.durations, this.status.pending, this.status.workers);
     if (urgent) this.emit();
     else this.emitTimer ??= setTimeout(() => this.emit(), 400);
   }
@@ -247,12 +248,11 @@ class AnalysisQueue {
         }
         const game = await this.claimNext(settings);
         if (!game) break;
-        const started = performance.now();
         try {
           const depth = this.depthOverride.get(game.id) ?? settings.depth;
           this.depthOverride.delete(game.id);
-          await this.analyzeGame(game, depth, idx);
-          this.durations = [...this.durations.slice(-9), (performance.now() - started) / 1000];
+          const busy = await this.analyzeGame(game, depth, idx);
+          this.durations = [...this.durations.slice(-9), busy];
         } catch (e) {
           // A game the user opened took this worker; this one stays pending and is picked up again later.
           if ((e as Error).message !== 'paused' && (e as Error).message !== 'preempted') {
@@ -278,7 +278,8 @@ class AnalysisQueue {
     return this.engines[idx];
   }
 
-  async analyzeGame(game: StoredGame, depth: number, workerIdx = 0) {
+  /** Analyses one game and saves it. Returns the engine time it took, in seconds (see Job.busy). */
+  async analyzeGame(game: StoredGame, depth: number, workerIdx = 0): Promise<number> {
     await ensureOpenings();
     const pgn = (await db.pgns.get(game.id))?.pgn;
     if (!pgn) throw new Error('This game has no moves stored.');
@@ -296,10 +297,10 @@ class AnalysisQueue {
       const next = parsed.plies[i];
       inBook = inBook && !!next && isBookPosition(next.fenAfter);
       const cheap = inBook || legalMoveCount(fen) === 1;
-      return cheap ? { depth: Math.min(10, depth), multiPv: 1 } : { depth, multiPv: 2, movetime: 4000 };
+      return cheap ? { depth: Math.min(10, depth), multiPv: 1 } : { depth, multiPv: 2, movetime: MOVETIME };
     });
     let finish!: () => void;
-    const job: Job = { gameId: game.id, fens, searches, evals: [], next: 0, filled: 0, total: fens.length, started: performance.now(), done: new Promise((r) => (finish = r)), finish: () => finish(), retry: [] };
+    const job: Job = { gameId: game.id, fens, searches, evals: [], next: 0, filled: 0, total: fens.length, busy: 0, workers: 0, done: new Promise((r) => (finish = r)), finish: () => finish(), retry: [] };
     // The game the user opened: every worker helps (the others pause their games for it).
     const shared = this.priority.includes(game.id) && workerCount('max') > 1;
     if (shared) this.urgent = job;
@@ -328,6 +329,7 @@ class AnalysisQueue {
       });
       if (game.userColor) await upsertPuzzlesFromAnalysis(game, analysis);
     });
+    return job.busy / 1000;
   }
 
   /**
@@ -335,6 +337,15 @@ class AnalysisQueue {
    * same job at once (the game the user is waiting for); each takes the next position in turn.
    */
   private async work(job: Job, engine: Engine) {
+    job.workers++;
+    try {
+      await this.workOn(job, engine);
+    } finally {
+      job.workers--;
+    }
+  }
+
+  private async workOn(job: Job, engine: Engine) {
     while (job.retry.length || job.next < job.total) {
       const mine = this.priority.includes(job.gameId);
       // Opened while it was already being analysed in the background: share it from here on.
@@ -348,6 +359,7 @@ class AnalysisQueue {
       }
       await this.yieldPoint();
       const i = job.retry.length ? job.retry.shift()! : job.next++;
+      const t = performance.now();
       try {
         const over = terminalScore(job.fens[i]);
         job.evals[i] = over ? { fen: job.fens[i], depth: 0, lines: [{ score: over, pv: [] }] } : await engine.analyze(job.fens[i], job.searches[i]!);
@@ -357,8 +369,8 @@ class AnalysisQueue {
         throw e;
       }
       job.filled++;
-      const elapsed = (performance.now() - job.started) / 1000;
-      const eta = job.filled >= 6 ? ((job.total - job.filled) * elapsed) / job.filled : undefined;
+      job.busy += searchTime(performance.now() - t);
+      const eta = job.filled >= 6 ? gameEta(job) : undefined;
       this.setProgress(job.gameId, job.filled / job.total, eta);
       if (job.filled === job.total) job.finish();
     }
@@ -394,11 +406,39 @@ interface Job {
   next: number;
   filled: number;
   total: number;
-  started: number;
+  /**
+   * Engine time spent on this game's positions so far, in ms (summed over workers). Time spent
+   * waiting (the live engine is searching, the app is in the background) doesn't count, so the
+   * "time left" estimates built on it don't grow while analysis waits.
+   */
+  busy: number;
+  /** Workers on this game right now. */
+  workers: number;
   done: Promise<void>;
   finish: () => void;
   /** Positions a worker gave up on (it was stopped), for another to take. */
   retry: number[];
+}
+
+/**
+ * The time one position's search counts for. A search is capped at 4 s (MOVETIME), so anything
+ * much longer is the app having been frozen in the background mid-search (phones do that); that
+ * time isn't analysis.
+ */
+export function searchTime(ms: number): number {
+  return Math.min(ms, MOVETIME + 1000);
+}
+
+/** Seconds left for a game being analysed: its remaining positions at its pace so far, shared by the workers on it. */
+export function gameEta(job: Pick<Job, 'busy' | 'filled' | 'total' | 'workers'>): number {
+  return ((job.total - job.filled) * job.busy) / job.filled / 1000 / Math.max(1, job.workers);
+}
+
+/** Seconds until the queue is empty: the average engine time per game, shared by the workers. */
+export function queueEta(durations: number[], pending: number, workers: number): number | undefined {
+  // One game is too few to estimate from.
+  if (durations.length < 2) return undefined;
+  return ((durations.reduce((a, b) => a + b, 0) / durations.length) * pending) / Math.max(1, workers);
 }
 
 export const analysisQueue = new AnalysisQueue();
