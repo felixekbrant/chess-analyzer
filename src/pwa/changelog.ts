@@ -11,6 +11,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     date: '16 Nov 2026',
     items: [
+      'In a review on a computer, B shows the best move and each further press plays its line on, so you can follow the whole continuation without reaching for the arrows. Shift+B steps back.',
       'Puzzles you\'ve done stay done: a Lichess puzzle that belongs to two kinds of drill could come back in the second one, and restoring an older backup could bring back puzzles you did after making it. Restoring also keeps the games you\'ve reviewed since.',
       'Safer saving when two things happen at once: loading older months while new games come in, two settings changed in quick succession, picking a focus as the weekly one is updated, and better moves found by the engine during a review now all keep each other\'s changes. "Delete everything" now deletes cleanly as the app restarts, so nothing still running can put old data back.',
     ],

@@ -1050,3 +1050,31 @@ test('home: your last game leads, with its decisive moment and its puzzles', asy
   await expect(page.getByRole('button', { name: /From your last game/ })).toBeVisible();
   await expect(page.getByText(/to move$/)).toBeVisible();
 });
+
+test('review: B shows the best move, then plays its line on; Shift+B steps back', async ({ page }) => {
+  await seed(page);
+  const data = JSON.parse(readFileSync(SEED_FILE, 'utf8')) as { games: { id: string; userColor: string }[]; analyses: { gameId: string; moves: { color: string; uci: string; bestUci?: string; bestLineUci: string[]; classification: string }[] }[] };
+  // One of your mistakes whose best line is a few moves long.
+  const [a, ply] = data.analyses
+    .flatMap((x) => x.moves.map((m, i) => [x, i, m] as const))
+    .filter(([x, , m]) => m.color === data.games.find((g) => g.id === x.gameId)!.userColor && m.classification === 'mistake' && m.bestUci !== m.uci && m.bestLineUci.length >= 3)
+    .map(([x, i]) => [x, i] as const)[0];
+  const line = a.moves[ply].bestLineUci;
+  await page.goto(`./#/game/${encodeURIComponent(a.gameId)}?ply=${ply + 1}`);
+  await expect(page.getByRole('button', { name: 'Best', exact: true }).filter({ visible: true })).toBeEnabled();
+
+  await page.keyboard.press('b');
+  await expect(page.getByText(/^Best was /).filter({ visible: true })).toBeVisible();
+  const play = page.getByRole('button', { name: 'Play', exact: true }).filter({ visible: true });
+  const replay = page.getByRole('button', { name: 'Replay', exact: true }).filter({ visible: true });
+  await expect(play).toBeVisible();
+  // Each press of B plays the next move of the line, to its end.
+  for (let i = 1; i < line.length; i++) await page.keyboard.press('b');
+  await expect(replay).toBeVisible();
+  await page.keyboard.press('Shift+B');
+  await expect(play).toBeVisible();
+  await page.keyboard.press('b');
+  await expect(replay).toBeVisible();
+  // Still the same line, not opened again from its first move.
+  await expect(page.getByText(/^Best was /).filter({ visible: true })).toBeVisible();
+});

@@ -128,7 +128,8 @@ export const REVIEW_SHORTCUTS: ShortcutGroup[] = [
   {
     title: 'At a mistake',
     rows: [
-      [['B'], 'Show the best move'],
+      [['B'], 'Show the best move. Press again to play its line on'],
+      [['Shift+B'], 'Back one move in the best line'],
       [['R'], 'Retry: find a better move yourself'],
       [['Esc'], 'Back to the game'],
     ],

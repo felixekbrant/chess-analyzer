@@ -63,6 +63,8 @@ interface ExploreState {
   future?: string[];
   /** An engine line to step through: the best line, or how a mistake gets punished. */
   line?: string[];
+  /** The best line, opened with Best (or B): B then plays it on, Shift+B steps back. */
+  best?: boolean;
   title?: string;
   context?: string;
   /** Whose gains and losses the line's summary describes. */
@@ -333,7 +335,7 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
     const title = isError || current.bestUci !== current.uci ? `Best was ${current.bestSan}` : `The idea behind ${current.san}`;
     const whose = current.color === me ? 'your' : `${opponentName}'s`;
     const context = `Keeps ${whose} winning chances at ~${Math.round(current.winBefore)}%`;
-    setExplore({ base: ply - 1, moves: [current.bestLineUci[0]], line: current.bestLineUci, title, context, perspective: current.color });
+    setExplore({ base: ply - 1, moves: [current.bestLineUci[0]], line: current.bestLineUci, title, context, perspective: current.color, best: true });
   };
 
   /** The line that punishes the current move: the engine's best reply from the position after it. */
@@ -429,7 +431,12 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
     else if (e.key === 'f') setOrientation((o) => (o === 'white' ? 'black' : 'white'));
     else if (e.key === 'n' && nextKey !== undefined) go(nextKey);
     else if (e.key === 'p' && prevKey !== undefined) go(prevKey);
-    else if (e.key === 'b' && canBest) showBest();
+    // B shows the best move, then plays its line on one move a press; Shift+B steps back.
+    else if ((e.key === 'b' || e.key === 'B') && explore?.best) {
+      setLinePlaying(false);
+      if (e.key === 'B') prev();
+      else next();
+    } else if (e.key === 'b' && canBest) showBest();
     else if (e.key === 'r' && canRetryCurrent && current) startRetry(current);
     else if (e.key === 'Escape') explore ? exitExplore() : go(retry ? retry.move.ply : ply);
     else return;
