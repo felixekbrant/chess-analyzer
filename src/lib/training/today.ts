@@ -1,6 +1,8 @@
 import { db } from '../../db/schema';
 import { areaOf, type SkillArea } from '../insights/skills';
 import type { Puzzle, StoredGame } from '../types';
+import type { AnalyzedGame } from '../insights/compute';
+import { chooseFocus, type FocusStore } from './focus';
 import { readyExt } from './lichess';
 import { puzzlePriority } from './puzzles';
 
@@ -49,6 +51,17 @@ export function startOfDay(t = Date.now()): number {
 export function progressFor(stored: TodayProgress | undefined, now = Date.now()): TodayProgress {
   const date = dateKey(now);
   return stored?.date === date ? stored : { date, puzzles: 0, drill: 0 };
+}
+
+/**
+ * You pick the focus yourself. Applied to the focus stored now, in one go: the automatic weekly
+ * update (useSkills) may be writing it at the same moment, and neither may undo the other.
+ */
+export function pickFocus(area: SkillArea, ag: AnalyzedGame[], fallback: FocusStore) {
+  return db.transaction('rw', db.kv, async () => {
+    const latest = ((await db.kv.get(FOCUS_KEY))?.value as FocusStore | undefined) ?? fallback;
+    await db.kv.put({ key: FOCUS_KEY, value: chooseFocus(latest, area, ag) });
+  });
 }
 
 /** Records a finished puzzle in today's plan. */

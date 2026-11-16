@@ -11,9 +11,9 @@ import { Icon } from '../components/Icon';
 import { MiniBoard } from '../components/MiniBoard';
 import { EmptyState, EMPTY_FENS, PageHeader, Section } from '../components/ui';
 import { SKILL_META, type SkillArea, type SkillStat } from '../lib/insights/skills';
-import { chooseFocus, extraCost, type AreaRank, type FocusStore } from '../lib/training/focus';
+import { extraCost, type AreaRank } from '../lib/training/focus';
 import { useLossVerdict } from '../hooks/useLossVerdict';
-import { FOCUS_KEY, puzzleArea } from '../lib/training/today';
+import { pickFocus, puzzleArea } from '../lib/training/today';
 import { isSmall } from '../lib/training/puzzles';
 import { PUZZLE_LOG_KEY, areaTries, type PuzzleTry } from '../lib/training/puzzleLog';
 import { backTo } from '../lib/backLink';
@@ -84,8 +84,7 @@ export default function Weaknesses() {
   const focus = skills.focus.current?.area;
 
   const makeFocus = async (area: SkillArea) => {
-    const latest = ((await db.kv.get(FOCUS_KEY))?.value as FocusStore | undefined) ?? skills.focus;
-    await db.kv.put({ key: FOCUS_KEY, value: chooseFocus(latest, area, skills.ag) });
+    await pickFocus(area, skills.ag, skills.focus);
   };
 
   return (

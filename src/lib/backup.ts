@@ -1,9 +1,10 @@
-import { ANALYSIS_MODEL_KEY, backfillPeakEval, upgradeStoredAnalyses } from './analysis/upgrade';
+import { ANALYSIS_MODEL_KEY, backfillPeakEval, markAnalysesStale, upgradeStoredAnalyses } from './analysis/upgrade';
 import { backfillPuzzleStakes } from './training/puzzles';
 import { db, withoutPgn } from '../db/schema';
 import { buildSummary } from './insights/summary';
-import type { GameAnalysis, NewGame, Settings, StoredGame } from './types';
+import type { GameAnalysis, NewGame, Puzzle, Settings, StoredGame } from './types';
 import type { KV } from '../db/schema';
+import type { Table } from 'dexie';
 
 /** Per-device display preferences, never overwritten by restoring a backup. */
 const DEVICE_PREFS: (keyof Settings)[] = ['theme', 'boardTheme', 'showCoordinates', 'sounds', 'showEvalBar', 'showSuggestions', 'showBestMoves', 'autoNextPuzzle', 'analysisSpeed'];
@@ -35,9 +36,12 @@ export async function exportBackup() {
 export async function importBackup(file: File): Promise<number> {
   const data = JSON.parse(await readBackupText(file));
   if (data.version !== 1 || !Array.isArray(data.games)) throw new Error('Not a Chess Analyzer backup file');
+  markAnalysesStale();
   await db.transaction('rw', [db.games, db.pgns, db.analyses, db.summaries, db.puzzles, db.extPuzzles, db.sync, db.kv], async () => {
     const games = data.games as NewGame[];
-    await db.games.bulkPut(games.map(withoutPgn));
+    // A game you've reviewed on this device stays reviewed.
+    const here = await db.games.bulkGet(games.map((g) => g.id));
+    await db.games.bulkPut(games.map((g, i) => ({ ...withoutPgn(g), ...(here[i]?.reviewedAt && !g.reviewedAt ? { reviewedAt: here[i]!.reviewedAt } : {}) })));
     await db.pgns.bulkPut(games.filter((g) => g.pgn).map((g) => ({ gameId: g.id, pgn: g.pgn })));
     await db.analyses.bulkPut(data.analyses ?? []);
     if (data.summaries) {
@@ -49,8 +53,8 @@ export async function importBackup(file: File): Promise<number> {
         (data.analyses ?? []).filter((a: GameAnalysis) => colors.get(a.gameId)).map((a: GameAnalysis) => buildSummary(a, colors.get(a.gameId)!)),
       );
     }
-    await db.puzzles.bulkPut(data.puzzles ?? []);
-    await db.extPuzzles.bulkPut(data.extPuzzles ?? []);
+    await db.puzzles.bulkPut(await keepDone(db.puzzles, data.puzzles ?? []));
+    await db.extPuzzles.bulkPut(await keepDone(db.extPuzzles, data.extPuzzles ?? []));
     await db.sync.bulkPut(data.sync ?? []);
     // How this device looks and behaves stays as it is: a backup (possibly old) brings the
     // account and analysis settings, not the display preferences chosen here.
@@ -68,6 +72,19 @@ export async function importBackup(file: File): Promise<number> {
     .then(() => backfillPeakEval())
     .then(() => backfillPuzzleStakes());
   return data.games.length;
+}
+
+/**
+ * Puzzles are done once: one you've done on this device stays done, even when the backup was made
+ * before you did it.
+ */
+async function keepDone<P extends Puzzle>(table: Table<P, string>, rows: P[]): Promise<P[]> {
+  const here = await table.bulkGet(rows.map((p) => p.id));
+  return rows.map((p, i) => {
+    const h = here[i];
+    if (h?.doneAt === undefined || p.doneAt !== undefined) return p;
+    return { ...p, doneAt: h.doneAt, due: h.due, lastResult: h.lastResult, seenAt: h.seenAt, ...(h.lichess ? { lichess: h.lichess } : {}) };
+  });
 }
 
 /** The backup's JSON text, gunzipping it first if it is a .gz file. */

@@ -9,13 +9,27 @@ import { PEAK_VERSION, peakAdvantage } from '../games/thrown';
 /** kv key holding the ANALYSIS_MODEL every stored analysis has been upgraded to. */
 export const ANALYSIS_MODEL_KEY = 'analysisModel';
 let running: Promise<number> | null = null;
+/** Set when stored analyses are replaced (a restore): a run in progress must look at them all again. */
+let stale = false;
+
+/** Says that stored analyses were just replaced, so an upgrade already running checks everything again. */
+export function markAnalysesStale() {
+  stale = true;
+}
 
 /**
  * Rebuilds analyses made with an older classification/accuracy model from their stored evals,
  * newest games first, without running the engine. Runs once per model change; safe to call often.
  */
 export function upgradeStoredAnalyses(): Promise<number> {
-  running ??= run().finally(() => (running = null));
+  running ??= (async () => {
+    let n = 0;
+    do {
+      stale = false;
+      n += await run();
+    } while (stale);
+    return n;
+  })().finally(() => (running = null));
   return running;
 }
 
@@ -55,7 +69,8 @@ async function run(): Promise<number> {
     // Stay out of the way of the UI.
     await new Promise((r) => setTimeout(r, 0));
   }
-  await db.kv.put({ key: ANALYSIS_MODEL_KEY, value: ANALYSIS_MODEL });
+  // Not if a restore brought in analyses this run hasn't seen: the next run checks them.
+  if (!stale) await db.kv.put({ key: ANALYSIS_MODEL_KEY, value: ANALYSIS_MODEL });
   return upgraded;
 }
 

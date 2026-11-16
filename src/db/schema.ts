@@ -128,10 +128,13 @@ export async function getSettings(): Promise<Settings> {
   return { ...DEFAULT_SETTINGS, ...((row?.value as Partial<Settings>) ?? {}) };
 }
 
+/** Changes some settings. Read and written in one go, so two changes made at once both stick. */
 export async function saveSettings(patch: Partial<Settings>): Promise<Settings> {
-  const next = { ...(await getSettings()), ...patch };
-  await db.kv.put({ key: 'settings', value: next });
-  return next;
+  return db.transaction('rw', db.kv, async () => {
+    const next = { ...(await getSettings()), ...patch };
+    await db.kv.put({ key: 'settings', value: next });
+    return next;
+  });
 }
 
 /**

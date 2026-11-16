@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db, getSettings, saveSettings } from '../db/schema';
+import { db, saveSettings } from '../db/schema';
 import { useSettings } from '../hooks/useStores';
 import { fetchArchives } from '../lib/chesscom/api';
 import { connectAccount } from '../lib/account';
@@ -10,6 +10,7 @@ import { monthIndex, syncMonths } from '../lib/chesscom/sync';
 import { syncManager } from '../lib/syncManager';
 import { analysisQueue } from '../lib/engine/queue';
 import { exportBackup, importBackup } from '../lib/backup';
+import { wipeOnRestart } from '../lib/wipe';
 import { PageHeader } from '../components/ui';
 import { Picker } from '../components/Picker';
 import { timeAgo } from '../lib/format';
@@ -301,11 +302,7 @@ export default function SettingsPage() {
             style={{ color: 'var(--loss-ink)' }}
             onClick={async () => {
               if (!confirm('Delete ALL games, analyses and puzzles from this browser? This cannot be undone.')) return;
-              const s = await getSettings();
-              await db.delete();
-              await db.open();
-              await saveSettings(s);
-              location.reload();
+              await wipeOnRestart();
             }}
           >
             Delete

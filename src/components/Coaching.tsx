@@ -4,10 +4,10 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/schema';
 import { opponentName } from '../lib/games/build';
 import { SKILL_META, type SkillArea, type SkillStat } from '../lib/insights/skills';
-import { chooseFocus, focusDay, FOCUS_DAYS, type AreaRank, type FocusStore } from '../lib/training/focus';
+import { focusDay, FOCUS_DAYS, type AreaRank, type FocusStore } from '../lib/training/focus';
 import {
-  FOCUS_KEY,
   PROGRESS_KEY,
+  pickFocus,
   STREAK_KEY,
   buildToday,
   currentStreak,
@@ -301,8 +301,7 @@ export function FocusCard({
               key={x.area}
               className={`text-left rounded-lg px-3 py-2.5 hover:bg-[var(--panel-2)] ${x.area === f.area ? 'bg-[var(--panel-2)]' : ''}`}
               onClick={async () => {
-                const latest = ((await db.kv.get(FOCUS_KEY))?.value as FocusStore | undefined) ?? store;
-                await db.kv.put({ key: FOCUS_KEY, value: chooseFocus(latest, x.area, ag) });
+                await pickFocus(x.area, ag, store);
                 setPicking(false);
               }}
             >

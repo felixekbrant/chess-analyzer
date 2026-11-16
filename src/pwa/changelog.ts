@@ -9,6 +9,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: '16 Nov 2026',
+    items: [
+      'Puzzles you\'ve done stay done: a Lichess puzzle that belongs to two kinds of drill could come back in the second one, and restoring an older backup could bring back puzzles you did after making it. Restoring also keeps the games you\'ve reviewed since.',
+      'Safer saving when two things happen at once: loading older months while new games come in, two settings changed in quick succession, picking a focus as the weekly one is updated, and better moves found by the engine during a review now all keep each other\'s changes. "Delete everything" now deletes cleanly as the app restarts, so nothing still running can put old data back.',
+    ],
+  },
+  {
     date: '14 Nov 2026',
     items: [
       'Clearer explanations of your mistakes: a piece that steps aside and opens an attack says so, taking back is called taking back, a win that comes from queening a pawn says that, and losses are in plain words ("you lose a piece"). Your opponent\'s great moves are described from your side ("forks your king and rook"). Your games are re-checked once to pick this up.',

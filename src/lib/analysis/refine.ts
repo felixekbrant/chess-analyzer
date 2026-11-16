@@ -41,19 +41,21 @@ export function betterLine(m: Pick<MoveAnalysis, 'fenBefore' | 'bestUci' | 'colo
  * stay as they were (accuracy is calibrated at the analysis depth), only the recommended line changes.
  */
 export async function saveBetterLine(gameId: string, ply: number, pv: string[]): Promise<boolean> {
-  const [old, pgn, game] = await Promise.all([db.analyses.get(gameId), db.pgns.get(gameId), db.games.get(gameId)]);
-  if (!old || !pgn || !game || !old.moves[ply]) return false;
-  if (old.moves[ply].bestLineUci[0] === pv[0]) return false;
   // Book moves are recognised from the opening table, which must be loaded before rebuilding.
   await ensureOpenings();
-  const patched = { ...old, moves: old.moves.map((m, i) => (i === ply ? { ...m, bestUci: pv[0], bestLineUci: pv } : m)) };
-  const next = rebuildAnalysis(patched, parsePgn(pgn.pgn));
-  await db.transaction('rw', [db.analyses, db.summaries, db.puzzles], async () => {
+  // Read and write in one go: another better line in the same game, or a re-analysis, may be
+  // saved at the same time, and this one must build on it rather than undo it.
+  return db.transaction('rw', [db.analyses, db.summaries, db.puzzles, db.pgns, db.games], async () => {
+    const [old, pgn, game] = await Promise.all([db.analyses.get(gameId), db.pgns.get(gameId), db.games.get(gameId)]);
+    if (!old || !pgn || !game || !old.moves[ply]) return false;
+    if (old.moves[ply].bestLineUci[0] === pv[0]) return false;
+    const patched = { ...old, moves: old.moves.map((m, i) => (i === ply ? { ...m, bestUci: pv[0], bestLineUci: pv } : m)) };
+    const next = rebuildAnalysis(patched, parsePgn(pgn.pgn));
     await db.analyses.put(next);
     if (game.userColor) {
       await db.summaries.put(buildSummary(next, game.userColor));
       await upsertPuzzlesFromAnalysis(game, next);
     }
+    return true;
   });
-  return true;
 }

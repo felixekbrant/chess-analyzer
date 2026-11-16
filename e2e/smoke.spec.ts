@@ -418,10 +418,56 @@ test('backup: export is compressed and restores into an empty app', async ({ pag
   await p2.goto('./#/settings');
   await p2.locator('input[type="file"]').setInputFiles({ name: 'backup.json.gz', mimeType: 'application/gzip', buffer: bytes });
   await expect(p2.getByText('29 games restored')).toBeVisible();
+  // Everything came back: games, their moves, analyses, summaries and puzzles.
+  const before = await counts(page);
+  expect(before.games).toBe(29);
+  expect(before.puzzles).toBeGreaterThan(0);
+  expect(await counts(p2)).toEqual(before);
   await p2.goto('./#/games');
   await expect(p2.locator('[data-game-id]')).not.toHaveCount(0);
   await fresh.close();
+
+  // Delete everything, then restore the same file on this device. (Your account is kept, so the
+  // next start would import your games from chess.com again: kept out here to see the empty app.)
+  await page.route('https://api.chess.com/**', (r) => r.fulfill({ status: 404, body: '{}' }));
+  await page.goto('./#/settings');
+  page.once('dialog', (d) => void d.accept());
+  await page.getByRole('button', { name: 'Delete', exact: true }).click();
+  // (The page reloads meanwhile: a count cut short by it is simply asked again.)
+  await expect.poll(() => counts(page).catch(() => undefined)).toEqual({ games: 0, pgns: 0, analyses: 0, summaries: 0, puzzles: 0, extPuzzles: 0 });
+  await page.goto('./#/settings');
+  await page.locator('input[type="file"]').setInputFiles({ name: 'backup.json.gz', mimeType: 'application/gzip', buffer: bytes });
+  await expect(page.getByText('29 games restored')).toBeVisible();
+  expect(await counts(page)).toEqual(before);
 });
+
+/** How many rows each table holds that a backup carries. */
+function counts(page: Page) {
+  return page.evaluate(
+    () =>
+      new Promise<Record<string, number>>((res) => {
+        const names = ['games', 'pgns', 'analyses', 'summaries', 'puzzles', 'extPuzzles'];
+        const none = Object.fromEntries(names.map((n) => [n, 0]));
+        const q = indexedDB.open('chess-analyzer');
+        // Just deleted: don't create an empty database in its place.
+        q.onupgradeneeded = () => q.transaction!.abort();
+        q.onerror = () => res(none);
+        q.onsuccess = () => {
+          if (!names.every((n) => q.result.objectStoreNames.contains(n))) {
+            q.result.close();
+            return res(none);
+          }
+          const tx = q.result.transaction(names);
+          const out: Record<string, number> = {};
+          for (const n of names) tx.objectStore(n).count().onsuccess = (e) => (out[n] = (e.target as IDBRequest<number>).result);
+          tx.oncomplete = () => {
+            q.result.close();
+            res(out);
+          };
+        };
+      }),
+  );
+}
 
 test('thrown games: lost from +3 or better, as a filter, in Insights and as puzzles', async ({ page }) => {
   await seed(page);

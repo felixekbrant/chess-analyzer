@@ -46,7 +46,7 @@ export async function syncChessCom(db: ChessDB, username: string, opts: SyncOpti
   try {
     archives = await fetchArchives(username, opts.fetcher);
   } catch (e) {
-    await db.sync.put({ ...state, lastError: (e as Error).message });
+    await saveState(db, key, (cur) => ({ ...cur, lastError: (e as Error).message }));
     throw e;
   }
 
@@ -70,13 +70,7 @@ export async function syncChessCom(db: ChessDB, username: string, opts: SyncOpti
     if (isMonthComplete(url, now)) completed.add(url);
   }
 
-  await db.sync.put({
-    username: key,
-    completedMonths: [...completed],
-    oldestMonth: Number.isFinite(oldestMonth) ? oldestMonth : undefined,
-    lastSync: now,
-    lastError: undefined,
-  });
+  await saveState(db, key, (cur) => ({ ...merged(cur, completed, oldestMonth), lastSync: now, lastError: undefined }));
   report({ phase: 'done', monthsTotal: ordered.length, monthsDone: ordered.length, newGames });
   return newGames;
 }
@@ -95,8 +89,25 @@ export async function syncMonths(db: ChessDB, username: string, archiveUrls: str
     if (isMonthComplete(url, now)) completed.add(url);
   }
   const oldestMonth = Math.min(state.oldestMonth ?? Infinity, ...archiveUrls.map(monthIndex));
-  await db.sync.put({ ...state, completedMonths: [...completed], oldestMonth: Number.isFinite(oldestMonth) ? oldestMonth : undefined });
+  await saveState(db, key, (cur) => merged(cur, completed, oldestMonth));
   return added;
+}
+
+/**
+ * Writes the sync state from what is stored now, not the copy read when the sync started: an
+ * import of older months ("load more") can run during an automatic sync, and neither may undo the other.
+ */
+function saveState(db: ChessDB, key: string, next: (cur: SyncState) => SyncState) {
+  return db.transaction('rw', db.sync, async () => {
+    const cur: SyncState = (await db.sync.get(key)) ?? { username: key, completedMonths: [] };
+    await db.sync.put(next(cur));
+  });
+}
+
+/** Months done by either, and the older of the two oldest months. */
+function merged(cur: SyncState, completed: Set<string>, oldestMonth: number): SyncState {
+  const oldest = Math.min(cur.oldestMonth ?? Infinity, oldestMonth);
+  return { ...cur, completedMonths: [...new Set([...cur.completedMonths, ...completed])], oldestMonth: Number.isFinite(oldest) ? oldest : undefined };
 }
 
 /** Converts archive entries, yielding to the browser every few games so a big import never freezes the UI. */

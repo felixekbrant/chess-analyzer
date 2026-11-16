@@ -127,20 +127,28 @@ export function topUpDrill(area: SkillArea, rating: number | undefined, missing:
   if (running) return running;
   const job = (async () => {
     const now = Date.now();
-    const ext = await db.extPuzzles.where('area').equals(area).toArray();
+    // Every Lichess puzzle already stored, whatever its area: one puzzle can be in several areas'
+    // packs, and one you've done must not be stored again as new.
+    const have = new Set((await db.extPuzzles.toCollection().primaryKeys()) as string[]);
     const target = targetRating(rating);
     let band = bandFor(target);
-    const have = new Set(ext.map((p) => p.id));
     const added: Puzzle[] = [];
     // If a band is used up, carry on with the next harder one (then easier ones).
     const order = [band, ...BANDS.filter((b) => b > band), ...BANDS.filter((b) => b < band).reverse()];
     for (band of order) {
       const pack = await fetchPack(area, band);
-      added.push(...pickNew(pack, have, target, missing - added.length, now));
+      const picked = pickNew(pack, have, target, missing - added.length, now);
+      for (const p of picked) have.add(p.id);
+      added.push(...picked);
       if (added.length >= missing) break;
     }
-    await db.extPuzzles.bulkPut(added.map((p) => ({ ...p, area })));
-    return added.length;
+    // Only what is still new: another area's top-up may have stored the same puzzle meanwhile.
+    return db.transaction('rw', db.extPuzzles, async () => {
+      const stored = await db.extPuzzles.bulkGet(added.map((p) => p.id));
+      const fresh = added.filter((_, i) => !stored[i]);
+      await db.extPuzzles.bulkAdd(fresh.map((p) => ({ ...p, area })));
+      return fresh.length;
+    });
   })()
     .catch(() => 0)
     .finally(() => inFlight.delete(area));

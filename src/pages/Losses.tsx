@@ -12,8 +12,7 @@ import { relativeDay } from '../lib/format';
 import { formatPeak } from '../lib/games/thrown';
 import { SKILL_META, type SkillArea } from '../lib/insights/skills';
 import { LOSSES, causeLabel, lossFocus, lossReport, type LossLook } from '../lib/insights/losses';
-import { chooseFocus, type FocusStore } from '../lib/training/focus';
-import { FOCUS_KEY } from '../lib/training/today';
+import { pickFocus } from '../lib/training/today';
 import { ClassificationBadge } from '../components/ClassificationBadge';
 import { Icon } from '../components/Icon';
 import { BrandMark } from '../components/BrandMark';
@@ -104,8 +103,7 @@ export default function Losses() {
   const focus = skills.focus.current?.area;
   const lossIds = analysed.map((a) => a.game.id).join(',');
   const makeFocus = async (area: SkillArea) => {
-    const latest = ((await db.kv.get(FOCUS_KEY))?.value as FocusStore | undefined) ?? skills.focus;
-    await db.kv.put({ key: FOCUS_KEY, value: chooseFocus(latest, area, skills.ag) });
+    await pickFocus(area, skills.ag, skills.focus);
   };
 
   // What they have in common, as figures: how many of them, and what.

@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto';
 import { describe, expect, it } from 'vitest';
 import { ChessDB } from '../../db/schema';
 import { gameIdFromUrl, isMonthComplete } from '../chesscom/api';
-import { selectArchives, syncChessCom } from '../chesscom/sync';
+import { monthIndex, selectArchives, syncChessCom, syncMonths } from '../chesscom/sync';
 
 const game = (id: number, day = 1) => ({
   url: `https://www.chess.com/game/live/${id}`,
@@ -69,5 +69,32 @@ describe('chess.com sync', () => {
     expect(await syncChessCom(db, 'me', { historyMonths: 3, fetcher: second.fetcher, now })).toBe(1);
     expect(second.calls).toEqual([`https://api.chess.com/pub/player/me/games/archives`, `${A}/2026/09`]);
     expect(await db.games.count()).toBe(4);
+  });
+
+  it('an import of older months during a sync keeps both: neither undoes the other', async () => {
+    const db = new ChessDB('test-sync-' + Math.random());
+    const now = Date.UTC(2026, 8, 26);
+    const months = { [`${A}/2026/06`]: [game(4)], [`${A}/2026/08`]: [game(1)], [`${A}/2026/09`]: [game(2)] };
+    // The first sync covers August and September.
+    await syncChessCom(db, 'me', { historyMonths: 2, fetcher: fakeFetcher(months).fetcher, now });
+    expect((await db.sync.get('me'))!.oldestMonth).toBe(monthIndex(`${A}/2026/08`));
+
+    // The next automatic sync is waiting for September when June is imported ("load more").
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const slow = async (url: string) => {
+      if (url.endsWith('/2026/09')) await gate;
+      return fakeFetcher(months).fetcher(url);
+    };
+    const sync = syncChessCom(db, 'me', { historyMonths: 2, fetcher: slow, now });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(await syncMonths(db, 'me', [`${A}/2026/06`], fakeFetcher(months).fetcher, now)).toBe(1);
+    release();
+    await sync;
+
+    const state = (await db.sync.get('me'))!;
+    expect(state.oldestMonth).toBe(monthIndex(`${A}/2026/06`));
+    expect(state.completedMonths).toContain(`${A}/2026/06`);
+    expect(state.lastSync).toBe(now);
   });
 });

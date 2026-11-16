@@ -42,4 +42,23 @@ describe('saveBetterLine', () => {
     // Saving the same line again changes nothing.
     expect(await saveBetterLine(g.id, ply, pv)).toBe(false);
   });
+
+  it('two better lines found in the same game at once are both kept', async () => {
+    const seed = seedJson as unknown as { games: (StoredGame & { pgn: string })[]; analyses: GameAnalysis[] };
+    const a = seed.analyses.find((x) => seed.games.find((g) => g.id === x.gameId)?.userColor && x.moves.filter((m) => m.color === seed.games.find((g) => g.id === x.gameId)!.userColor && m.bestUci && ['mistake', 'blunder'].includes(m.classification)).length >= 2)!;
+    const g = seed.games.find((x) => x.id === a.gameId)!;
+    await db.games.put({ ...g, pgn: undefined } as unknown as StoredGame);
+    await db.pgns.put({ gameId: g.id, pgn: g.pgn });
+    await db.analyses.put(a);
+    const plies = a.moves.flatMap((m, i) => (m.color === g.userColor && m.bestUci && ['mistake', 'blunder'].includes(m.classification) ? [i] : [])).slice(0, 2);
+    const lines = plies.map((ply) => {
+      const m = a.moves[ply];
+      const other = new Chess(m.fenBefore).moves({ verbose: true }).find((x) => x.from + x.to !== m.bestUci && x.from + x.to !== m.uci)!;
+      return [other.from + other.to + (other.promotion ?? '')];
+    });
+
+    expect(await Promise.all(plies.map((ply, i) => saveBetterLine(g.id, ply, lines[i])))).toEqual([true, true]);
+    const next = (await db.analyses.get(g.id))!;
+    expect(plies.map((ply) => next.moves[ply].bestUci)).toEqual(lines.map((l) => l[0]));
+  });
 });
