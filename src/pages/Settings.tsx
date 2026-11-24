@@ -11,6 +11,7 @@ import { syncManager } from '../lib/syncManager';
 import { analysisQueue } from '../lib/engine/queue';
 import { exportBackup, importBackup } from '../lib/backup';
 import { wipeOnRestart } from '../lib/wipe';
+import { keepStorage, storageKeep, type StorageKeep } from '../lib/storage';
 import { PageHeader } from '../components/ui';
 import { Picker } from '../components/Picker';
 import { timeAgo } from '../lib/format';
@@ -47,6 +48,8 @@ export default function SettingsPage() {
     setMsg('Checking chess.com…');
     try {
       const name = await connectAccount(u);
+      // Games are about to arrive: ask the browser to keep them.
+      void keepStorage();
       typed.current = false;
       setUsername(name);
       setMsg(`Connected to ${name}.`);
@@ -256,6 +259,7 @@ export default function SettingsPage() {
 
       <Group title="Data">
         <Row label="Stored in this browser" hint={`${counts?.games ?? 0} games · ${counts?.analysed ?? 0} analysed · ${counts?.puzzles ?? 0} puzzles`} />
+        <StorageRow />
         <Row label="Backup">
           <div className="flex gap-1.5">
             <button className="btn !py-1.5 !px-3" onClick={() => void exportBackup().then(() => toast('Backup downloaded', 'success'))}>
@@ -428,6 +432,37 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
 }
 
 /** One setting: label (and a short hint) on the left, its control on the right. */
+/** Whether the browser has promised to keep the app's data, with a way to ask if it hasn't. */
+function StorageRow() {
+  const [keep, setKeep] = useState<StorageKeep>();
+  useEffect(() => {
+    void storageKeep().then(setKeep);
+  }, []);
+  if (!keep) return null;
+  const hint =
+    keep === 'kept'
+      ? 'Your browser keeps it, even when the device runs low on space.'
+      : keep === 'not-kept'
+        ? 'Your browser may clear it when space runs low. Keep a backup.'
+        : "Your browser doesn't say whether it keeps it. Keep a backup.";
+  return (
+    <Row label="Kept on this device" hint={hint}>
+      {keep === 'not-kept' && (
+        <button
+          className="btn !py-1.5 !px-3"
+          onClick={async () => {
+            const now = await keepStorage();
+            setKeep(now);
+            toast(now === 'kept' ? 'Your data is kept on this device' : 'The browser said no. Keep a backup.', now === 'kept' ? 'success' : 'info');
+          }}
+        >
+          Keep it
+        </button>
+      )}
+    </Row>
+  );
+}
+
 function Row({ label, hint, children }: { label: string; hint?: string; children?: ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-3 px-4 py-3 min-h-14">

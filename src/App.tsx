@@ -5,6 +5,7 @@ import { useBackLabel } from './lib/backLink';
 import { db, saveSettings } from './db/schema';
 import { NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { syncManager } from './lib/syncManager';
+import { keepStorage } from './lib/storage';
 import { analysisQueue } from './lib/engine/queue';
 import Dashboard from './pages/Dashboard';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -73,6 +74,8 @@ export default function App() {
     .then(() => backfillPeakEval())
     .then(() => backfillPuzzleStakes());
     void oneTimeChanges();
+    // Once there is something to lose, ask the browser not to clear it when space runs low.
+    void db.games.count().then((n) => (n > 0 ? keepStorage() : undefined));
   }, []);
 
   // A game review is a full-screen view on phones with its own bottom action bar.

@@ -9,6 +9,12 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: '24 Nov 2026',
+    items: [
+      'Your games, puzzles and progress are safer: the app now asks your browser to keep them, so they are not cleared when the device runs low on space. Settings > Data shows whether your browser keeps them, with a button to ask again.',
+    ],
+  },
+  {
     date: '16 Nov 2026',
     items: [
       'In a review on a computer, B shows the best move and each further press plays its line on, so you can follow the whole continuation without reaching for the arrows. Shift+B steps back.',
