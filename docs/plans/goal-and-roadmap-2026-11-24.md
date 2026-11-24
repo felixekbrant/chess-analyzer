@@ -64,6 +64,57 @@ One step per commit, following the workflow in `next-steps-2026-11-13.md` sectio
 3. **Share a moment** as an image, and export a game as PGN with the app's comments.
 4. Lichess import, only if a friend asks for it.
 
+### Alongside every phase: the feel
+
+The owner wants the app to **feel great and consistent through the whole experience** (24 Nov 2026).
+This runs next to the phases, one step at a time, each checked on phone and laptop.
+
+**Principles.** Every screen is judged against these:
+
+1. **One board.** Wherever you meet a board (review, puzzle, play, later the analysis board), it
+   has the same size rule, the same player bars, the same place for its buttons and the same
+   behaviour.
+2. **One voice.** The coach (orange disc, bubble) speaks everywhere: in the review, in puzzles and
+   in play-outs, not only in the review.
+3. **Every touch answers.** A press responds at once. Right and wrong feel the same everywhere
+   (colour, sound, vibration). Nothing is ever blank while it loads.
+4. **A colour means one thing,** the same on every screen.
+5. **The same rhythm.** The same timings for pages, sheets, cards and pieces moving.
+
+**What the audit found (24 Nov 2026, all screens at 412 px and 1440 px with the seed games):**
+
+- **Three board screens, three layouts.** On a laptop the board is about 685 px in the review,
+  560 px in puzzles and 760 px in Play. The review has player bars with names, ratings and clocks;
+  puzzles show only captured pieces; Play has a small "Stockfish · Your level" label and "You".
+  The page header differs too (breadcrumb chips in the review, a big title with a sentence in
+  Train, the title in the right-hand column in Play). The buttons sit above the coach in the review
+  and below the prompt in Train and Play.
+- **The coach is missing outside the review.** Puzzles say "Black to move · find the best move" in
+  a plain bar; Play says "Your move." in a box with a coloured left edge, which the look rules
+  forbid.
+- **Feedback isn't even.** The phone vibrates on a wrong puzzle move and a failed retry, but
+  nothing marks a solved puzzle or a won play-out the same way.
+- **Colour drift.** The skill bars are amber, grey or mint depending on how you compare with
+  players at your level, but no screen says so. "Defending" is coral (+2.1%) on Weaknesses and
+  amber on Insights.
+- **Laptop puzzles leave half the screen empty** under three buttons and one card.
+- Already good, keep: page fade-in, sheets, loading skeletons, reduced motion respected, piece
+  animation, move sounds, coloured last-move squares by move grade.
+
+**Steps, in order (ask first, with a mockup, for 1 and 2):**
+
+1. **One board screen.** A shared layout for review, puzzles and Play: the same board size rule
+   on phone and laptop, the same player bars, the coach bubble under the board on the phone and
+   beside it on the laptop, and the buttons in one place.
+2. **The coach in puzzles and Play.** The prompt, the solved and missed cards, and the play-out
+   status all speak through the coach bubble.
+3. **Right and wrong, the same everywhere.** One set of sounds, vibrations and colours for a right
+   move, a wrong move, solved and finished, in puzzles, retries and play-outs.
+4. **Colour audit.** One meaning per colour on every screen, and a short key where colour carries
+   meaning (the skill bars).
+5. **Real-phone pass.** The owner runs through a short list on their phone: smooth scrolling,
+   tap response, the iOS status bar, the keyboard, install and update.
+
 ### Not planned
 
 Accounts, a server of our own, paid services, a public launch, a light theme, puzzle repetition,
