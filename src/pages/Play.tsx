@@ -4,8 +4,8 @@ import { Chess } from 'chess.js';
 import { Board } from '../components/Board';
 import { EvalBar } from '../components/EvalBar';
 import { Icon } from '../components/Icon';
-import { CapturedPieces } from '../components/CapturedPieces';
-import { PageHeader } from '../components/ui';
+import { BoardHeader, BoardScreen, BoardStage } from '../components/BoardScreen';
+import { ActionButton, CoachBubble, PlayerStrip } from './review/parts';
 import { pill } from '../components/EngineControls';
 import { Engine } from '../lib/engine/engine';
 import { evaluateOnce, useLiveEngine } from '../hooks/useLiveEngine';
@@ -259,20 +259,51 @@ export default function Play() {
           : 'Your move.'
         : '';
 
+  const lost = over && (over.result === 'lost' || over.result === 'resigned');
+  const goBack = () => (window.history.length > 1 ? navigate(-1) : navigate('/'));
+
+  // The buttons, in the same places as in a review and a puzzle: the next step is the fourth, orange
+  // once it's ready.
+  const actions = !over ? (
+    <>
+      <ActionButton icon={<Icon name="prev" />} label="Take back" onClick={takeBack} disabled={!moves.length} />
+      <ActionButton icon={<Icon name="bulb" />} label={hint ? 'More' : 'Hint'} onClick={() => void askHint()} disabled={thinking || turn !== you || hint?.step === 2} />
+      <ActionButton icon={<Icon name="close" />} label="Resign" onClick={() => setOver({ result: 'resigned', text: 'You resigned.' })} />
+      <ActionButton icon={<Icon name="retry" />} label="Try again" onClick={restart} disabled />
+    </>
+  ) : (
+    <>
+      <ActionButton icon={<Icon name="back" />} label="Back" onClick={goBack} />
+      {over.result === 'converted' && (
+        <ActionButton
+          icon={<Icon name="play" />}
+          label="Keep playing"
+          onClick={() => {
+            setKeepPlaying(true);
+            setStreak(0);
+            setOver(null);
+            setSlips(null);
+            setView(null);
+          }}
+        />
+      )}
+      <ActionButton icon={<Icon name="retry" />} label="Try again" onClick={restart} primary />
+    </>
+  );
+
   return (
-    // Like the review: the board takes the room it can (up to the window's height), the controls
-    // sit beside it on large screens, and on phones the board runs edge to edge.
-    <div className="grid lg:grid-cols-[minmax(0,1fr)_360px] gap-3 lg:gap-5 max-w-[1300px] mx-auto">
-      <div className="min-w-0 space-y-1 -mx-2.5 px-1 lg:mx-0 lg:px-0" style={{ maxWidth: 'min(760px, calc(100svh - 110px))' }}>
-        <div className="flex items-center gap-2 text-sm font-bold px-1 h-6">
-          <Icon name="engine" size={16} /> Stockfish · {LEVELS[level].label}
-          <span className="ml-auto">
-            <CapturedPieces fen={shownFen} side={them} />
-          </span>
-        </div>
-        <div className="flex gap-1.5">
-          {showEval && <EvalBar score={live.result?.lines[0]?.score} orientation={orientation} thinking={!live.settled} />}
-          <div className="flex-1 min-w-0">
+    <>
+      <BoardHeader>
+        <h1 className="font-extrabold text-base shrink-0">Play from here</h1>
+        <span className="muted truncate">Take back a move or ask for a hint whenever you like.</span>
+      </BoardHeader>
+      <BoardScreen
+        stage={
+          <BoardStage
+            evalBar={showEval ? <EvalBar score={live.result?.lines[0]?.score} orientation={orientation} thinking={!live.settled} /> : undefined}
+            top={<PlayerStrip name="Stockfish" side={them} fen={shownFen} note={LEVELS[level].label} />}
+            bottom={<PlayerStrip name={settings.username || 'You'} side={you} fen={shownFen} isUser />}
+          >
             <Board
               id="play"
               fen={shownFen}
@@ -282,87 +313,39 @@ export default function Play() {
               highlight={highlight}
               arrows={arrows}
             />
-          </div>
-        </div>
-        <div className="flex items-center gap-2 text-sm font-bold px-1 h-6">
-          <Icon name="user" size={16} /> You
-          <span className="ml-auto">
-            <CapturedPieces fen={shownFen} side={you} />
-          </span>
-        </div>
-      </div>
-
-      <div className="space-y-3 min-w-0">
-        <div className="hidden lg:block">
-          <PageHeader title="Play from here" subtitle="Play on against the engine. Take back a move or ask for a hint whenever you like." />
-        </div>
-        <div
-          className="panel p-3 font-semibold"
-          role="status"
-          style={{
-            boxShadow: `inset 3px 0 0 ${over ? (over.result === 'lost' || over.result === 'resigned' ? 'var(--loss)' : over.result === 'draw' ? 'var(--border)' : 'var(--win)') : 'var(--border)'}`,
-          }}
-        >
-          {status || <span className="muted">…</span>}
-          {view !== null && <p className="muted text-sm font-normal mt-1">Looking back at move {view} of {moves.length}. → returns to the end.</p>}
-        </div>
-
-        {!over ? (
-          <div className="grid grid-cols-3 gap-2">
-            <button className="btn justify-center !py-3 !px-2 whitespace-nowrap" onClick={takeBack} disabled={!moves.length}>
-              <Icon name="prev" size={16} /> Take back
-            </button>
-            <button className="btn justify-center !py-3" onClick={() => void askHint()} disabled={thinking || turn !== you || hint?.step === 2}>
-              <Icon name="bulb" size={16} /> {hint ? 'More' : 'Hint'}
-            </button>
-            <button className="btn justify-center !py-3" onClick={() => setOver({ result: 'resigned', text: 'You resigned.' })}>
-              <Icon name="close" size={16} /> Resign
-            </button>
-          </div>
-        ) : (
-          <div className="panel p-3 space-y-3">
-            <div className="text-sm">
-              {slips && slips.done < slips.total ? (
-                <span className="muted">
-                  Checking your moves… {slips.done}/{slips.total}
-                </span>
-              ) : worst ? (
-                <>
-                  <p>
-                    Where it slipped: <b>{worst.moveNo}{worst.san}</b> (−{Math.round(worst.loss)}% win chance)
-                    {slips && slips.list.length > 1 ? `, and ${slips.list.length - 1} more` : ''}.
-                  </p>
-                  <button className="underline muted mt-1" onClick={() => setView(worst.index - 1)}>
-                    Show the position before it
-                  </button>
-                </>
-              ) : slips && slips.total > 0 ? (
-                <p>No big slips: every move kept your chances.</p>
-              ) : null}
-              {hintsUsed > 0 && <p className="muted mt-1">Hints used: {hintsUsed}.</p>}
+          </BoardStage>
+        }
+        // The coach says whose move it is and how it ended, as in a review and a puzzle.
+        coach={
+          <CoachBubble tone={over ? (lost ? 'bad' : over.result === 'draw' ? 'neutral' : 'good') : 'neutral'}>
+            <div role="status" className="font-semibold">
+              {status || <span className="muted">…</span>}
+              {view !== null && <p className="muted text-sm font-normal mt-1">Looking back at move {view} of {moves.length}. → returns to the end.</p>}
             </div>
-            <div className="flex flex-wrap gap-2">
-              {over.result === 'converted' && (
-                <button
-                  className="btn !py-2"
-                  onClick={() => {
-                    setKeepPlaying(true);
-                    setStreak(0);
-                    setOver(null);
-                    setSlips(null);
-                    setView(null);
-                  }}
-                >
-                  Keep playing
+          </CoachBubble>
+        }
+        actions={actions}
+      >
+        {over && (
+          <div className="panel p-3 text-sm">
+            {slips && slips.done < slips.total ? (
+              <span className="muted">
+                Checking your moves… {slips.done}/{slips.total}
+              </span>
+            ) : worst ? (
+              <>
+                <p>
+                  Where it slipped: <b>{worst.moveNo}{worst.san}</b> (−{Math.round(worst.loss)}% win chance)
+                  {slips && slips.list.length > 1 ? `, and ${slips.list.length - 1} more` : ''}.
+                </p>
+                <button className="underline muted mt-1" onClick={() => setView(worst.index - 1)}>
+                  Show the position before it
                 </button>
-              )}
-              <button className="btn btn-primary !py-2" onClick={restart}>
-                <Icon name="retry" size={16} /> Try again
-              </button>
-              <button className="btn !py-2" onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/'))}>
-                <Icon name="back" size={16} /> Back
-              </button>
-            </div>
+              </>
+            ) : slips && slips.total > 0 ? (
+              <p>No big slips: every move kept your chances.</p>
+            ) : null}
+            {hintsUsed > 0 && <p className="muted mt-1">Hints used: {hintsUsed}.</p>}
           </div>
         )}
 
@@ -381,7 +364,7 @@ export default function Play() {
             <input type="checkbox" role="switch" className="switch" checked={showEval} onChange={(e) => setShowEval(e.target.checked)} />
           </label>
         </div>
-      </div>
-    </div>
+      </BoardScreen>
+    </>
   );
 }

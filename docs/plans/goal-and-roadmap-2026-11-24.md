@@ -103,8 +103,10 @@ This runs next to the phases, one step at a time, each checked on phone and lapt
 
 **Steps, in order (ask first, with a mockup, for 1 and 2):**
 
-1. **One board screen.** Mockup: https://claude.ai/artifact/7KtNCdwSBpoFmdqHuCHhDQ (24 Nov 2026,
-   waiting for the owner's verdict). A shared layout for review, puzzles and Play: the same board size rule
+1. **One board screen.** Mockup: https://claude.ai/artifact/7KtNCdwSBpoFmdqHuCHhDQ. Approved and
+   built 24 Nov 2026 (`src/components/BoardScreen.tsx`). The owner chose: puzzles open full screen
+   on the phone, with the filter and Engine in the top bar. On a laptop the buttons stay above the
+   coach (not under it, as in the mockup), so they never move when the coach's text changes length. A shared layout for review, puzzles and Play: the same board size rule
    on phone and laptop, the same player bars, the coach bubble under the board on the phone and
    beside it on the laptop, and the buttons in one place.
 2. **The coach in puzzles and Play.** The prompt, the solved and missed cards, and the play-out

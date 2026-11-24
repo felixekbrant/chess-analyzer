@@ -61,6 +61,9 @@ const TITLES: [RegExp, string][] = [
   [/^\/settings/, 'Settings'],
 ];
 
+/** The screens built around a board: full screen on a phone, with a back button and their tools on top. */
+const isBoardScreen = (path: string) => path.startsWith('/game/') || path.startsWith('/play') || path.startsWith('/training');
+
 const isActive = (item: NavItem, path: string) => (item.match ? item.match.test(path) : item.to === '/' ? path === '/' : path.startsWith(item.to));
 
 export default function App() {
@@ -78,8 +81,9 @@ export default function App() {
     void db.games.count().then((n) => (n > 0 ? keepStorage() : undefined));
   }, []);
 
-  // A game review is a full-screen view on phones with its own bottom action bar.
-  const fullScreen = location.pathname.startsWith('/game/') || location.pathname.startsWith('/play');
+  // The board screens (a game review, puzzles, Play from here) are full screen on phones, with their
+  // own bottom action bar.
+  const fullScreen = isBoardScreen(location.pathname);
 
   return (
     <div className="min-h-screen md:flex">
@@ -168,12 +172,12 @@ function Sidebar({ path }: { path: string }) {
 function TopBar({ path }: { path: string }) {
   const navigate = useNavigate();
   const title = TITLES.find(([re]) => re.test(path))?.[1] ?? 'Chess Analyzer';
-  // Reviews and "Play from here" are places you came to from somewhere: they get a back button.
-  const isReview = path.startsWith('/game/') || path.startsWith('/play');
+  // The board screens are places you came to from somewhere: they get a back button.
+  const isReview = isBoardScreen(path);
   // Pages reached from another page (not from the tab bar) also get a back button.
   const hasBack = isReview || path.startsWith('/losses');
   const back = useBackLabel();
-  const goBack = () => (window.history.length > 1 ? navigate(-1) : navigate('/games'));
+  const goBack = () => (window.history.length > 1 ? navigate(-1) : navigate(path.startsWith('/training') ? '/' : '/games'));
   return (
     <header className="md:hidden sticky top-0 z-30 safe-top frosted border-b border-[var(--border)]">
       {/* Slimmer on a game review, where the board should start as high as possible. */}
@@ -192,9 +196,10 @@ function TopBar({ path }: { path: string }) {
             <Logo />
           </span>
         )}
-        <h1 className={`flex-1 font-bold text-base truncate ${hasBack && back ? 'text-right muted !font-semibold !text-sm pr-2' : ''}`}>{title}</h1>
-        {/* A review puts its Engine switch here, so it doesn't cost a row under the board. */}
-        {isReview && <div id="topbar-tools" className="shrink-0 pr-1" />}
+        {/* Puzzles put what to practise in the title's place. */}
+        <h1 className={`flex-1 font-bold text-base truncate ${hasBack && back ? 'text-right muted !font-semibold !text-sm pr-2' : ''} ${path.startsWith('/training') ? 'sr-only' : ''}`}>{title}</h1>
+        {/* A board screen puts its Engine switch here, so it doesn't cost a row under the board. */}
+        {isReview && <div id="topbar-tools" className={`pr-1 ${path.startsWith('/training') ? 'flex-1 min-w-0 flex items-center gap-2' : 'shrink-0'}`} />}
         {!isReview && <StatusIndicator variant="compact" />}
       </div>
     </header>

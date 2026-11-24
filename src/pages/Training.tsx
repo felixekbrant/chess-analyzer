@@ -1,8 +1,8 @@
 import { backTo } from '../lib/backLink';
 import { createPortal } from 'react-dom';
 import { isThrown } from '../lib/games/thrown';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Chess } from 'chess.js';
 import { db } from '../db/schema';
@@ -38,6 +38,8 @@ import {
   type TodayProgress,
 } from '../lib/training/today';
 import { Board } from '../components/Board';
+import { BoardScreen, BoardStage, HEADER_QUERY, useMedia } from '../components/BoardScreen';
+import { ActionButton, CoachBubble, PlayerStrip } from './review/parts';
 import { ClassificationBadge } from '../components/ClassificationBadge';
 import { Icon } from '../components/Icon';
 import { BrandMark } from '../components/BrandMark';
@@ -48,9 +50,8 @@ import { isSmall, puzzlePriority, stakeLabel } from '../lib/training/puzzles';
 import { logPuzzleTry } from '../lib/training/puzzleLog';
 import { keyMotif, kindText } from '../lib/training/repeats';
 import { playHref } from '../lib/play/playouts';
-import { CapturedPieces } from '../components/CapturedPieces';
-import { materialOf } from '../lib/analysis/material';
-import { EMPTY_FENS, EmptyState, PageHeader, Section } from '../components/ui';
+import { EMPTY_FENS, EmptyState, Section } from '../components/ui';
+import { relativeDay } from '../lib/format';
 
 type State = 'solving' | 'checking' | 'wrong' | 'solved' | 'revealed';
 
@@ -104,6 +105,13 @@ export default function Training() {
   const [skipped, setSkipped] = useState<string[]>(memo?.skipped ?? []);
   const [focusOpen, setFocusOpen] = useState(false);
   const settings = useSettings();
+  // Where the puzzle puts its Engine switch: in the filter row (a callback ref, as the row moves
+  // into the phone's top bar once that is found).
+  const [toolsEl, setToolsEl] = useState<HTMLElement | null>(null);
+  const [topbarEl, setTopbarEl] = useState<HTMLElement | null>(null);
+  useEffect(() => setTopbarEl(document.getElementById('topbar-tools')), []);
+  const headerRow = useMedia(HEADER_QUERY);
+  const portalOnPhone = (row: ReactNode) => (topbarEl && !headerRow ? createPortal(row, topbarEl) : row);
 
   const allPuzzles = useLiveQuery(() => db.puzzles.toArray(), []);
   // Small positional puzzles stay out of practice unless you turn them on (or pick that set).
@@ -230,10 +238,15 @@ export default function Training() {
 
   return (
     <div className="max-w-[1300px] mx-auto space-y-3">
-      <PageHeader title="Training" desktopOnly subtitle="Puzzles made from your own mistakes, recent games first. Each is done once; after a miss, the next one has the same idea." />
 
-      {/* One compact row instead of a wall of filter chips. */}
-      <div className="flex items-center gap-2">
+      {/* One compact row instead of a wall of filter chips. On a phone it sits in the top bar, so the
+          board starts right under it, as in a review. */}
+      {portalOnPhone(
+      // On a tablet or laptop: the board screen's one-line header, like a review's.
+      <div className="flex items-center gap-2 flex-1 min-w-0 md:gap-3 md:mb-1 md:h-9 md:max-w-[1300px] md:mx-auto">
+        <h1 className="hidden md:block font-extrabold text-base shrink-0" title="Puzzles made from your own mistakes, recent games first. Each is done once; after a miss, the next one has the same idea.">
+          Training
+        </h1>
         {inSession ? (
           <div className="min-w-0">
             <div className="font-bold truncate">Today's session</div>
@@ -259,14 +272,15 @@ export default function Training() {
         )}
         <div className="ml-auto flex items-center gap-3 text-sm tabular-nums">
           {/* The puzzle puts its Engine switch here (where the filter's tools live). */}
-          <div id="puzzle-tools" className="contents" />
+          <div ref={setToolsEl} className="contents" />
           {session.streak > 1 && (
             <span title="Solved in a row" className="inline-flex items-center gap-0.5 font-bold" style={{ color: 'var(--brass-ink)' }}>
               <Icon name="flame" size={14} /> {session.streak}
             </span>
           )}
         </div>
-      </div>
+      </div>,
+      )}
       <Sheet open={focusOpen} onClose={() => setFocusOpen(false)} title="What to practise">
         <div className="grid gap-1">
           <FocusItem
@@ -376,6 +390,7 @@ export default function Training() {
           autoNext={settings.autoNextPuzzle}
           showProgress={inSession}
           nextIdea={nextIdea}
+          toolsEl={toolsEl}
           onDone={async (grade) => {
             pinned.current = undefined;
             // Set aside at once, so it isn't picked again before its "done" is saved.
@@ -491,9 +506,12 @@ function PuzzleView({
   autoNext,
   showProgress,
   nextIdea,
+  toolsEl,
 }: {
   /** The idea of this puzzle in words, when a new position with it is next (shown after a miss). */
   nextIdea?: string;
+  /** Where the Engine switch goes (the filter row). */
+  toolsEl: HTMLElement | null;
   puzzle: Puzzle;
   remaining: number;
   done: number;
@@ -502,6 +520,7 @@ function PuzzleView({
   autoNext: boolean;
   showProgress: boolean;
 }) {
+  const navigate = useNavigate();
   // Coming back to this puzzle (from its game): carry on where you were.
   const [resume] = useState(() => (puzzleMemo?.id === puzzle.id && Date.now() - puzzleMemo.at < RESUME_MS ? puzzleMemo : null));
   const [fen, setFenState] = useState(resume?.fen ?? puzzle.fen);
@@ -736,8 +755,6 @@ function PuzzleView({
   const clean = state === 'solved' && !mistakes && !hint && !peeked;
 
   // The Engine switch sits in the page's top row, beside the filter.
-  const [toolsEl, setToolsEl] = useState<HTMLElement | null>(null);
-  useEffect(() => setToolsEl(document.getElementById('puzzle-tools')), []);
   // The keyboard shortcuts, listed: from a small button beside the Engine switch, or with "?".
   const [keysOpen, setKeysOpen] = useState(false);
   const openKeys = useStableCallback(() => setKeysOpen(true));
@@ -847,310 +864,301 @@ function PuzzleView({
   // Missed: not shown again; a new position with the same idea comes next, to apply it.
   const missedNote = done && gradeFor() === 'again' ? (nextIdea ? `Next: a new position with the same idea (${nextIdea}).` : undefined) : undefined;
 
-  return (
-    // overflow-anchor: none, or the browser keeps the tapped button in place when a line opens above
-    // it, scrolling the board away.
-    <div className="grid lg:grid-cols-[minmax(0,560px)_minmax(0,1fr)] gap-3 lg:gap-5 [overflow-anchor:none]">
-      <div className="space-y-2">
-        {/* Progress only means something in today's session (a fixed number of puzzles). */}
-        {showProgress && doneCount > 0 && (
-          <div className="h-1 rounded bg-[var(--panel-2)]" title={`${doneCount + 1} of ${total}`}>
-            <div className="h-1 rounded bg-accent transition-all" style={{ width: `${(100 * doneCount) / Math.max(1, total)}%` }} />
-          </div>
-        )}
-        <div className="flex gap-1.5" id="puzzle-board">
-          {engine && settings.showEvalBar && <EvalBar score={live.result?.lines[0]?.score} orientation={toMove} thinking={!live.settled} />}
-          <div className="flex-1 min-w-0">
-            {/* Material, like chess.com: the opponent's captures above the board, yours below. */}
-            <MaterialRow fen={(engine && engineFen) || lineFen || fen} side={toMove === 'white' ? 'b' : 'w'} />
-            {engine && engineFen ? (
-              <Board
-                id="puzzle"
-                fen={engineFen}
-                orientation={toMove}
-                onMove={onEngineMove}
-                arrows={engineArrows}
-                lastMove={engineLast ? { from: engineLast.slice(0, 2), to: engineLast.slice(2, 4) } : undefined}
-              />
-            ) : (
-              <Board
-                id="puzzle"
-                fen={lineFen ?? attempt?.fen ?? fen}
-                orientation={toMove}
-                onMove={!threatAsk && !lineFen && !attempt && (state === 'solving' || state === 'wrong') ? onMove : undefined}
-                onSquareTap={threatAsk === 'ask' ? onThreatTap : undefined}
-                lastMove={
-                  lineFen
-                    ? lineLast
-                      ? { from: lineLast.slice(0, 2), to: lineLast.slice(2, 4) }
-                      : undefined
-                    : attempt
-                      ? { from: attempt.uci.slice(0, 2), to: attempt.uci.slice(2, 4) }
-                      : lastMove
-                }
-                lastMoveTint={attempt?.failed && !lineFen ? '#ff7a66' : undefined}
-                marker={lineFen ? undefined : marker}
-                highlight={highlight}
-                // After "what do they threaten?": their threat as a red arrow.
-                arrows={threat && threatAsk && threatAsk !== 'ask' ? [{ from: threat.uci.slice(0, 2), to: threat.uci.slice(2, 4), color: 'rgba(229,83,61,0.9)' }] : undefined}
-              />
-            )}
-            <MaterialRow fen={(engine && engineFen) || lineFen || fen} side={toMove === 'white' ? 'w' : 'b'} />
-          </div>
-        </div>
+  // The players, as in a review: your opponent in that game above the board, you below.
+  const meSide: Color = toMove === 'white' ? 'w' : 'b';
+  const oppSide: Color = meSide === 'w' ? 'b' : 'w';
+  const nameOf = (c: Color) => (game ? (c === 'w' ? game.white : game.black) : c === meSide ? 'You' : puzzle.lichess ? 'Lichess puzzle' : 'Opponent');
+  const eloOf = (c: Color) => (game ? (c === 'w' ? game.whiteElo : game.blackElo) : undefined);
+  const moveNo = Number(puzzle.fen.split(' ')[5]) || undefined;
+  const shownFen = (engine && engineFen) || lineFen || fen;
+  const playOutHref = playHref(playUci(puzzle.fen, puzzle.solutionUci).fens.at(-1) ?? puzzle.fen, puzzle.fen.split(' ')[1] as Color, `puzzle:${puzzle.id}`);
+  const moveCard = (label: string, san: string, body: ReactNode, extra?: ReactNode) => (
+    <div className="flex flex-col gap-1">
+      <div className="text-[12px] font-extrabold uppercase tracking-wider" style={{ color: state === 'solved' ? 'var(--felt-ink)' : 'var(--muted)' }}>
+        {label}
       </div>
-
-      <div className="space-y-3">
-        {/* With the engine open, stepping comes first too: right under the board, above the engine's lines. */}
-        {engine && (
-          <div className="flex gap-2">
-            <button className="btn flex-1 justify-center !py-3" onClick={() => setEngine(stepBack(engine))} disabled={!engine.moves.length} title="Back (←)">
-              <Icon name="prev" size={18} /> Back
-            </button>
-            <button className="btn !py-3 !px-4" onClick={() => setEngine(stepForward(engine))} disabled={!engine.future?.length} title="Forward (→)" aria-label="Forward">
-              <Icon name="next" size={18} />
-            </button>
-            <button className="btn flex-1 justify-center !py-3" onClick={() => setEngine(null)}>
-              <Icon name="close" size={18} /> Back to puzzle
-            </button>
-          </div>
-        )}
-        {/* An open line goes right under the board, its buttons first, so the board stays in view while stepping. */}
-        {!engine && shownLine && lineView && (
-          <div className="panel p-3 text-sm" id="puzzle-line">
-            <LineViewer
-              title={lineView.kind === 'best' ? `The full line after ${solutionSan[0]}` : `What ${puzzle.playedSan} allowed`}
-              line={shownLine.line}
-              index={lineView.index}
-              onIndex={(i) => setLineView({ ...lineView, index: i })}
-              onClose={() => setLineView(null)}
-              controlsFirst
-            />
-          </div>
-        )}
-        {/* Right under the board on phones: what to do, and the buttons. */}
-        {/* Solved: the moment gets a card of its own, with the move as the headline. */}
-        {!engine && state === 'solved' && (
-          <div key="solved" role="status" className="pop-wide relative overflow-hidden rounded-[24px] px-[18px] py-4 flex flex-col gap-1.5" style={{ background: 'var(--felt)', color: 'var(--on-felt)' }}>
-            <span aria-hidden="true" className="absolute -right-7 -top-7 w-[120px] h-[120px] rounded-full" style={{ background: 'color-mix(in srgb, var(--felt) 70%, white)' }} />
-            <span aria-hidden="true" className="absolute right-[54px] top-[58px] w-[26px] h-[26px] rounded-full bg-primary" />
-            <span aria-hidden="true" className="pop absolute right-[22px] top-[22px] w-12 h-12 rounded-full grid place-items-center" style={{ background: 'var(--on-felt)', color: 'var(--felt)', animationDelay: '0.12s' }}>
-              <Icon name="check" size={26} strokeWidth={3.2} />
-            </span>
-            <div className="relative text-[13px] font-extrabold">{clean ? 'Solved first try' : 'Solved'}</div>
-            <div className="relative font-extrabold text-[40px] leading-none tracking-tight">{foundSan ?? solutionSan[0]}!</div>
-            <p className="relative text-[15px] font-semibold leading-snug max-w-[250px]">
-              {/* A note about the move you found ("Also good!"), else what it was worth and what you played in the game. */}
-              {note && note !== 'Solved.' && note !== 'Correct!'
-                ? note
-                : [stakeLabel(puzzle) && `${stakeLabel(puzzle)}.`, puzzle.playedSan && !puzzle.lichess && `In your game you played ${puzzle.playedSan}.`].filter(Boolean).join(' ') || 'Correct!'}
-            </p>
-          </div>
-        )}
-        {/* Missed ("Solution"): a card in the same shape, on a calm surface. Not a punishment: the move,
-            and what comes next. */}
-        {!engine && state === 'revealed' && (
-          <div key="missed" role="status" className="pop-wide rounded-[24px] px-[18px] py-4 flex flex-col gap-1.5 bg-[var(--panel-2)]">
-            <div className="text-[13px] font-extrabold muted">The move was</div>
-            <div className="font-extrabold text-[40px] leading-none tracking-tight">{solutionSan[0]}</div>
-            {solutionSan.length > 1 && <div className="muted text-sm font-semibold">The line: {solutionSan.join(' ')}</div>}
-            <p className="text-[15px] font-semibold leading-snug">
-              {missedNote ??
-                ([stakeLabel(puzzle) && `${stakeLabel(puzzle)}.`, puzzle.playedSan && !puzzle.lichess && `In your game you played ${puzzle.playedSan}.`].filter(Boolean).join(' ') ||
-                  'Every puzzle is done once: the next one is a new position.')}
-            </p>
-          </div>
-        )}
-        {/* Otherwise the state of the puzzle as a banner: neutral, or a red shake when wrong. */}
-        {!engine && state !== 'solved' && state !== 'revealed' && (
-          <div
-            key={`${state}-${mistakes}`}
-            className={`rounded-2xl px-3.5 py-3 text-sm font-bold ${state === 'wrong' ? 'shake' : ''}`}
-            style={{ background: state === 'wrong' ? 'color-mix(in srgb, var(--loss) 22%, var(--panel))' : 'var(--panel)' }}
-            role="status"
-          >
-            {status}
-            {missedNote && <p className="mt-1 text-sm font-normal muted">{missedNote}</p>}
-            {hintWords && !done && (
-              <p className="mt-1.5 font-normal flex gap-1.5" style={{ color: 'var(--attention-ink)' }}>
-                <Icon name="bulb" size={16} /> {hintWords}
-              </p>
-            )}
-          </div>
-        )}
-        {toolsEl &&
-          createPortal(
-            <>
-              <ShortcutsButton onClick={openKeys} />
-              <EngineControls open={!!engine} onToggle={toggleEngine} show="toggle" />
-            </>,
-            toolsEl,
-          )}
-        <KeyboardShortcuts open={keysOpen} onClose={closeKeys} groups={PUZZLE_SHORTCUTS} />
-        {/* The engine's display options and its lines in one card. */}
-        {engine && (
-          <div className="panel p-3 space-y-2.5">
-            <EngineControls open onToggle={toggleEngine} show="options" />
-            {settings.showSuggestions && <EngineLines result={live.settled ? live.result : null} fen={engineFen!} onPlayLine={onEngineMove} />}
-          </div>
-        )}
-        {engine && (
-          <EngineShortcuts
-            played={puzzle.playedUci ? { uci: puzzle.playedUci, san: puzzle.playedSan, classification: puzzle.classification, mine: true } : undefined}
-            bestUci={puzzle.solutionUci[0]}
-            atStart={!engine.moves.length}
-            onPlay={(moves) => setEngine({ ...engine, moves })}
-          />
-        )}
-        {threatAsk && !engine && (
-          // Before the puzzle itself: what is your opponent threatening?
-          <div className="panel p-3 space-y-2.5" role="status" style={{ boxShadow: `inset 3px 0 0 ${threatAsk === 'right' ? 'var(--win)' : threatAsk === 'wrong' ? 'var(--loss)' : 'var(--attention)'}` }}>
-            {threatAsk === 'ask' ? (
-              <>
-                <p className="font-semibold">First: what does your opponent threaten?</p>
-                <p className="muted text-sm">Tap the piece of yours they're after, or say they threaten mate.</p>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    className="btn !py-2 !text-sm"
-                    onClick={() => {
-                      setThreatAsk(threat?.kind === 'mate' ? 'right' : 'wrong');
-                      playSound(threat?.kind === 'mate' ? 'correct' : 'wrong');
-                    }}
-                  >
-                    They threaten mate
-                  </button>
-                  <button className="btn !py-2 !text-sm" onClick={() => setThreatAsk('shown')}>
-                    <Icon name="eye" size={14} /> Show me
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <p className="font-semibold" style={{ color: threatAsk === 'right' ? 'var(--felt-ink)' : threatAsk === 'wrong' ? 'var(--loss-ink)' : undefined }}>
-                  {threatAsk === 'right' ? '✔ Right: ' : threatAsk === 'wrong' ? 'Not quite: ' : 'The threat: '}
-                  {threatText}
-                </p>
-                <button className="btn btn-primary w-full justify-center !py-3" onClick={() => setThreatAsk(null)}>
-                  Now find your move <Icon name="next" size={18} />
-                </button>
-              </>
-            )}
-          </div>
-        )}
-        <div className={`flex gap-2 ${engine || threatAsk ? 'hidden' : ''}`}>
-          {engine ? null : !done ? (
-            <>
-              <button className="btn flex-1 justify-center !py-3" onClick={moreHint} disabled={hintLevel >= 2} title={hint ? 'Show the piece (h)' : 'Hint (h)'} aria-label={hint ? 'More hint' : 'Hint'}>
-                <Icon name="bulb" size={18} /> {hint ? 'More' : 'Hint'}
-              </button>
-              <button className="btn flex-1 justify-center !py-3" onClick={() => setState('revealed')} title="Show solution (s)">
-                <Icon name="eye" size={18} /> Solution
-              </button>
-              <button className="btn flex-1 justify-center !py-3" onClick={onSkip} title="Skip (k)">
-                <Icon name="next" size={18} /> Skip
-              </button>
-            </>
-          ) : (
-            <button className="btn btn-primary flex-1 justify-center !py-3 !text-base" onClick={() => void finish(gradeFor())} title="Next (Enter)">
-              {clean && autoNext ? 'Next puzzle…' : 'Next puzzle'} <Icon name="next" size={18} />
-            </button>
-          )}
-        </div>
-
-        {/* Once it's done: the lines and playing on, under "Next puzzle" so that button never moves out of reach. */}
-        {!engine && !threatAsk && done && !lineView && lines && (lines.best || lines.refute) && (
-          // Short labels, so all three fit on one row on a phone; the full meaning is in each tooltip.
-          <div className="flex gap-2">
-            {lines.best && (
-              <button className="btn flex-1 justify-center whitespace-nowrap !px-2.5 !py-2 !text-sm" title="See the full line" onClick={() => setLineView({ kind: 'best', index: 1 })}>
-                <Icon name="play" size={14} /> Full line
-              </button>
-            )}
-            {lines.refute && (
-              <button className="btn flex-1 justify-center whitespace-nowrap !px-2.5 !py-2 !text-sm" title={`What ${puzzle.playedSan} allowed`} onClick={() => setLineView({ kind: 'refute', index: 0 })}>
-                <Icon name="play" size={14} /> Why it fails
-              </button>
-            )}
-            {/* Solving it is the start: play on until the win is in the bag. */}
-            <Link
-              className="btn flex-1 justify-center whitespace-nowrap !px-2.5 !py-2 !text-sm"
-              title="Play on against the engine from the end of the solution"
-              to={playHref(playUci(puzzle.fen, puzzle.solutionUci).fens.at(-1) ?? puzzle.fen, puzzle.fen.split(' ')[1] as Color, `puzzle:${puzzle.id}`)}
-              state={backTo('puzzle')}
-            >
-              <Icon name="engine" size={14} /> Play it out
-            </Link>
-          </div>
-        )}
-
-        {/* One card: what happened in your game, then (once done) the lines and links. */}
-        {puzzle.lichess ? (
-          <LichessInfoPanel info={puzzle.lichess} done={done} />
-        ) : (
-          <div className="panel p-3 text-sm space-y-2.5">
-            <p className="flex items-center gap-1.5 flex-wrap">
-              <span className="muted">You played</span>
-              <span className="inline-flex items-center gap-1 font-bold">
-                <ClassificationBadge c={puzzle.classification} size={16} /> {puzzle.playedSan}
-              </span>
-              {/* What it cost and what kind of mistake it was would give the answer away: shown once it's done. */}
-              {done && (
-                <span className="muted tabular-nums" title="Win chance your move lost">
-                  −{puzzle.winLoss.toFixed(0)}%
-                </span>
-              )}
-              {done && stakeLabel(puzzle) && (
-                <span className="chip font-bold" style={{ color: 'var(--brass-ink)' }} title="What the best move wins or saves compared with yours">
-                  {stakeLabel(puzzle)}
-                </span>
-              )}
-              {puzzle.occurrences > 1 && (
-                <span className="chip" style={{ color: 'var(--attention-ink)' }}>
-                  ×{puzzle.occurrences} games
-                </span>
-              )}
-              {puzzle.occurrences === 1 && (puzzle.repeats ?? 0) > 0 && (
-                <span className="chip" style={{ color: 'var(--attention-ink)' }} title="The same kind of mistake in your games in the 2 months before this one">
-                  Also in {puzzle.repeats} earlier game{puzzle.repeats === 1 ? '' : 's'}
-                </span>
-              )}
-              {(done ? puzzle.motifs : [])
-                .filter((m) => m !== 'long_think')
-                .slice(0, 2)
-                .map((m) => (
-                  <span key={m} className="chip">
-                    {MOTIF_LABEL[m]}
-                  </span>
-                ))}
-            </p>
-            {done && puzzle.explanation && <p>{puzzle.explanation}</p>}
-            {/* Large screens have room for the moves that led here (the opening shows all of them below). */}
-            {lastMoves.length > 0 && !leadUp.length && (
-              <p className="hidden lg:block text-xs">
-                <span className="muted">Before this: </span>
-                <span className="font-mono">{lastMoves.join(' ')}</span>
-              </p>
-            )}
-            {(game || leadUp.length > 0) && (
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-                {game && (
-                  <Link className="underline muted inline-flex items-center gap-1 py-2.5 -my-2" to={`/game/${encodeURIComponent(game.id)}?ply=${puzzle.plies[puzzle.plies.length - 1] + 1}`} state={backTo('puzzle')}>
-                    Open game <Icon name="next" size={12} />
-                  </Link>
-                )}
-                {leadUp.length > 0 && (
-                  // Open from the start on large screens, where there's room beside the board.
-                  <details className="w-full" open={typeof matchMedia !== 'undefined' && matchMedia('(min-width: 1024px)').matches}>
-                    <summary className="cursor-pointer muted underline py-1">How the game got here</summary>
-                    <p className="font-mono leading-relaxed mt-1.5">{leadUp.join(' ')}</p>
-                  </details>
-                )}
-              </div>
-            )}
-          </div>
-        )}
+      <div className="font-extrabold text-[36px] leading-none tracking-tight" style={{ color: state === 'solved' ? 'var(--felt-ink)' : undefined }}>
+        {san}
       </div>
+      {extra}
+      <p className="text-[15px] font-semibold leading-snug mt-0.5">{body}</p>
     </div>
+  );
+  const gameNote = [stakeLabel(puzzle) && `${stakeLabel(puzzle)}.`, puzzle.playedSan && !puzzle.lichess && `In your game you played ${puzzle.playedSan}.`].filter(Boolean).join(' ');
+
+  // The coach says what to do, how it went, and what comes next: the same bubble as in a review.
+  const coach = engine ? null : threatAsk ? (
+    // Before the puzzle itself: what is your opponent threatening?
+    <CoachBubble tone={threatAsk === 'right' ? 'good' : threatAsk === 'wrong' ? 'bad' : 'neutral'}>
+      <div role="status" className="space-y-2.5">
+        {threatAsk === 'ask' ? (
+          <>
+            <p className="font-semibold">First: what does your opponent threaten?</p>
+            <p className="muted text-sm">Tap the piece of yours they're after, or say they threaten mate.</p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                className="btn !py-2 !text-sm"
+                onClick={() => {
+                  setThreatAsk(threat?.kind === 'mate' ? 'right' : 'wrong');
+                  playSound(threat?.kind === 'mate' ? 'correct' : 'wrong');
+                }}
+              >
+                They threaten mate
+              </button>
+              <button className="btn !py-2 !text-sm" onClick={() => setThreatAsk('shown')}>
+                <Icon name="eye" size={14} /> Show me
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="font-semibold" style={{ color: threatAsk === 'right' ? 'var(--felt-ink)' : threatAsk === 'wrong' ? 'var(--loss-ink)' : undefined }}>
+              {threatAsk === 'right' ? '✔ Right: ' : threatAsk === 'wrong' ? 'Not quite: ' : 'The threat: '}
+              {threatText}
+            </p>
+            <button className="btn btn-primary w-full justify-center !py-3" onClick={() => setThreatAsk(null)}>
+              Now find your move <Icon name="next" size={18} />
+            </button>
+          </>
+        )}
+      </div>
+    </CoachBubble>
+  ) : state === 'solved' ? (
+    // Solved: the move is the headline.
+    <div key="solved" className="pop-wide">
+      <CoachBubble tone="good">
+        <div role="status">
+          {moveCard(
+            clean ? 'Solved first try' : 'Solved',
+            `${foundSan ?? solutionSan[0]}!`,
+            // A note about the move you found ("Also good!"), else what it was worth and what you played in the game.
+            note && note !== 'Solved.' && note !== 'Correct!' ? note : gameNote || 'Correct!',
+          )}
+        </div>
+      </CoachBubble>
+    </div>
+  ) : state === 'revealed' ? (
+    // Missed ("Solution"): the same shape on a calm surface. Not a punishment: the move, and what comes next.
+    <div key="missed" className="pop-wide">
+      <CoachBubble>
+        <div role="status">
+          {moveCard(
+            'The move was',
+            solutionSan[0],
+            missedNote ?? (gameNote || 'Every puzzle is done once: the next one is a new position.'),
+            solutionSan.length > 1 ? <div className="muted text-sm font-semibold">The line: {solutionSan.join(' ')}</div> : undefined,
+          )}
+        </div>
+      </CoachBubble>
+    </div>
+  ) : (
+    // What to do, or how the last try went: a red shake when wrong.
+    <div key={`${state}-${mistakes}`} className={state === 'wrong' ? 'shake' : ''}>
+      <CoachBubble tone={state === 'wrong' ? 'bad' : 'neutral'}>
+        <div role="status" className="font-bold">
+          {status}
+          {missedNote && <p className="mt-1 text-sm font-normal muted">{missedNote}</p>}
+          {hintWords && !done && (
+            <p className="mt-1.5 font-normal flex gap-1.5" style={{ color: 'var(--attention-ink)' }}>
+              <Icon name="bulb" size={16} /> {hintWords}
+            </p>
+          )}
+        </div>
+      </CoachBubble>
+    </div>
+  );
+
+  // The buttons, in the same places as in a review: the next step is always the fourth, orange once
+  // it's ready.
+  const actions = engine ? (
+    <>
+      <ActionButton icon={<Icon name="prev" />} label="Back" title="Back (←)" onClick={() => setEngine(stepBack(engine))} disabled={!engine.moves.length} />
+      <ActionButton icon={<Icon name="close" />} label="Back to puzzle" onClick={() => setEngine(null)} />
+      <ActionButton icon={<Icon name="next" />} label="Forward" title="Forward (→)" onClick={() => setEngine(stepForward(engine))} disabled={!engine.future?.length} />
+    </>
+  ) : !done ? (
+    <>
+      {!threatAsk && (
+        <>
+          <ActionButton icon={<Icon name="bulb" />} label={hint ? 'More hint' : 'Hint'} title={hint ? 'Show the piece (h)' : 'Hint (h)'} onClick={moreHint} disabled={hintLevel >= 2} />
+          <ActionButton icon={<Icon name="eye" />} label="Solution" title="Show solution (s)" onClick={() => setState('revealed')} />
+        </>
+      )}
+      <ActionButton icon={<Icon name="next" />} label="Skip" title="Skip (k)" onClick={onSkip} />
+      <ActionButton icon={<Icon name="next" />} label="Next puzzle" onClick={() => {}} disabled />
+    </>
+  ) : (
+    <>
+      {/* Once it's done: the lines and playing on, beside "Next puzzle". */}
+      {lines?.best && <ActionButton icon={<Icon name="play" />} label="Full line" title="See the full line" onClick={() => setLineView({ kind: 'best', index: 1 })} />}
+      {lines?.refute && <ActionButton icon={<Icon name="play" />} label="Why it fails" title={`What ${puzzle.playedSan} allowed`} onClick={() => setLineView({ kind: 'refute', index: 0 })} />}
+      {/* Solving it is the start: play on until the win is in the bag. */}
+      <ActionButton icon={<Icon name="engine" />} label="Play it out" title="Play on against the engine from the end of the solution" onClick={() => navigate(playOutHref, { state: backTo('puzzle') })} />
+      <ActionButton icon={<Icon name="next" />} label={clean && autoNext ? 'Next puzzle…' : 'Next puzzle'} title="Next (Enter)" onClick={() => void finish(gradeFor())} primary />
+    </>
+  );
+
+  return (
+    <BoardScreen
+      stage={
+        <BoardStage
+          id="puzzle-board"
+          evalBar={engine && settings.showEvalBar ? <EvalBar score={live.result?.lines[0]?.score} orientation={toMove} thinking={!live.settled} /> : undefined}
+          top={<PlayerStrip name={nameOf(oppSide)} elo={eloOf(oppSide)} side={oppSide} fen={shownFen} note={game && moveNo ? `${relativeDay(game.endTime)} · move ${moveNo}` : undefined} />}
+          bottom={<PlayerStrip name={nameOf(meSide)} elo={eloOf(meSide)} side={meSide} fen={shownFen} isUser />}
+        >
+          {engine && engineFen ? (
+            <Board
+              id="puzzle"
+              fen={engineFen}
+              orientation={toMove}
+              onMove={onEngineMove}
+              arrows={engineArrows}
+              lastMove={engineLast ? { from: engineLast.slice(0, 2), to: engineLast.slice(2, 4) } : undefined}
+            />
+          ) : (
+            <Board
+              id="puzzle"
+              fen={lineFen ?? attempt?.fen ?? fen}
+              orientation={toMove}
+              onMove={!threatAsk && !lineFen && !attempt && (state === 'solving' || state === 'wrong') ? onMove : undefined}
+              onSquareTap={threatAsk === 'ask' ? onThreatTap : undefined}
+              lastMove={
+                lineFen
+                  ? lineLast
+                    ? { from: lineLast.slice(0, 2), to: lineLast.slice(2, 4) }
+                    : undefined
+                  : attempt
+                    ? { from: attempt.uci.slice(0, 2), to: attempt.uci.slice(2, 4) }
+                    : lastMove
+              }
+              lastMoveTint={attempt?.failed && !lineFen ? '#ff7a66' : undefined}
+              marker={lineFen ? undefined : marker}
+              highlight={highlight}
+              // After "what do they threaten?": their threat as a red arrow.
+              arrows={threat && threatAsk && threatAsk !== 'ask' ? [{ from: threat.uci.slice(0, 2), to: threat.uci.slice(2, 4), color: 'rgba(229,83,61,0.9)' }] : undefined}
+            />
+          )}
+        </BoardStage>
+      }
+      coach={coach}
+      actions={actions}
+    >
+      {/* Progress only means something in today's session (a fixed number of puzzles). */}
+      {showProgress && (
+        <div className="flex items-center gap-3 px-1" title={`${doneCount + 1} of ${total}`}>
+          <span className="text-xs font-bold muted shrink-0 tabular-nums">
+            Puzzle {Math.min(total, doneCount + 1)} of {total}
+          </span>
+          <div className="h-1.5 flex-1 rounded-full bg-[var(--panel-2)]">
+            <div className="h-1.5 rounded-full bg-accent transition-all" style={{ width: `${(100 * doneCount) / Math.max(1, total)}%` }} />
+          </div>
+        </div>
+      )}
+      {/* An open line, its buttons first, so the board stays in view while stepping. */}
+      {!engine && shownLine && lineView && (
+        <div className="panel p-3 text-sm" id="puzzle-line">
+          <LineViewer
+            title={lineView.kind === 'best' ? `The full line after ${solutionSan[0]}` : `What ${puzzle.playedSan} allowed`}
+            line={shownLine.line}
+            index={lineView.index}
+            onIndex={(i) => setLineView({ ...lineView, index: i })}
+            onClose={() => setLineView(null)}
+            controlsFirst
+          />
+        </div>
+      )}
+      {toolsEl &&
+        createPortal(
+          <>
+            <ShortcutsButton onClick={openKeys} />
+            <EngineControls open={!!engine} onToggle={toggleEngine} show="toggle" compact />
+          </>,
+          toolsEl,
+        )}
+      <KeyboardShortcuts open={keysOpen} onClose={closeKeys} groups={PUZZLE_SHORTCUTS} />
+      {/* The engine's display options and its lines in one card. */}
+      {engine && (
+        <div className="panel p-3 space-y-2.5">
+          <EngineControls open onToggle={toggleEngine} show="options" />
+          {settings.showSuggestions && <EngineLines result={live.settled ? live.result : null} fen={engineFen!} onPlayLine={onEngineMove} />}
+        </div>
+      )}
+      {engine && (
+        <EngineShortcuts
+          played={puzzle.playedUci ? { uci: puzzle.playedUci, san: puzzle.playedSan, classification: puzzle.classification, mine: true } : undefined}
+          bestUci={puzzle.solutionUci[0]}
+          atStart={!engine.moves.length}
+          onPlay={(moves) => setEngine({ ...engine, moves })}
+        />
+      )}
+      {/* One card: what happened in your game, then (once done) what it cost and the links. */}
+      {puzzle.lichess ? (
+        <LichessInfoPanel info={puzzle.lichess} done={done} />
+      ) : (
+        <div className="panel p-3 text-sm space-y-2.5">
+          <p className="flex items-center gap-1.5 flex-wrap">
+            <span className="muted">You played</span>
+            <span className="inline-flex items-center gap-1 font-bold">
+              <ClassificationBadge c={puzzle.classification} size={16} /> {puzzle.playedSan}
+            </span>
+            {/* What it cost and what kind of mistake it was would give the answer away: shown once it's done. */}
+            {done && (
+              <span className="muted tabular-nums" title="Win chance your move lost">
+                −{puzzle.winLoss.toFixed(0)}%
+              </span>
+            )}
+            {done && stakeLabel(puzzle) && (
+              <span className="chip font-bold" style={{ color: 'var(--brass-ink)' }} title="What the best move wins or saves compared with yours">
+                {stakeLabel(puzzle)}
+              </span>
+            )}
+            {puzzle.occurrences > 1 && (
+              <span className="chip" style={{ color: 'var(--attention-ink)' }}>
+                ×{puzzle.occurrences} games
+              </span>
+            )}
+            {puzzle.occurrences === 1 && (puzzle.repeats ?? 0) > 0 && (
+              <span className="chip" style={{ color: 'var(--attention-ink)' }} title="The same kind of mistake in your games in the 2 months before this one">
+                Also in {puzzle.repeats} earlier game{puzzle.repeats === 1 ? '' : 's'}
+              </span>
+            )}
+            {(done ? puzzle.motifs : [])
+              .filter((m) => m !== 'long_think')
+              .slice(0, 2)
+              .map((m) => (
+                <span key={m} className="chip">
+                  {MOTIF_LABEL[m]}
+                </span>
+              ))}
+          </p>
+          {done && puzzle.explanation && <p>{puzzle.explanation}</p>}
+          {/* Large screens have room for the moves that led here (the opening shows all of them below). */}
+          {lastMoves.length > 0 && !leadUp.length && (
+            <p className="hidden lg:block text-xs">
+              <span className="muted">Before this: </span>
+              <span className="font-mono">{lastMoves.join(' ')}</span>
+            </p>
+          )}
+          {(game || leadUp.length > 0) && (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+              {game && (
+                <Link className="underline muted inline-flex items-center gap-1 py-2.5 -my-2" to={`/game/${encodeURIComponent(game.id)}?ply=${puzzle.plies[puzzle.plies.length - 1] + 1}`} state={backTo('puzzle')}>
+                  Open game <Icon name="next" size={12} />
+                </Link>
+              )}
+              {leadUp.length > 0 && (
+                // Open from the start on large screens, where there's room beside the board.
+                <details className="w-full" open={typeof matchMedia !== 'undefined' && matchMedia('(min-width: 1024px)').matches}>
+                  <summary className="cursor-pointer muted underline py-1">How the game got here</summary>
+                  <p className="font-mono leading-relaxed mt-1.5">{leadUp.join(' ')}</p>
+                </details>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </BoardScreen>
   );
 }
 
@@ -1269,13 +1277,3 @@ function scrollBoardIntoView(el: HTMLElement | null) {
   if (top < 0) window.scrollBy({ top, behavior: 'smooth' });
 }
 
-function MaterialRow({ fen, side }: { fen: string; side: 'w' | 'b' }) {
-  // Nothing captured yet: no empty band around the board.
-  const m = materialOf(fen)[side];
-  if (!m.captured.length && !m.advantage) return null;
-  return (
-    <div className="h-6 px-1 flex items-center">
-      <CapturedPieces fen={fen} side={side} />
-    </div>
-  );
-}

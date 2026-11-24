@@ -31,6 +31,7 @@ import { playSound } from '../../lib/sound';
 import type { Color, GameAnalysis, MoveAnalysis, Phase, StoredGame } from '../../lib/types';
 import { Board, type BoardArrow } from '../../components/Board';
 import { EvalBar } from '../../components/EvalBar';
+import { BoardScreen, BoardStage } from '../../components/BoardScreen';
 import { EvalGraph } from '../../components/EvalGraph';
 import { TimeChart } from '../../components/TimeChart';
 import { EngineLines } from '../../components/EngineLines';
@@ -39,7 +40,6 @@ import { Icon } from '../../components/Icon';
 import { Sheet } from '../../components/Sheet';
 import { KeyboardShortcuts, REVIEW_SHORTCUTS, keyboardOnly, useShortcutsKey } from '../../components/KeyboardShortcuts';
 import {
-  ActionBar,
   ActionButton,
   ClassificationTable,
   CoachBubble,
@@ -539,6 +539,8 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
   // The phone top bar's slot for this page's switch (there is no top bar on larger screens).
   const [topbarEl, setTopbarEl] = useState<HTMLElement | null>(null);
   useEffect(() => setTopbarEl(document.getElementById('topbar-tools')), []);
+  const [headerEl, setHeaderEl] = useState<HTMLElement | null>(null);
+  useEffect(() => setHeaderEl(document.getElementById('board-header-tools')), []);
 
   const menuButton = (
     <button className="icon-btn !min-w-11" onClick={() => setMenuOpen(true)} aria-label="More options">
@@ -645,66 +647,51 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
   );
 
   return (
-    <div className="grid lg:grid-cols-[minmax(0,1fr)_380px] gap-3 lg:gap-5 max-w-[1300px] mx-auto">
-      {/* Board column */}
-      <div className="min-w-0 space-y-2 lg:space-y-3">
-        {/* Phones: the board runs edge to edge (the page gutter is taken back), like a chess app. */}
-        {/* On a short screen (a small phone, or a browser with its toolbars showing) the board gives up some
-            size, so what the coach says stays above the bottom bar. */}
-        <div className="-mx-2.5 lg:mx-0 flex justify-center lg:justify-start">
-        <div className="flex gap-2 px-1 lg:px-0 w-full max-w-[min(720px,max(270px,calc(100svh-340px)))] lg:max-w-[min(720px,calc(100svh-140px))]">
-          {/* Always part of the review; the engine's eval bar can be switched off while exploring. */}
-          {(!engineOpen || settings.showEvalBar) && <EvalBar score={evalScore} orientation={orientation} thinking={evalThinking} />}
-          <div className="flex-1 min-w-0">
-            <PlayerStrip {...top} fen={fen} />
-            <Board
-              id="review"
-              fen={fen}
-              orientation={orientation}
-              arrows={arrows}
-              lastMove={lastMove}
-              badge={badge}
-              marker={marker}
-              highlight={highlight}
-              lastMoveTint={retry?.state === 'wrong' && retry.attemptUci ? '#ff7a66' : undefined}
-              onMove={onBoardMove}
-            />
-            <PlayerStrip {...bottom} fen={fen} />
-          </div>
-        </div>
-        </div>
-
-        {/* Phones: coach, engine, graph and the move strip under the board. */}
+    <>
+    <BoardScreen
+      stage={
+        <BoardStage
+          // Always part of the review; the engine's eval bar can be switched off while exploring.
+          evalBar={(!engineOpen || settings.showEvalBar) && <EvalBar score={evalScore} orientation={orientation} thinking={evalThinking} />}
+          top={<PlayerStrip {...top} fen={fen} />}
+          bottom={<PlayerStrip {...bottom} fen={fen} />}
+        >
+          <Board
+            id="review"
+            fen={fen}
+            orientation={orientation}
+            arrows={arrows}
+            lastMove={lastMove}
+            badge={badge}
+            marker={marker}
+            highlight={highlight}
+            lastMoveTint={retry?.state === 'wrong' && retry.attemptUci ? '#ff7a66' : undefined}
+            onMove={onBoardMove}
+          />
+        </BoardStage>
+      }
+      // Swipe the coach left/right to step through the moves (the board itself is for dragging pieces).
+      coach={<div onTouchStart={swipe.start} onTouchEnd={swipe.end}>{coach}</div>}
+      actions={actions}
+    >
+        {/* Phones: the Engine switch is in the top bar, so the coach sits right under the board. */}
+        {topbarEl && createPortal(<EngineControls open={engineOpen} onToggle={toggleEngine} show="toggle" compact />, topbarEl)}
+        {/* Tablets and laptops: in the header row, as on every board screen. */}
+        {headerEl && createPortal(<EngineControls open={engineOpen} onToggle={toggleEngine} show="toggle" compact />, headerEl)}
+        {shortcuts}
+        {/* Phones: the engine's lines, the graph and the move strip under the coach. */}
         <div className="lg:hidden space-y-2">
-          {/* Phones: the Engine switch is in the top bar, so the coach sits right under the board. */}
-          {topbarEl && createPortal(<EngineControls open={engineOpen} onToggle={toggleEngine} show="toggle" compact />, topbarEl)}
-          <div className="hidden md:block">
-            <EngineControls open={engineOpen} onToggle={toggleEngine} show="toggle" compact />
-          </div>
-          {shortcuts}
-          {/* Swipe the coach left/right to step through the moves (the board itself is for dragging pieces). */}
-          <div onTouchStart={swipe.start} onTouchEnd={swipe.end}>{coach}</div>
           {engineOpen && settings.showSuggestions && <EngineLines result={live.settled ? live.result : null} fen={fen} onPlayLine={onBoardMove} />}
           {analysis && <EvalGraph evals={analysis.evals} moves={analysis.moves} current={ply} onSelect={go} height={48} />}
           <MoveStrip parsed={parsed} moves={moves} ply={ply} onSelect={go} />
         </div>
-
-      </div>
-
-      {/* Side panel (larger screens) */}
-      <div className="hidden lg:flex lg:flex-col gap-3 min-w-0">
-        {/* First, so Back and Next stay in one place whatever the coach says below. */}
-        <ActionBar>{actions}</ActionBar>
-        <EngineControls open={engineOpen} onToggle={toggleEngine} show="toggle" compact />
-        {shortcuts}
-        {coach}
         {engineOpen && settings.showSuggestions && (
-          <div className="panel p-3">
+          <div className="hidden lg:block panel p-3">
             <EngineLines result={live.settled ? live.result : null} fen={fen} onPlayLine={onBoardMove} />
           </div>
         )}
-        {/* Desktop: one column card with the moves, the graph under them, and the report. */}
-        <div className="panel overflow-hidden">
+        {/* Laptop: one card with the moves, the graph over them, and the report. */}
+        <div className="hidden lg:block panel overflow-hidden">
           {analysis && (
             <div className="p-3 pb-0">
               <EvalGraph evals={analysis.evals} moves={analysis.moves} current={ply} onSelect={go} height={64} />
@@ -733,18 +720,13 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
               ))}
           </div>
         </div>
-      </div>
-
-      {/* Phones: thumb-reachable controls fixed to the bottom. */}
-      <div className="lg:hidden">
-        <ActionBar>{actions}</ActionBar>
-      </div>
+    </BoardScreen>
 
       <Sheet open={menuOpen} onClose={() => setMenuOpen(false)} title="Review options">
         <div onClick={() => setMenuOpen(false)}>{menuItems}</div>
       </Sheet>
       <KeyboardShortcuts open={keysOpen} onClose={closeKeys} groups={REVIEW_SHORTCUTS} />
-    </div>
+    </>
   );
 }
 

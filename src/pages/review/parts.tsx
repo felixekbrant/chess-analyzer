@@ -28,9 +28,12 @@ export function PlayerStrip({
   active,
   side,
   fen,
+  note,
 }: {
   /** The position on the board, for the captured pieces and material lead beside the name. */
   fen?: string;
+  /** Shown on the right when there's no clock (a puzzle's game and move). */
+  note?: ReactNode;
   name: string;
   elo?: number;
   clock?: number;
@@ -61,6 +64,7 @@ export function PlayerStrip({
           {formatClock(clock)}
         </span>
       )}
+      {clock === undefined && note && <span className="muted text-xs font-semibold shrink-0">{note}</span>}
     </div>
   );
 }
@@ -231,7 +235,11 @@ export function ClassificationTable({ analysis, game }: { analysis: GameAnalysis
  */
 export function ActionBar({ children }: { children: ReactNode }) {
   return (
-    <div className="fixed lg:static bottom-0 inset-x-0 md:left-56 z-40 lg:z-auto bg-[var(--panel)]/95 lg:bg-transparent backdrop-blur lg:backdrop-blur-none border-t lg:border-0 border-[var(--border)] safe-bottom">
+    <div
+      role="group"
+      aria-label="Board controls"
+      className="fixed lg:static bottom-0 inset-x-0 md:left-56 z-40 lg:z-auto bg-[var(--panel)]/95 lg:bg-transparent backdrop-blur lg:backdrop-blur-none border-t lg:border-0 border-[var(--border)] safe-bottom"
+    >
       <div className="flex items-stretch gap-1 p-2 lg:p-0 max-w-xl mx-auto lg:max-w-none">{children}</div>
     </div>
   );

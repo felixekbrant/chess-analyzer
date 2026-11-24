@@ -11,6 +11,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     date: '24 Nov 2026',
     items: [
+      'Reviews, puzzles and Play from here now share one board screen: the same board size and place, the players above and below the board, the coach speaking under it (beside it on a computer), and the buttons always in the same spot, with the next step as the orange one. On the phone, puzzles open full screen like a review: the filter and Engine are in the top bar, and the back arrow takes you out.',
       'Your games, puzzles and progress are safer: the app now asks your browser to keep them, so they are not cleared when the device runs low on space. Settings > Data shows whether your browser keeps them, with a button to ask again.',
     ],
   },

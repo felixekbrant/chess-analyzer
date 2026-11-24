@@ -10,6 +10,7 @@ import { Empty, EmptyState, LoadingShape } from '../../components/ui';
 import type { GameAnalysis, StoredGame } from '../../lib/types';
 import { ReviewSummary, type StartOptions } from './ReviewSummary';
 import { Walkthrough } from './Walkthrough';
+import { BoardHeader } from '../../components/BoardScreen';
 import { formatDate } from '../../components/ui';
 
 /**
@@ -111,7 +112,7 @@ function DesktopHeader({ game, inReview, onSummary }: { game: StoredGame; inRevi
   const back = useBackLabel();
   const navigate = useNavigate();
   return (
-    <div className="hidden md:flex items-center gap-3 mb-4 text-sm min-w-0">
+    <BoardHeader>
       {back ? (
         <button className="btn btn-primary !py-1.5 !px-3 !text-sm shrink-0" onClick={() => navigate(-1)}>
           ← Back to {back}
@@ -134,6 +135,6 @@ function DesktopHeader({ game, inReview, onSummary }: { game: StoredGame; inRevi
         {game.timeClass} · {formatDate(game.endTime)}
       </span>
       {game.openingName && <span className="muted truncate">· {game.openingName}</span>}
-    </div>
+    </BoardHeader>
   );
 }

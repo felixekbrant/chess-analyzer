@@ -340,8 +340,8 @@ test('focus drill: tops up with Lichess puzzles and plays one', async ({ page })
   await page.getByRole('button', { name: /Solution/ }).click();
   await expect(page.getByText('The move was', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: /Next puzzle/ }).click();
-  // The Lichess puzzle counts towards today's drill.
-  await openTab(page, 'Home');
+  // The Lichess puzzle counts towards today's drill. Puzzles are full screen: back goes Home.
+  await page.getByRole('banner').getByRole('button', { name: /^Back/ }).click();
   await expect(page.getByRole('link', { name: /Focus drill 1\/\d+/ })).toBeVisible();
 });
 
@@ -391,7 +391,7 @@ test('engine controls: open the engine and toggle eval bar and suggestions in re
   await expect(page.getByRole('button', { name: 'Start' })).toHaveCount(0);
   await page.keyboard.press('ArrowRight');
   await expect(page.getByRole('button', { name: 'Start' })).toBeVisible();
-  await page.getByRole('button', { name: 'Back', exact: true }).click();
+  await page.getByRole('group', { name: 'Board controls' }).getByRole('button', { name: 'Back', exact: true }).click();
   await page.getByRole('button', { name: 'Forward' }).click();
   await expect(page.getByRole('button', { name: 'Start' })).toBeVisible();
   await page.getByRole('button', { name: 'Start' }).click();
@@ -834,7 +834,7 @@ test('play from here: after a puzzle, with a hint, take-back and resigning', asy
   await page.goto('./#/training');
   await expect(page.getByText(/to move$/)).toBeVisible();
   await page.getByRole('button', { name: /Solution/ }).click();
-  await page.getByRole('link', { name: 'Play it out' }).click();
+  await page.getByRole('button', { name: 'Play it out' }).click();
   await expect(page.getByRole('button', { name: 'Back to puzzle' }).filter({ visible: true })).toBeVisible();
   // The engine moves first (the solution was your move), then it's your turn.
   await expect(page.getByText('Your move.')).toBeVisible({ timeout: 15000 });
