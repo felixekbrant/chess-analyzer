@@ -18,8 +18,10 @@
  * "Coach Forest": one dark palette where every colour has one job.
  *  Surfaces get brighter as they come closer: canvas (page) < surface (cards) < raised (controls)
  *  < overlay (sheets). Orange = the one thing to do next (the coach, main buttons, where you are);
- *  mint = good / solved / progress; coral = loss and mistakes; amber = needs attention; brass =
- *  achievements only. "-ink" variants are the same hues tuned for small text (4.5:1 on the surfaces
+ *  mint = good / right / solved / better than typical / improving; coral = what went wrong: a loss,
+ *  a mistake, a wrong move, an error message; amber = look here: more than typical, slipping,
+ *  warnings and hints; grey (--draw) = about typical, a draw; brass = achievements only (streaks,
+ *  personal bests). "-ink" variants are the same hues tuned for small text (4.5:1 on the surfaces
  *  they sit on; checked by src/lib/__tests__/contrast.test.ts). There is no light theme.
  */
 :root {

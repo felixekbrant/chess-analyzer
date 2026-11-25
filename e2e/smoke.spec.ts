@@ -946,7 +946,7 @@ test('puzzles: spot the threat first, then find your move', async ({ page }) => 
   await expect(page.getByRole('button', { name: 'Hint' })).toBeHidden();
   // A wrong guess says what the threat was.
   await page.getByRole('button', { name: 'They threaten mate' }).click();
-  await expect(page.getByText(/^(✔ Right|Not quite): your opponent threatens/)).toBeVisible();
+  await expect(page.getByText(/^(✓ Right|✗ Not quite): your opponent threatens/)).toBeVisible();
   await page.getByRole('button', { name: /Now find your move/ }).click();
   await expect(page.getByRole('button', { name: 'Hint' })).toBeVisible();
   await expect(page.getByText('First: what does your opponent threaten?')).toHaveCount(0);

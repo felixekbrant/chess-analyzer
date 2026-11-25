@@ -21,7 +21,7 @@ import { explainLine } from '../lib/analysis/lines';
 import { LineViewer } from '../components/LineViewer';
 import { parsePgn } from '../lib/pgn/parse';
 import { MOTIF_LABEL } from '../lib/insights/compute';
-import { playSound } from '../lib/sound';
+import { feel, feelTone, WRONG_TINT } from '../lib/feedback';
 import type { Color, Motif, Phase, Puzzle } from '../lib/types';
 import { SKILL_AREAS, SKILL_META, type SkillArea } from '../lib/insights/skills';
 import type { FocusStore } from '../lib/training/focus';
@@ -647,8 +647,7 @@ function PuzzleView({
     c.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] });
     setAttempt({ fen: c.fen(), uci, failed: true });
     setMarker({ square: uci.slice(2, 4), kind: 'wrong' });
-    playSound('wrong');
-    navigator.vibrate?.(60);
+    feel('wrong');
     clearTimeout(takeBack.current);
     takeBack.current = setTimeout(() => {
       setAttempt(null);
@@ -713,15 +712,19 @@ function PuzzleView({
     setState('solved');
     setNote(text);
     setMarker({ square: uci.slice(2, 4), kind: 'correct' });
-    playSound('correct');
+    feel('solved');
   }
 
   function advance(nextStep: number, uci: string) {
     if (nextStep >= puzzle.solutionUci.length) return solved(uci, mistakes || hint ? 'Solved.' : 'Correct!');
     setState('solving');
     setStep(nextStep);
+    // A right move on the way: the same tick and ✓ as everywhere else.
+    setMarker({ square: uci.slice(2, 4), kind: 'correct' });
+    feel('right');
     // The opponent's reply.
     setTimeout(() => {
+      setMarker(undefined);
       apply(puzzle.solutionUci[nextStep]);
       setStep(nextStep + 1);
     }, 450);
@@ -744,8 +747,9 @@ function PuzzleView({
   const [threatAsk, setThreatAsk] = useState<'ask' | 'right' | 'wrong' | 'shown' | null>(() => (threat && !resume ? 'ask' : null));
   const onThreatTap = useStableCallback((sq: string) => {
     if (threatAsk !== 'ask' || !threat) return;
-    setThreatAsk(threat.squares.includes(sq) ? 'right' : 'wrong');
-    playSound(threat.squares.includes(sq) ? 'correct' : 'wrong');
+    const ok = threat.squares.includes(sq);
+    setThreatAsk(ok ? 'right' : 'wrong');
+    feel(ok ? 'right' : 'wrong');
   });
   const threatText = threat
     ? threat.kind === 'mate'
@@ -847,15 +851,18 @@ function PuzzleView({
   const hintWords = useMemo(() => (hint && expected ? hintText(fen, uciToSan(fen, expected), fen.split(' ')[1] as 'w' | 'b') : undefined), [hint, expected, fen]);
   const total = doneCount + remaining;
 
+  // A longer puzzle, part-way: the moves so far were right.
+  const rightOnTheWay = state === 'solving' && step > 0;
   const status =
     state === 'checking' ? (
       <span className="muted">Checking your move…</span>
     ) : state === 'wrong' ? (
       <span style={{ color: 'var(--loss-ink)' }}>✗ {note}</span>
     ) : state === 'solved' ? (
-      <span style={{ color: 'var(--felt-ink)' }}>✔ {note}</span>
+      <span style={{ color: 'var(--felt-ink)' }}>✓ {note}</span>
     ) : (
-      <span className="inline-flex items-center gap-2">
+      <span className="inline-flex items-center gap-2 flex-wrap">
+        {rightOnTheWay && <span style={{ color: 'var(--felt-ink)' }}>✓ Right.</span>}
         <KingIcon white={toMove === 'white'} />
         <span>{toMove === 'white' ? 'White' : 'Black'} to move</span>
         <span className="muted font-normal">· {puzzle.solutionUci.length > 1 ? 'find the winning line' : 'find the best move'}</span>
@@ -889,7 +896,10 @@ function PuzzleView({
   // The coach says what to do, how it went, and what comes next: the same bubble as in a review.
   const coach = engine ? null : threatAsk ? (
     // Before the puzzle itself: what is your opponent threatening?
-    <CoachBubble tone={threatAsk === 'right' ? 'good' : threatAsk === 'wrong' ? 'bad' : 'neutral'}>
+    <CoachBubble
+      tone={threatAsk === 'right' || threatAsk === 'wrong' ? feelTone(threatAsk) : 'neutral'}
+      moment={threatAsk === 'right' || threatAsk === 'wrong' ? threatAsk : undefined}
+    >
       <div role="status" className="space-y-2.5">
         {threatAsk === 'ask' ? (
           <>
@@ -899,8 +909,9 @@ function PuzzleView({
               <button
                 className="btn !py-2 !text-sm"
                 onClick={() => {
-                  setThreatAsk(threat?.kind === 'mate' ? 'right' : 'wrong');
-                  playSound(threat?.kind === 'mate' ? 'correct' : 'wrong');
+                  const ok = threat?.kind === 'mate';
+                  setThreatAsk(ok ? 'right' : 'wrong');
+                  feel(ok ? 'right' : 'wrong');
                 }}
               >
                 They threaten mate
@@ -913,7 +924,7 @@ function PuzzleView({
         ) : (
           <>
             <p className="font-semibold" style={{ color: threatAsk === 'right' ? 'var(--felt-ink)' : threatAsk === 'wrong' ? 'var(--loss-ink)' : undefined }}>
-              {threatAsk === 'right' ? '✔ Right: ' : threatAsk === 'wrong' ? 'Not quite: ' : 'The threat: '}
+              {threatAsk === 'right' ? '✓ Right: ' : threatAsk === 'wrong' ? '✗ Not quite: ' : 'The threat: '}
               {threatText}
             </p>
             <button className="btn btn-primary w-full justify-center !py-3" onClick={() => setThreatAsk(null)}>
@@ -925,18 +936,16 @@ function PuzzleView({
     </CoachBubble>
   ) : state === 'solved' ? (
     // Solved: the move is the headline.
-    <div key="solved" className="pop-wide">
-      <CoachBubble tone="good">
-        <div role="status">
-          {moveCard(
-            clean ? 'Solved first try' : 'Solved',
-            `${foundSan ?? solutionSan[0]}!`,
-            // A note about the move you found ("Also good!"), else what it was worth and what you played in the game.
-            note && note !== 'Solved.' && note !== 'Correct!' ? note : gameNote || 'Correct!',
-          )}
-        </div>
-      </CoachBubble>
-    </div>
+    <CoachBubble tone={feelTone('solved')} moment="solved">
+      <div role="status">
+        {moveCard(
+          clean ? 'Solved first try' : 'Solved',
+          `${foundSan ?? solutionSan[0]}!`,
+          // A note about the move you found ("Also good!"), else what it was worth and what you played in the game.
+          note && note !== 'Solved.' && note !== 'Correct!' ? note : gameNote || 'Correct!',
+        )}
+      </div>
+    </CoachBubble>
   ) : state === 'revealed' ? (
     // Missed ("Solution"): the same shape on a calm surface. Not a punishment: the move, and what comes next.
     <div key="missed" className="pop-wide">
@@ -952,20 +961,21 @@ function PuzzleView({
       </CoachBubble>
     </div>
   ) : (
-    // What to do, or how the last try went: a red shake when wrong.
-    <div key={`${state}-${mistakes}`} className={state === 'wrong' ? 'shake' : ''}>
-      <CoachBubble tone={state === 'wrong' ? 'bad' : 'neutral'}>
-        <div role="status" className="font-bold">
-          {status}
-          {missedNote && <p className="mt-1 text-sm font-normal muted">{missedNote}</p>}
-          {hintWords && !done && (
-            <p className="mt-1.5 font-normal flex gap-1.5" style={{ color: 'var(--attention-ink)' }}>
-              <Icon name="bulb" size={16} /> {hintWords}
-            </p>
-          )}
-        </div>
-      </CoachBubble>
-    </div>
+    // What to do, or how the last try went: a red shake when wrong, a green pop for a right move on the way.
+    <CoachBubble
+      tone={state === 'wrong' ? feelTone('wrong') : rightOnTheWay ? feelTone('right') : 'neutral'}
+      moment={state === 'wrong' ? `wrong-${mistakes}` : rightOnTheWay ? `right-${Math.floor((step + 1) / 2)}` : undefined}
+    >
+      <div role="status" className="font-bold">
+        {status}
+        {missedNote && <p className="mt-1 text-sm font-normal muted">{missedNote}</p>}
+        {hintWords && !done && (
+          <p className="mt-1.5 font-normal flex gap-1.5" style={{ color: 'var(--attention-ink)' }}>
+            <Icon name="bulb" size={16} /> {hintWords}
+          </p>
+        )}
+      </div>
+    </CoachBubble>
   );
 
   // The buttons, in the same places as in a review: the next step is always the fourth, orange once
@@ -1032,7 +1042,7 @@ function PuzzleView({
                     ? { from: attempt.uci.slice(0, 2), to: attempt.uci.slice(2, 4) }
                     : lastMove
               }
-              lastMoveTint={attempt?.failed && !lineFen ? '#ff7a66' : undefined}
+              lastMoveTint={attempt?.failed && !lineFen ? WRONG_TINT : undefined}
               marker={lineFen ? undefined : marker}
               highlight={highlight}
               // After "what do they threaten?": their threat as a red arrow.
@@ -1109,7 +1119,7 @@ function PuzzleView({
               </span>
             )}
             {done && stakeLabel(puzzle) && (
-              <span className="chip font-bold" style={{ color: 'var(--brass-ink)' }} title="What the best move wins or saves compared with yours">
+              <span className="chip font-bold" title="What the best move wins or saves compared with yours">
                 {stakeLabel(puzzle)}
               </span>
             )}

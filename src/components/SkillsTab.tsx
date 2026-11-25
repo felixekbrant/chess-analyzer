@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { MIN_PROFILE_GAMES, type SkillsData } from '../hooks/useSkills';
 import { Headline } from './ui';
 import { SKILL_AREAS, SKILL_META, type SkillArea } from '../lib/insights/skills';
-import { Comparison, CostBars, TrendChip } from './Coaching';
+import { Comparison, CostBars, CostKey, TrendChip } from './Coaching';
 import { extraCost } from '../lib/training/focus';
 import { Icon } from './Icon';
 import { levelLabel } from '../lib/insights/baselines';
@@ -63,12 +63,11 @@ export function SkillsTab({ data }: { data: SkillsData }) {
           'No area costs you clearly more than players at your rating.'
         )}
       </Headline>
-      <p
-        className="muted text-xs"
-        title={`Each mistake is counted in one area, by how much winning chance it cost. "Plays like" starts from your rating and only moves when your games clearly show it.`}
-      >
-        {ranked.some((r) => r.typical !== undefined) && rating ? `The tick on each bar: typical for ~${Math.round(rating / 100) * 100} players` : ''}
-      </p>
+      {ranked.some((r) => r.typical !== undefined) && (
+        <div title={`Each mistake is counted in one area, by how much winning chance it cost. "Plays like" starts from your rating and only moves when your games clearly show it.`}>
+          <CostKey rating={rating} />
+        </div>
+      )}
       <div className="grid lg:grid-cols-2 gap-3">
         {/* Daily games have no clock pressure to speak of. */}
         {SKILL_AREAS.filter((a) => a !== 'time' || timeClass !== 'daily').map((area) => {

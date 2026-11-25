@@ -112,10 +112,29 @@ This runs next to the phases, one step at a time, each checked on phone and lapt
 2. **The coach in puzzles and Play.** The prompt, the solved and missed cards, and the play-out
    status all speak through the coach bubble.
 3. **Right and wrong, the same everywhere.** One set of sounds, vibrations and colours for a right
-   move, a wrong move, solved and finished, in puzzles, retries and play-outs.
+   move, a wrong move, solved and finished, in puzzles, retries and play-outs. Built 24 Nov 2026
+   (`src/lib/feedback.ts`: `feel()` for the sound and vibration, `feelTone()` and the coach
+   bubble's `moment` for the colour, pop and shake).
 4. **Colour audit.** One meaning per colour on every screen, and a short key where colour carries
-   meaning (the skill bars).
-5. **Real-phone pass.** The owner runs through a short list on their phone: smooth scrolling,
+   meaning (the skill bars). Built 25 Nov 2026. The meanings are written at the top of `src/index.css`:
+   mint good, amber look here, coral what went wrong, grey about typical, brass achievements only.
+   The skill bars' colour and words both follow `compareCost()`, with a key (`CostKey`) above them.
+5. **Touch and motion.** Added 25 Nov 2026, taking the parts of Emil Kowalski's "apple-design"
+   skill (https://github.com/emilkowalski/skills/blob/main/skills/apple-design/SKILL.md, Apple's
+   "Designing Fluid Interfaces" talk for the web) that fit this app:
+   - **Answer on press-down.** Find every delay between a tap and the screen changing (timers,
+     waits, debounces) and remove it, or show something at once while the real answer comes.
+   - **Gestures follow the finger.** The review's swipe between moves and the sheets move 1:1 with
+     the finger, can be caught and reversed mid-way, keep the finger's speed when let go, and
+     stretch softly past an end instead of stopping dead. Our own small code, no animation library.
+   - **One timing table.** The same few durations and easings for pages, sheets, cards, pops and
+     pieces, written down once (CSS variables) and used everywhere (principle 5).
+   - **Type spacing by size.** Tighter letter spacing on big text, a little looser on small labels.
+   - **Undo over "are you sure?"** where an action can be taken back.
+   Not taken from it: frosted glass and layered translucency (the look is flat, and blur costs
+   phones speed), light and dark switching, the system font, the Motion library, and bounce on
+   things that only fade in.
+6. **Real-phone pass.** The owner runs through a short list on their phone: smooth scrolling,
    tap response, the iOS status bar, the keyboard, install and update.
 
 ### Not planned

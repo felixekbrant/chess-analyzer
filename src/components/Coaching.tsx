@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/schema';
@@ -179,6 +179,17 @@ function ProgressRing({ done, total }: { done: number; total: number }) {
 }
 
 /** "You lose 9.1% win chance per game here; typical 1200 blitz players lose 5.4%: clearly more." */
+/**
+ * How an area compares with players at your rating, as the bar shows it: the colour follows the
+ * numbers (15% either way), and "clearly" only when the difference is more than chance.
+ */
+export function compareCost(r: Pick<AreaRank, 'cost' | 'typical' | 'verdict'>): 'worse' | 'above' | 'typical' | 'below' | 'better' | undefined {
+  if (r.typical === undefined) return undefined;
+  if (r.verdict === 'worse') return 'worse';
+  if (r.verdict === 'better') return 'better';
+  return r.cost > r.typical * 1.15 ? 'above' : r.cost < r.typical * 0.85 ? 'below' : 'typical';
+}
+
 export function Comparison({ r, rating, timeClass }: { r: AreaRank; rating?: number; timeClass: string }) {
   return (
     <>
@@ -186,7 +197,15 @@ export function Comparison({ r, rating, timeClass }: { r: AreaRank; rating?: num
       {r.typical !== undefined && rating ? (
         <>
           ; typical {Math.round(rating / 100) * 100} {tcName(timeClass)} players lose {fmt(r.typical)}%
-          {r.verdict === 'worse' ? ', so this clearly costs you more than most' : r.verdict === 'better' ? ', so you clearly do better than most' : ', about the same'}
+          {
+            {
+              worse: ', so this clearly costs you more than most',
+              above: ', so a bit more, though not clearly more than chance yet',
+              typical: ', about the same',
+              below: ', so a bit less, though not clearly more than chance yet',
+              better: ', so you clearly do better than most',
+            }[compareCost(r) ?? 'typical']
+          }
         </>
       ) : null}
       .
@@ -319,14 +338,38 @@ export function FocusCard({
   );
 }
 
+/**
+ * What the skill bars' colours and tick mean, shown once wherever they're listed. The same colours
+ * mean the same everywhere: amber = more than typical (look here), grey = about typical, mint = less.
+ */
+export function CostKey({ rating }: { rating?: number }) {
+  const item = (mark: ReactNode, label: string) => (
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+      {mark}
+      {label}
+    </span>
+  );
+  const dot = (color: string) => <span aria-hidden="true" className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: color }} />;
+  return (
+    <p className="muted text-xs flex flex-wrap items-center gap-x-3 gap-y-1">
+      {item(dot('var(--attention)'), 'More than typical')}
+      {item(dot('var(--draw)'), 'About typical')}
+      {item(dot('var(--win)'), 'Less than typical')}
+      {item(
+        <span aria-hidden="true" className="inline-block w-[3px] h-3 rounded-full bg-[var(--text)]" />,
+        rating ? `Typical for ~${Math.round(rating / 100) * 100} players` : 'Typical at your rating',
+      )}
+    </p>
+  );
+}
+
 /** Two bars: your cost and the typical cost at your rating, on a shared scale. */
 export function CostBars({ cost, typical, max, verdict }: { cost: number; typical?: number; max: number; verdict?: AreaRank['verdict'] }) {
   const w = (v: number) => Math.max(2, Math.min(100, (100 * v) / Math.max(max, 0.01)));
-  // One rule for the colour, so it matches what the numbers say: clearly more than typical is orange,
-  // clearly less is green (15% either way; the statistical verdict still decides the coach's wording).
-  void verdict;
-  const worse = typical !== undefined && cost > typical * 1.15;
-  const better = typical !== undefined && cost < typical * 0.85;
+  // The colour matches what the numbers say: more than typical is amber, less is green (see compareCost).
+  const c = compareCost({ cost, typical, verdict });
+  const worse = c === 'worse' || c === 'above';
+  const better = c === 'better' || c === 'below';
   // One track: your bar, and a tick where players at your rating typically are.
   return (
     <div className="flex items-center gap-2 text-[11px] font-semibold tabular-nums">
@@ -385,6 +428,7 @@ export function PointsCard({ ranked, stats, rating, timeClass, games }: { ranked
               <CostBars cost={r.cost} typical={r.typical} max={max} verdict={r.verdict} />
             </div>
           ))}
+          {top.some((r) => r.typical !== undefined) && <CostKey rating={rating} />}
         </div>
       )}
       <Link to="/insights?tab=skills" className="block text-center text-sm underline muted mt-3">

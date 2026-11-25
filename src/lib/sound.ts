@@ -2,7 +2,19 @@
 // The audio context is created lazily on first use, which is always after a tap or key press,
 // as iOS requires.
 
-export type SoundKind = 'move' | 'capture' | 'check' | 'castle' | 'correct' | 'wrong' | 'brilliant' | 'blunder';
+export type SoundKind =
+  | 'move'
+  | 'capture'
+  | 'check'
+  | 'castle'
+  | 'correct'
+  | 'wrong'
+  | 'solved'
+  | 'won'
+  | 'drawn'
+  | 'lost'
+  | 'brilliant'
+  | 'blunder';
 
 let ctx: AudioContext | null = null;
 let enabled = true;
@@ -89,6 +101,22 @@ export function playSound(kind: SoundKind) {
       return tone(ac, t + 0.1, 990, 0.2);
     case 'wrong':
       return tone(ac, t, 180, 0.22, 'square', 0.08);
+    // The ends: "correct" with a third note for a solved puzzle, a longer rise for a won play-out,
+    // one calm note for a draw and two soft falling ones for a loss (never harsh).
+    case 'solved':
+      tone(ac, t, 660, 0.1);
+      tone(ac, t + 0.09, 990, 0.1);
+      return tone(ac, t + 0.18, 1320, 0.26);
+    case 'won':
+      tone(ac, t, 523, 0.1, 'triangle', 0.14);
+      tone(ac, t + 0.09, 659, 0.1, 'triangle', 0.14);
+      tone(ac, t + 0.18, 784, 0.1, 'triangle', 0.14);
+      return tone(ac, t + 0.27, 1047, 0.34, 'triangle', 0.14);
+    case 'drawn':
+      return tone(ac, t, 523, 0.3, 'triangle', 0.1);
+    case 'lost':
+      tone(ac, t, 392, 0.18, 'sine', 0.12);
+      return tone(ac, t + 0.16, 294, 0.32, 'sine', 0.12);
   }
 }
 

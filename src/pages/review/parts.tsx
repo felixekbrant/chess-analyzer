@@ -70,15 +70,32 @@ export function PlayerStrip({
 }
 
 /** The coach's speech bubble (chess.com style): avatar on the left, message on the right. */
-export function CoachBubble({ children, tone = 'neutral', color }: { children: ReactNode; tone?: 'neutral' | 'good' | 'bad'; color?: string }) {
+/**
+ * The coach speaking. `tone` colours the bubble's edge (green for good, red for bad; see feelTone in
+ * lib/feedback). Pass a new `moment` each time something happens (a try, an answer, the end): the
+ * bubble then pops on good news and shakes on bad, the same way on every screen.
+ */
+export function CoachBubble({
+  children,
+  tone = 'neutral',
+  color,
+  moment,
+}: {
+  children: ReactNode;
+  tone?: 'neutral' | 'good' | 'bad';
+  color?: string;
+  moment?: string | number;
+}) {
   const border = color ?? (tone === 'good' ? 'var(--win)' : tone === 'bad' ? 'var(--loss)' : 'var(--border)');
+  const motion = moment === undefined ? '' : tone === 'good' ? 'pop-wide' : tone === 'bad' ? 'shake' : '';
   return (
     <div className="flex gap-2.5 items-start">
       <BrandMark size={42} shape="disc" />
       {/* A speech bubble: one tight corner towards the coach. A steady minimum height, so the board
           and buttons don't jump as comments change length. */}
       <div
-        className="flex-1 min-w-0 bg-[var(--panel)] px-3.5 py-3 text-sm min-h-[56px] rounded-[20px] rounded-bl-[6px]"
+        key={moment}
+        className={`flex-1 min-w-0 bg-[var(--panel)] px-3.5 py-3 text-sm min-h-[56px] rounded-[20px] rounded-bl-[6px] ${motion}`}
         style={{ border: `2px solid ${color || tone !== 'neutral' ? border : 'transparent'}` }}
       >
         {children}

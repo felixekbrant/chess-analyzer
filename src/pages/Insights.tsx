@@ -184,7 +184,7 @@ export default function Insights() {
               </div>
             </Section>
 
-            <Section title="Mistake types" id="mistakes" right={<span className="muted text-xs" title="Compared with your earlier games in this selection"><span style={{ color: "var(--felt-ink)" }}>↓</span> less often · <span style={{ color: "var(--loss-ink)" }}>↑</span> more often</span>}>
+            <Section title="Mistake types" id="mistakes" right={<span className="muted text-xs" title="Compared with your earlier games in this selection"><span style={{ color: "var(--felt-ink)" }}>↓</span> less often · <span style={{ color: "var(--attention-ink)" }}>↑</span> more often</span>}>
               {!data.motifs.length ? (
                 <Empty>No errors detected yet.</Empty>
               ) : (
@@ -457,7 +457,7 @@ function MiniStat({ label, value, hint }: { label: string; value: string; hint?:
 function TrendArrow({ earlier, recent }: { earlier: number; recent: number }) {
   if (!earlier && !recent) return null;
   if (recent < earlier * 0.75) return <span title="Happening less often recently" style={{ color: 'var(--felt-ink)' }}>↓</span>;
-  if (recent > earlier * 1.25) return <span title="Happening more often recently" style={{ color: 'var(--loss-ink)' }}>↑</span>;
+  if (recent > earlier * 1.25) return <span title="Happening more often recently" style={{ color: 'var(--attention-ink)' }}>↑</span>;
   return <span className="muted" title="Steady">→</span>;
 }
 

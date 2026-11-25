@@ -28,6 +28,7 @@ import type { ParsedGame } from '../../lib/pgn/parse';
 import { CLASS_META } from '../../lib/classificationMeta';
 import { MOTIF_LABEL } from '../../lib/insights/compute';
 import { playSound } from '../../lib/sound';
+import { feel, feelTone, WRONG_TINT } from '../../lib/feedback';
 import type { Color, GameAnalysis, MoveAnalysis, Phase, StoredGame } from '../../lib/types';
 import { Board, type BoardArrow } from '../../components/Board';
 import { EvalBar } from '../../components/EvalBar';
@@ -79,6 +80,8 @@ interface RetryStateFull {
   attemptUci?: string;
   /** The last wrong try, kept after it has been taken back off the board. */
   wrongUci?: string;
+  /** How many tries so far, so each answer gets its own pop or shake. */
+  tries?: number;
   /** 0 none, 1 what to look for (in words), 2 the piece is highlighted too. */
   hint: number;
   /** Part of "retry all mistakes": ▶ goes to the next one. */
@@ -367,9 +370,10 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
       const e = await evaluateOnce(after, 14);
       ok = e.lines[0] ? m.winBefore - winPercentFor(e.lines[0].score, m.color) < 5 : false;
     }
-    playSound(ok ? 'correct' : 'wrong');
-    if (!ok) navigator.vibrate?.(60);
-    setRetry((r) => (r && r.move === m ? { ...r, attemptUci: uci, state: ok ? 'right' : 'wrong', wrongUci: ok ? r.wrongUci : uci } : r));
+    feel(ok ? 'right' : 'wrong');
+    setRetry((r) =>
+      r && r.move === m ? { ...r, attemptUci: uci, state: ok ? 'right' : 'wrong', wrongUci: ok ? r.wrongUci : uci, tries: (r.tries ?? 0) + 1 } : r,
+    );
     // A wrong try shows in red for a moment, then glides back so you can try again straight away.
     if (!ok) setTimeout(() => setRetry((r) => (r && r.move === m && r.attemptUci === uci && r.state === 'wrong' ? { ...r, attemptUci: undefined } : r)), 900);
   };
@@ -665,7 +669,7 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
             badge={badge}
             marker={marker}
             highlight={highlight}
-            lastMoveTint={retry?.state === 'wrong' && retry.attemptUci ? '#ff7a66' : undefined}
+            lastMoveTint={retry?.state === 'wrong' && retry.attemptUci ? WRONG_TINT : undefined}
             onMove={onBoardMove}
           />
         </BoardStage>
@@ -859,13 +863,13 @@ function Coach({
 
   if (retry) {
     const m = retry.move;
-    const tone = retry.state === 'right' ? 'good' : retry.state === 'wrong' ? 'bad' : 'neutral';
+    const answered = retry.state === 'right' || retry.state === 'wrong' ? retry.state : null;
     return (
-      <CoachBubble tone={tone}>
+      <CoachBubble tone={feelTone(answered)} moment={answered ? `${answered}-${retry.tries ?? 0}` : undefined}>
         <div className="flex items-start justify-between gap-2">
-          <p className="font-semibold">
+          <p className="font-semibold" style={{ color: answered === 'right' ? 'var(--felt-ink)' : answered === 'wrong' ? 'var(--loss-ink)' : undefined }}>
             {retry.state === 'right'
-              ? '✔ Correct!'
+              ? '✓ Correct!'
               : retry.state === 'wrong'
                 ? '✗ Not quite.'
                 : retry.state === 'checking'

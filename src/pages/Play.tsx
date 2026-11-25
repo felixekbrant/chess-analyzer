@@ -16,6 +16,7 @@ import { playUci } from '../lib/analysis/board';
 import { winPercentFor } from '../lib/analysis/winprob';
 import { CONVERTED_PAWNS, CONVERTED_STREAK, LEVELS, MIN_THINK_MS } from '../lib/play/levels';
 import { savePlayout, type PlayResult } from '../lib/play/playouts';
+import { feel, feelTone, type Feel } from '../lib/feedback';
 import type { Color, PlayLevel, Score } from '../lib/types';
 
 const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
@@ -135,6 +136,12 @@ export default function Play() {
   useEffect(() => {
     if (!over && !keepPlaying && streak >= CONVERTED_STREAK) setOver({ result: 'converted', text: 'Converted! You are decisively ahead: this one is won.' });
   }, [streak, over, keepPlaying]);
+
+  // How it ended, felt the same way as a solved or missed puzzle. Resigning is your own choice: no sound.
+  const ending: Feel | null = !over ? null : over.result === 'draw' ? 'drawn' : over.result === 'lost' || over.result === 'resigned' ? 'lost' : 'won';
+  useEffect(() => {
+    if (over && over.result !== 'resigned') feel(ending!);
+  }, [over]);
 
   // Save it once it's over, and find where it slipped.
   const saved = useRef(false);
@@ -259,7 +266,6 @@ export default function Play() {
           : 'Your move.'
         : '';
 
-  const lost = over && (over.result === 'lost' || over.result === 'resigned');
   const goBack = () => (window.history.length > 1 ? navigate(-1) : navigate('/'));
 
   // The buttons, in the same places as in a review and a puzzle: the next step is the fourth, orange
@@ -317,9 +323,11 @@ export default function Play() {
         }
         // The coach says whose move it is and how it ended, as in a review and a puzzle.
         coach={
-          <CoachBubble tone={over ? (lost ? 'bad' : over.result === 'draw' ? 'neutral' : 'good') : 'neutral'}>
+          <CoachBubble tone={feelTone(ending)} moment={over && over.result !== 'resigned' ? `${over.result}-${moves.length}` : undefined}>
             <div role="status" className="font-semibold">
-              {status || <span className="muted">…</span>}
+              <span style={{ color: ending && feelTone(ending) !== 'neutral' ? `var(--${feelTone(ending) === 'good' ? 'felt' : 'loss'}-ink)` : undefined }}>
+                {status || <span className="muted">…</span>}
+              </span>
               {view !== null && <p className="muted text-sm font-normal mt-1">Looking back at move {view} of {moves.length}. → returns to the end.</p>}
             </div>
           </CoachBubble>

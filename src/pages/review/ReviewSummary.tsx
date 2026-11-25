@@ -149,7 +149,7 @@ export function ReviewSummary({
                         <div key={ph} className="flex items-center gap-1.5 text-[10px] font-bold tabular-nums">
                           <span className="w-[3.25rem] opacity-60 text-left">{PHASE_LABEL[ph]}</span>
                           <span className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: c === 'w' ? '#d3ddd7' : '#1a3530' }}>
-                            {v !== undefined && <span className="block h-full rounded-full" style={{ width: `${v}%`, background: v >= 80 ? 'var(--win)' : v >= 65 ? 'var(--brass)' : 'var(--attention)' }} />}
+                            {v !== undefined && <span className="block h-full rounded-full" style={{ width: `${v}%`, background: v >= 80 ? 'var(--win)' : v >= 65 ? 'var(--draw)' : 'var(--attention)' }} />}
                           </span>
                           <span className="w-6 text-right opacity-80">{v !== undefined ? v.toFixed(0) : '–'}</span>
                         </div>

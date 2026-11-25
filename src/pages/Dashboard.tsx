@@ -272,7 +272,7 @@ function Welcome() {
         <button className="btn btn-primary w-full justify-center !py-3.5 !text-lg" type="submit" disabled={busy || !username.trim()}>
           {busy ? 'Connecting…' : 'Start'}
         </button>
-        {error && <p className="text-sm font-semibold text-center" style={{ color: 'var(--attention-ink)' }}>{error}</p>}
+        {error && <p className="text-sm font-semibold text-center" style={{ color: 'var(--loss-ink)' }}>{error}</p>}
       </form>
     </div>
   );
@@ -290,7 +290,7 @@ function ProgressCard({ analysed, latest }: { analysed: number; latest?: { id: s
   if (!importing && !(pending > 0 && !paused)) return null;
   const total = analysed + pending;
   return (
-    <section className="panel p-4 border-l-4" style={{ borderLeftColor: 'var(--felt)' }}>
+    <section className="panel p-4">
       <div className="flex items-center gap-3">
         <span className="w-10 h-10 rounded-xl bg-[var(--panel-2)] text-accent flex items-center justify-center shrink-0">
           <Icon name={importing ? 'sync' : 'engine'} size={22} className={importing ? 'spin' : ''} />

@@ -410,7 +410,7 @@ function CoachSettings() {
           </div>
         )}
         {error && (
-          <p className="px-4 py-2 text-sm font-semibold" style={{ color: 'var(--attention-ink)' }}>
+          <p className="px-4 py-2 text-sm font-semibold" style={{ color: 'var(--loss-ink)' }}>
             {error}
           </p>
         )}

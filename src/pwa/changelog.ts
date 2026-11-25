@@ -9,8 +9,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: '25 Nov 2026',
+    items: [
+      'Each colour now means one thing on every screen: green is good or getting better, amber is "look here" (more than typical, slipping, a hint), coral is what went wrong (a loss, a mistake, an error), grey is about typical, and gold is only for achievements. Defending, for example, was coral on Weaknesses and amber in Insights; it is amber on both now. The skill bars have a key, and when a bar is amber the words say so too ("a bit more, though not clearly more than chance yet") instead of "about the same".',
+    ],
+  },
+  {
     date: '24 Nov 2026',
     items: [
+      'Right and wrong now feel the same everywhere: in puzzles, when you retry a mistake in a review, in the "what do they threaten?" question and at the end of Play from here. A right move gets a green ✓, a rising sound, a light tick on the phone and a small pop from the coach; a wrong one gets a red ✗, a low sound, a buzz and a shake. A solved puzzle and a won game get their own short tune, a draw a calm note and a loss a soft one. In a longer puzzle each right move on the way is marked too.',
       'Reviews, puzzles and Play from here now share one board screen: the same board size and place, the players above and below the board, the coach speaking under it (beside it on a computer), and the buttons always in the same spot, with the next step as the orange one. On the phone, puzzles open full screen like a review: the filter and Engine are in the top bar, and the back arrow takes you out.',
       'Your games, puzzles and progress are safer: the app now asks your browser to keep them, so they are not cleared when the device runs low on space. Settings > Data shows whether your browser keeps them, with a button to ask again.',
     ],

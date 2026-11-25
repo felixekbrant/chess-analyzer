@@ -6,7 +6,7 @@ import { db } from '../db/schema';
 import { DEFAULT_FILTERS, useInsightData } from '../hooks/useInsightData';
 import { MIN_PROFILE_GAMES, useSkills } from '../hooks/useSkills';
 import { useSettings } from '../hooks/useStores';
-import { Comparison, CostBars, TrendChip } from '../components/Coaching';
+import { Comparison, compareCost, CostBars, CostKey, TrendChip } from '../components/Coaching';
 import { Icon } from '../components/Icon';
 import { MiniBoard } from '../components/MiniBoard';
 import { EmptyState, EMPTY_FENS, PageHeader, Section } from '../components/ui';
@@ -101,6 +101,11 @@ export default function Weaknesses() {
         </span>
         <Icon name="next" size={18} className="muted shrink-0" />
       </Link>
+      {ranked.some((r) => r.typical !== undefined) && (
+        <div className="px-1">
+          <CostKey rating={skills.rating} />
+        </div>
+      )}
       {top.map((r, i) => (
         <WeaknessCard
           key={r.area}
@@ -133,7 +138,7 @@ export default function Weaknesses() {
           ))}
         </ul>
         <p className="muted text-xs mt-3">
-          Win chance lost per game in each area, last {skills.profile.games} {skills.timeClass} games. The tick: typical for players at your rating.{' '}
+          Win chance lost per game in each area, last {skills.profile.games} {skills.timeClass} games.{' '}
           <Link to="/insights" className="underline">
             All statistics in Insights
           </Link>
@@ -201,13 +206,15 @@ function WeaknessCard({
         </div>
         {extra !== undefined ? (
           <span className="shrink-0 text-right leading-tight" title="Win chance you lose per game here, beyond what's typical at your rating">
-            <b className="block text-2xl font-extrabold tabular-nums tracking-tight" style={{ color: 'var(--loss)' }}>
+            <b className="block text-2xl font-extrabold tabular-nums tracking-tight" style={{ color: 'var(--attention-ink)' }}>
               +{fmt(extra)}%
             </b>
             <span className="muted text-[11px] font-semibold">vs typical</span>
           </span>
         ) : r.verdict === 'typical' ? (
-          <span className="shrink-0 muted text-[11px] text-right leading-tight">about typical</span>
+          <span className="shrink-0 muted text-[11px] text-right leading-tight">
+            {compareCost(r) === 'above' ? 'a bit above typical' : compareCost(r) === 'below' ? 'a bit below typical' : 'about typical'}
+          </span>
         ) : null}
       </div>
 
@@ -249,7 +256,7 @@ function WeaknessCard({
           <div className="muted text-[11px] font-extrabold uppercase tracking-wider">In your games</div>
           {s.recent !== undefined && s.earlier !== undefined ? (
             <>
-              <div className="font-extrabold text-2xl tabular-nums tracking-tight mt-0.5" style={{ color: s.recent > s.earlier * 1.1 ? 'var(--loss)' : s.recent < s.earlier * 0.9 ? 'var(--felt)' : undefined }}>
+              <div className="font-extrabold text-2xl tabular-nums tracking-tight mt-0.5" style={{ color: s.recent > s.earlier * 1.1 ? 'var(--attention-ink)' : s.recent < s.earlier * 0.9 ? 'var(--felt-ink)' : undefined }}>
                 {fmt(s.recent)}%
               </div>
               <div className="muted text-xs font-semibold">
