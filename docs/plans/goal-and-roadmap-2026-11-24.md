@@ -134,6 +134,12 @@ This runs next to the phases, one step at a time, each checked on phone and lapt
    Not taken from it: frosted glass and layered translucency (the look is flat, and blur costs
    phones speed), light and dark switching, the system font, the Motion library, and bounce on
    things that only fade in.
+   Built 25 Nov 2026: the timing table (`--t-press/quick/move/slow`, `--ease-out/pop` in
+   `src/index.css`, the same numbers in `src/lib/motion.ts`), sheets you drag and flick
+   (`src/components/Sheet.tsx`), the review swipe that follows the finger, letter spacing tied to the
+   text size, and Undo for "Re-analyse all" (only "Delete everything" still asks first). No tap
+   delays were found: the waits in the app are deliberate pacing (the opponent's reply, a wrong
+   try going back).
 6. **Real-phone pass.** The owner runs through a short list on their phone: smooth scrolling,
    tap response, the iOS status bar, the keyboard, install and update.
 

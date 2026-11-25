@@ -29,6 +29,7 @@ import { CLASS_META } from '../../lib/classificationMeta';
 import { MOTIF_LABEL } from '../../lib/insights/compute';
 import { playSound } from '../../lib/sound';
 import { feel, feelTone, WRONG_TINT } from '../../lib/feedback';
+import { MOTION, projectFlick, reducedMotion, rubberBand } from '../../lib/motion';
 import type { Color, GameAnalysis, MoveAnalysis, Phase, StoredGame } from '../../lib/types';
 import { Board, type BoardArrow } from '../../components/Board';
 import { EvalBar } from '../../components/EvalBar';
@@ -675,7 +676,11 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
         </BoardStage>
       }
       // Swipe the coach left/right to step through the moves (the board itself is for dragging pieces).
-      coach={<div onTouchStart={swipe.start} onTouchEnd={swipe.end}>{coach}</div>}
+      coach={
+        <div onTouchStart={swipe.start} onTouchMove={swipe.move} onTouchEnd={swipe.end} onTouchCancel={swipe.end}>
+          <div ref={swipe.ref}>{coach}</div>
+        </div>
+      }
       actions={actions}
     >
         {/* Phones: the Engine switch is in the top bar, so the coach sits right under the board. */}
@@ -734,24 +739,57 @@ export function Walkthrough({ game, analysis, parsed, initialPly, keyOnly: keyOn
   );
 }
 
-/** Horizontal swipe detection: left = next, right = previous. */
+/**
+ * Swiping the coach: left = next, right = previous. The bubble follows the finger sideways (after
+ * 10 px, and only once the swipe is clearly sideways, so scrolling still works), resists the further
+ * it goes, and on letting go either brings in the next comment from that side or settles back.
+ */
 function useSwipe(onLeft: () => void, onRight: () => void) {
-  const from = useRef<{ x: number; y: number } | null>(null);
+  const el = useRef<HTMLDivElement>(null);
+  const s = useRef<{ x: number; y: number; axis?: 'x' | 'y'; samples: { x: number; t: number }[] } | null>(null);
+  const place = (x: number, ms = 0) => {
+    const d = el.current;
+    if (!d) return;
+    d.style.transition = ms && !reducedMotion() ? `transform ${ms}ms var(--ease-out)` : 'none';
+    d.style.transform = x ? `translateX(${x}px)` : '';
+  };
+  const width = () => el.current?.offsetWidth || 360;
   return {
+    ref: el,
     start: (e: React.TouchEvent) => {
       const t = e.touches[0];
-      from.current = { x: t.clientX, y: t.clientY };
+      s.current = { x: t.clientX, y: t.clientY, samples: [{ x: t.clientX, t: e.timeStamp }] };
     },
-    end: (e: React.TouchEvent) => {
-      const f = from.current;
-      from.current = null;
+    move: (e: React.TouchEvent) => {
+      const f = s.current;
       if (!f) return;
-      const t = e.changedTouches[0];
+      const t = e.touches[0];
       const dx = t.clientX - f.x;
       const dy = t.clientY - f.y;
-      if (Math.abs(dx) < 50 || Math.abs(dx) < 2 * Math.abs(dy)) return;
+      if (!f.axis) {
+        if (Math.hypot(dx, dy) < 10) return;
+        f.axis = Math.abs(dx) > 1.5 * Math.abs(dy) ? 'x' : 'y';
+      }
+      if (f.axis !== 'x') return;
+      f.samples.push({ x: t.clientX, t: e.timeStamp });
+      if (f.samples.length > 6) f.samples.shift();
+      place(rubberBand(dx, width()));
+    },
+    end: (e: React.TouchEvent) => {
+      const f = s.current;
+      s.current = null;
+      if (!f || f.axis !== 'x') return;
+      const x = e.changedTouches[0].clientX;
+      const dx = x - f.x;
+      const first = f.samples.find((p) => e.timeStamp - p.t < 80) ?? f.samples[0];
+      const v = e.timeStamp > first.t ? (x - first.x) / (e.timeStamp - first.t) : 0;
+      // A clear swipe, or a quick flick: the next comment comes in from the side it was pushed to.
+      const travel = dx + projectFlick(v, 0.99);
+      if (Math.abs(travel) < 60 || Math.sign(travel) !== Math.sign(dx)) return place(0, MOTION.move);
       if (dx < 0) onLeft();
       else onRight();
+      place(dx < 0 ? 24 : -24);
+      requestAnimationFrame(() => requestAnimationFrame(() => place(0, MOTION.move)));
     },
   };
 }

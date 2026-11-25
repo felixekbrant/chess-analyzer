@@ -23,7 +23,7 @@ export function EvalBar({ score, orientation = 'white', thinking }: { score?: Sc
       aria-label={`Evaluation ${formatScore(score)}`}
     >
       <div
-        className="absolute left-0 right-0 bg-gradient-to-b from-[#f1f7f3] to-[#dfe8e2] transition-[height] duration-500 ease-out"
+        className="absolute left-0 right-0 bg-gradient-to-b from-[#f1f7f3] to-[#dfe8e2] transition-[height] duration-(--t-slow)"
         style={whiteOnBottom ? { bottom: 0, height: `${white}%` } : { top: 0, height: `${white}%` }}
       />
       <div className="absolute left-0 right-0 top-1/2 h-px bg-[#6e8f84]/60" />

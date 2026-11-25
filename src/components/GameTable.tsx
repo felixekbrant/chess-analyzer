@@ -112,7 +112,7 @@ function AccuracyCell({ g }: { g: StoredGame }) {
   if (progress !== undefined)
     return (
       <div className="w-20 h-1.5 rounded bg-[var(--panel-2)]" title={`Analysing… ${Math.round(progress * 100)}%`}>
-        <div className="h-1.5 rounded bg-accent transition-all" style={{ width: `${progress * 100}%` }} />
+        <div className="h-1.5 rounded bg-accent transition-[width] duration-(--t-slow)" style={{ width: `${progress * 100}%` }} />
       </div>
     );
   if (g.analysisStatus === 'error') return <span className="muted">failed</span>;
@@ -245,7 +245,7 @@ function CardStatus({ g }: { g: StoredGame }) {
   if (progress !== undefined)
     return (
       <div className="w-12 h-1.5 rounded bg-[var(--panel-2)]" title={`Analysing… ${Math.round(progress * 100)}%`}>
-        <div className="h-1.5 rounded bg-accent transition-all" style={{ width: `${progress * 100}%` }} />
+        <div className="h-1.5 rounded bg-accent transition-[width] duration-(--t-slow)" style={{ width: `${progress * 100}%` }} />
       </div>
     );
   if (g.analysisStatus === 'error') return <span className="muted text-xs">failed</span>;

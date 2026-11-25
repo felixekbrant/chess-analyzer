@@ -14,6 +14,7 @@ import { wipeOnRestart } from '../lib/wipe';
 import { keepStorage, storageKeep, type StorageKeep } from '../lib/storage';
 import { PageHeader } from '../components/ui';
 import { Picker } from '../components/Picker';
+import { Sheet } from '../components/Sheet';
 import { timeAgo } from '../lib/format';
 import { BOARD_THEMES, PIECE_SETS, pieceUrl } from '../lib/boardThemes';
 import { defaultPieces } from 'react-chessboard';
@@ -31,6 +32,7 @@ export default function SettingsPage() {
   const [username, setUsername] = useState(settings.username);
   const [msg, setMsg] = useState<string>('');
   const [busy, setBusy] = useState(false);
+  const [wipeOpen, setWipeOpen] = useState(false);
   const syncState = useLiveQuery(() => (settings.username ? db.sync.get(settings.username.toLowerCase()) : undefined), [settings.username]);
   const counts = useLiveQuery(async () => ({ games: await db.games.count(), analysed: await db.analyses.count(), puzzles: await db.puzzles.count() }), []);
 
@@ -292,9 +294,23 @@ export default function SettingsPage() {
           <button
             className="btn !py-1.5 !px-3"
             onClick={async () => {
-              if (!confirm('Re-run analysis for all games? Existing results are kept until each game is redone.')) return;
+              // No "are you sure?": it starts at once and can be undone. Results are kept until each game is redone.
+              const before = new Map<string, 'done' | 'error'>();
+              await db.games.each((g) => {
+                if (g.analysisStatus !== 'pending') before.set(g.id, g.analysisStatus);
+              });
               await db.games.toCollection().modify({ analysisStatus: 'pending' });
               void analysisQueue.kick();
+              toast(`Re-analysing ${before.size} games. Your current results stay until each one is redone.`, 'info', {
+                label: 'Undo',
+                run: () =>
+                  void db.transaction('rw', db.games, async () => {
+                    for (const [id, status] of before) {
+                      const g = await db.games.get(id);
+                      if (g?.analysisStatus === 'pending') await db.games.update(id, { analysisStatus: status });
+                    }
+                  }),
+              });
             }}
           >
             Re-analyse all
@@ -304,14 +320,31 @@ export default function SettingsPage() {
           <button
             className="btn !py-1.5 !px-3 !bg-transparent !shadow-none ring-2 ring-[var(--loss)]"
             style={{ color: 'var(--loss-ink)' }}
-            onClick={async () => {
-              if (!confirm('Delete ALL games, analyses and puzzles from this browser? This cannot be undone.')) return;
-              await wipeOnRestart();
-            }}
+            onClick={() => setWipeOpen(true)}
           >
             Delete
           </button>
         </Row>
+        {/* The one thing here that can't be undone, so it asks first (in the app's own sheet). */}
+        <Sheet open={wipeOpen} onClose={() => setWipeOpen(false)} title="Delete everything?">
+          <p className="text-sm">
+            {counts ? `All ${counts.games} games, ${counts.analysed} analyses and ${counts.puzzles} puzzles` : 'All your games, analyses and puzzles'}, and
+            your progress, are deleted from this browser, and the app restarts empty. Your settings are kept. This can't be undone:
+            make a backup first if you might want them back.
+          </p>
+          <div className="flex gap-2 mt-4">
+            <button className="btn flex-1 justify-center" onClick={() => setWipeOpen(false)}>
+              Keep my data
+            </button>
+            <button
+              className="btn flex-1 justify-center !bg-transparent !shadow-none ring-2 ring-[var(--loss)]"
+              style={{ color: 'var(--loss-ink)' }}
+              onClick={() => void wipeOnRestart()}
+            >
+              Delete everything
+            </button>
+          </div>
+        </Sheet>
       </Group>
 
       <div className="muted text-xs space-y-1 px-1 pb-2">
@@ -484,7 +517,7 @@ function Segmented<T extends string | number>({ value, options, onChange, label 
           key={String(v)}
           role="radio"
           aria-checked={value === v}
-          className={`rounded-full px-3 py-2 text-xs font-bold transition-colors duration-200 ${value === v ? 'bg-[var(--text)] text-[var(--bg)] shadow' : 'muted hover:text-[var(--text)]'}`}
+          className={`rounded-full px-3 py-2 text-xs font-bold transition-colors ${value === v ? 'bg-[var(--text)] text-[var(--bg)] shadow' : 'muted hover:text-[var(--text)]'}`}
           onClick={() => onChange(v)}
         >
           {label}

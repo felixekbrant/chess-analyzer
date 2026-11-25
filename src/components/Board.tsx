@@ -1,5 +1,6 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { Chess, type Square } from 'chess.js';
+import { MOTION } from '../lib/motion';
 import { Chessboard, defaultPieces, type ChessboardOptions } from 'react-chessboard';
 import type { Classification } from '../lib/types';
 import { ClassificationBadge } from './ClassificationBadge';
@@ -159,7 +160,7 @@ function BoardImpl({ fen, orientation = 'white', arrows = [], lastMove, badge, m
     // Only longhand properties, so the legal-move dots (backgroundImage) can be layered on top.
     // Hints: a strong fill plus a ring, so the square stands out on every board theme.
     for (const [sq, color] of Object.entries(highlight ?? {})) s[sq] = { ...s[sq], backgroundColor: color, boxShadow: 'inset 0 0 0 4px rgba(255,255,255,0.75)' };
-    if (selected) s[selected] = { ...tint(selected, '#ffff33', 0.5), transition: 'background-color 120ms ease-out' };
+    if (selected) s[selected] = { ...tint(selected, '#ffff33', 0.5), transition: 'background-color var(--t-quick) var(--ease-out)' };
     // Where the selected piece can go: a soft dot on empty squares, a ring around pieces it can take.
     for (const t of targets)
       s[t] = {
@@ -273,7 +274,7 @@ function BoardImpl({ fen, orientation = 'white', arrows = [], lastMove, badge, m
   );
 }
 
-const MOVE_MS = 220;
+const MOVE_MS = MOTION.move;
 
 /** Square → piece code ("wN") from a FEN's placement. */
 function placementOf(fen: string): Map<string, string> {

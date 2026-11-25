@@ -238,7 +238,7 @@ function Analysing({ gameId, failed, onBrowse }: { gameId: string; failed: boole
       {!failed && (
         <>
           <div className="h-2 mt-2 rounded bg-[var(--panel-2)]">
-            <div className="h-2 rounded bg-accent transition-all" style={{ width: `${(progress ?? 0) * 100}%` }} />
+            <div className="h-2 rounded bg-accent transition-[width] duration-(--t-slow)" style={{ width: `${(progress ?? 0) * 100}%` }} />
           </div>
           <p className="muted text-xs mt-2 tabular-nums">
             {progress === undefined

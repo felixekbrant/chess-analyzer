@@ -255,9 +255,9 @@ test('insights: skills tab and game filters', async ({ page }) => {
 
 test('sync sheet: import and analysis controls', async ({ page }) => {
   await seed(page);
-  // Queue every game again so there is something to pause.
-  page.on('dialog', (d) => void d.accept());
+  // Queue every game again so there is something to pause. No "are you sure?": it can be undone.
   await page.getByRole('button', { name: 'Re-analyse all' }).click();
+  await expect(page.getByRole('button', { name: 'Undo' })).toBeVisible();
   await openTab(page, 'Home');
   await page.getByRole('button', { name: /^Status:/ }).click();
   const sheet = page.getByRole('dialog');
@@ -431,8 +431,9 @@ test('backup: export is compressed and restores into an empty app', async ({ pag
   // next start would import your games from chess.com again: kept out here to see the empty app.)
   await page.route('https://api.chess.com/**', (r) => r.fulfill({ status: 404, body: '{}' }));
   await page.goto('./#/settings');
-  page.once('dialog', (d) => void d.accept());
   await page.getByRole('button', { name: 'Delete', exact: true }).click();
+  // It can't be undone, so the app asks first in its own sheet.
+  await page.getByRole('dialog').getByRole('button', { name: 'Delete everything' }).click();
   // (The page reloads meanwhile: a count cut short by it is simply asked again.)
   await expect.poll(() => counts(page).catch(() => undefined)).toEqual({ games: 0, pgns: 0, analyses: 0, summaries: 0, puzzles: 0, extPuzzles: 0 });
   await page.goto('./#/settings');

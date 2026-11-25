@@ -306,7 +306,7 @@ function ProgressCard({ analysed, latest }: { analysed: number; latest?: { id: s
       </div>
       {!importing && total > 0 && (
         <div className="h-2 mt-3 rounded-full bg-[var(--panel-2)] overflow-hidden">
-          <div className="h-2 rounded-full bg-accent transition-all" style={{ width: `${(100 * analysed) / total}%` }} />
+          <div className="h-2 rounded-full bg-accent transition-[width] duration-(--t-slow)" style={{ width: `${(100 * analysed) / total}%` }} />
         </div>
       )}
       {!importing && analysed === 0 && latest && (

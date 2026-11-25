@@ -288,7 +288,7 @@ export function ActionButton({
       disabled={disabled}
       title={title}
       aria-label={label ?? title}
-      className={`flex-1 min-h-12 mb-[3px] rounded-xl flex flex-col items-center justify-center gap-0.5 text-[11px] font-bold transition-[transform,box-shadow] duration-75 disabled:opacity-35 active:enabled:translate-y-[2px] ${
+      className={`flex-1 min-h-12 mb-[3px] rounded-xl flex flex-col items-center justify-center gap-0.5 text-[11px] font-bold transition-[transform,box-shadow] duration-(--t-press) disabled:opacity-35 active:enabled:translate-y-[2px] ${
         primary
           ? 'bg-primary text-[var(--on-primary)] shadow-[0_3px_0_var(--primary-edge)] active:enabled:shadow-[0_1px_0_var(--primary-edge)]'
           : 'bg-[var(--btn)] shadow-[0_3px_0_var(--btn-edge)] active:enabled:shadow-[0_1px_0_var(--btn-edge)] hover:brightness-110'

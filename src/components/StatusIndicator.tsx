@@ -144,7 +144,7 @@ function StatusDetails({ onClose }: { onClose: () => void }) {
         </div>
         {Object.entries(queue.active).map(([id, p]) => (
           <div key={id} className="h-1.5 mt-1 rounded bg-[var(--panel-2)]">
-            <div className="h-1.5 rounded bg-accent transition-all" style={{ width: `${p * 100}%` }} />
+            <div className="h-1.5 rounded bg-accent transition-[width] duration-(--t-slow)" style={{ width: `${p * 100}%` }} />
           </div>
         ))}
         <Toggle

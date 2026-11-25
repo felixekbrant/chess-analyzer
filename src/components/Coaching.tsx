@@ -169,7 +169,7 @@ function ProgressRing({ done, total }: { done: number; total: number }) {
         strokeLinecap="round"
         strokeDasharray={`${c * f} ${c}`}
         transform="rotate(-90 23 23)"
-        style={{ transition: 'stroke-dasharray .5s ease-out' }}
+        style={{ transition: 'stroke-dasharray var(--t-slow) var(--ease-out)' }}
       />
       <text x="23" y="27" textAnchor="middle" fontSize="12" fontWeight="900" fill="var(--text)">
         {done}/{total}
@@ -375,7 +375,7 @@ export function CostBars({ cost, typical, max, verdict }: { cost: number; typica
     <div className="flex items-center gap-2 text-[11px] font-semibold tabular-nums">
       <span className="relative flex-1 h-2.5 rounded-full bg-[var(--panel-2)]">
         <span
-          className="absolute left-0 top-0 bottom-0 rounded-full transition-[width] duration-500"
+          className="absolute left-0 top-0 bottom-0 rounded-full transition-[width] duration-(--t-slow)"
           style={{ width: `${w(cost)}%`, background: worse ? 'var(--attention)' : better ? 'var(--win)' : 'var(--draw)' }}
         />
         {typical !== undefined && (

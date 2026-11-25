@@ -1061,7 +1061,7 @@ function PuzzleView({
             Puzzle {Math.min(total, doneCount + 1)} of {total}
           </span>
           <div className="h-1.5 flex-1 rounded-full bg-[var(--panel-2)]">
-            <div className="h-1.5 rounded-full bg-accent transition-all" style={{ width: `${(100 * doneCount) / Math.max(1, total)}%` }} />
+            <div className="h-1.5 rounded-full bg-accent transition-[width] duration-(--t-slow)" style={{ width: `${(100 * doneCount) / Math.max(1, total)}%` }} />
           </div>
         </div>
       )}

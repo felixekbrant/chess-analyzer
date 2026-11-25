@@ -11,6 +11,9 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     date: '25 Nov 2026',
     items: [
+      'Sheets now follow your finger: drag one down by its top to close it, or flick it away. You can catch it half way and push it back up, and it closes the way it opened instead of vanishing. In a review, the coach slides with your finger when you swipe between moves, and the next comment comes in from that side.',
+      'Re-analysing all your games starts at once, with Undo, instead of asking "are you sure?". Deleting everything, which can\'t be undone, now asks in the app\'s own sheet and says what will go.',
+      'Everything moves to one rhythm: the same few timings for buttons, fades, sheets, pops and pieces, everywhere in the app.',
       'Each colour now means one thing on every screen: green is good or getting better, amber is "look here" (more than typical, slipping, a hint), coral is what went wrong (a loss, a mistake, an error), grey is about typical, and gold is only for achievements. Defending, for example, was coral on Weaknesses and amber in Insights; it is amber on both now. The skill bars have a key, and when a bar is amber the words say so too ("a bit more, though not clearly more than chance yet") instead of "about the same".',
     ],
   },

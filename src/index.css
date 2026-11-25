@@ -12,6 +12,17 @@
   --color-brass: var(--brass);
   --font-sans: "Plus Jakarta Sans Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: "Plus Jakarta Sans Variable", ui-monospace, "SF Mono", Menlo, monospace;
+  /* Letter spacing follows the size (a tracking-* class still overrides it): small text a touch
+     looser so it stays readable, big text tighter so it holds together. */
+  --text-xs--letter-spacing: 0.01em;
+  --text-lg--letter-spacing: -0.005em;
+  --text-xl--letter-spacing: -0.01em;
+  --text-2xl--letter-spacing: -0.02em;
+  --text-3xl--letter-spacing: -0.025em;
+  --text-4xl--letter-spacing: -0.03em;
+  /* Tailwind's transition-* utilities use the app's timing unless a class says otherwise. */
+  --default-transition-duration: var(--t-quick);
+  --default-transition-timing-function: var(--ease-out);
 }
 
 /*
@@ -66,6 +77,20 @@
   --series-3: #6e8f84;
   --series-4: #d9b45a;
   --grid: #244640;
+  /*
+   * The rhythm: every animation uses one of these (src/lib/motion.ts has the same numbers for code).
+   *  press  a button going down under the finger
+   *  quick  fades and colour changes: pages, backdrops, switches, tabs
+   *  move   things that travel or appear: pieces, sheets, pops, shakes
+   *  slow   bars and numbers growing to a new value
+   * ease-out for everything that arrives; ease-pop (a small overshoot) only for pops.
+   */
+  --t-press: 80ms;
+  --t-quick: 160ms;
+  --t-move: 250ms;
+  --t-slow: 500ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.3, 1);
+  --ease-pop: cubic-bezier(0.2, 0.8, 0.3, 1.2);
   color-scheme: dark;
 }
 
@@ -143,9 +168,9 @@
     box-shadow: 0 3px 0 var(--btn-edge);
     margin-bottom: 3px;
     transition:
-      transform 0.06s,
-      box-shadow 0.06s,
-      filter 0.15s;
+      transform var(--t-press),
+      box-shadow var(--t-press),
+      filter var(--t-quick);
     cursor: pointer;
     user-select: none;
   }
@@ -184,7 +209,7 @@
     }
   }
   .pop {
-    animation: pop 0.28s cubic-bezier(0.2, 0.8, 0.3, 1.2) both;
+    animation: pop var(--t-move) var(--ease-pop) both;
   }
   /* The same for full-width boxes: a smaller overshoot, so they never poke past the screen edge. */
   @keyframes pop-wide {
@@ -201,7 +226,7 @@
     }
   }
   .pop-wide {
-    animation: pop-wide 0.28s ease-out both;
+    animation: pop-wide var(--t-move) var(--ease-out) both;
   }
   @keyframes rise {
     from {
@@ -214,7 +239,7 @@
     }
   }
   .rise {
-    animation: rise 0.2s ease-out both;
+    animation: rise var(--t-quick) var(--ease-out) both;
   }
   /* A page arriving: a short fade. Opacity only: a transform would unpin the bars a page fixes to
      the screen (the review's buttons) for as long as it runs. */
@@ -224,7 +249,7 @@
     }
   }
   .page-in {
-    animation: page-in 0.2s ease-out;
+    animation: page-in var(--t-quick) var(--ease-out);
   }
   @keyframes shake {
     0%,
@@ -241,7 +266,7 @@
     }
   }
   .shake {
-    animation: shake 0.32s ease-in-out both;
+    animation: shake var(--t-move) ease-in-out both;
   }
   @media (prefers-reduced-motion: reduce) {
     .pop,
@@ -342,6 +367,19 @@
   @keyframes sheet {
     from { transform: translateY(24px); opacity: 0; }
   }
+  /* A sheet leaving goes back the way it came. */
+  @keyframes sheet-out {
+    to { transform: translateY(24px); opacity: 0; }
+  }
+  @keyframes fade-out {
+    to { opacity: 0; }
+  }
+  .sheet-out {
+    animation: sheet-out var(--t-move) var(--ease-out) forwards;
+  }
+  .sheet-fade-out {
+    animation: fade-out var(--t-move) var(--ease-out) forwards;
+  }
   @keyframes spin {
     to { transform: rotate(360deg); }
   }
@@ -400,7 +438,7 @@
     border-radius: 999px;
     background: var(--border);
     position: relative;
-    transition: background 0.15s;
+    transition: background var(--t-quick);
     cursor: pointer;
   }
   .switch::after {
@@ -412,7 +450,7 @@
     height: 20px;
     border-radius: 999px;
     background: #fff;
-    transition: transform 0.15s;
+    transition: transform var(--t-quick) var(--ease-out);
   }
   .switch:checked {
     background: var(--color-accent);
