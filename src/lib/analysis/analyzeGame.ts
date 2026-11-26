@@ -35,7 +35,7 @@ import { materialWord, moveIdea } from './explain';
 export const THRESHOLDS = { excellent: 2, good: 5, inaccuracy: 10, mistake: 20 } as const;
 
 /** Bumped whenever classification or accuracy changes, so stored analyses get rebuilt. */
-export const ANALYSIS_MODEL = 7;
+export const ANALYSIS_MODEL = 8;
 
 export function phaseOf(fen: string, ply: number): Phase {
   if (nonPawnMaterial(fen) <= 26) return 'endgame';
@@ -210,9 +210,13 @@ export function classify(c: ClassifyInput): Classification {
   return 'good';
 }
 
-/** The moved piece (worth 3+) can be taken for free or by a cheaper piece, and it didn't just win more material. */
+/**
+ * The moved piece (worth 3+) can be taken for free or by a cheaper piece, and it didn't just win more
+ * material. A promotion never counts: the new piece can be taken, but what you risked was the pawn.
+ */
 export function isSacrifice(ply: ParsedPly): boolean {
   const to = ply.uci.slice(2, 4);
+  if (pieceAt(ply.fenBefore, ply.uci.slice(0, 2))?.type === 'p') return false;
   const moved = pieceAt(ply.fenAfter, to);
   if (!moved || PIECE_VALUE[moved.type] < 3) return false;
   const captured = pieceAt(ply.fenBefore, to);

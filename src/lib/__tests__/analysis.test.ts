@@ -95,6 +95,16 @@ describe('sacrifice detection', () => {
     expect(isSacrifice(plyFrom(fen, 'd3h7'))).toBe(true);
     expect(isSacrifice(plyFrom(fen, 'e1g1'))).toBe(false);
   });
+
+  it('does not count a promotion as a sacrifice: only the pawn was risked', () => {
+    // e8=Q Rxe8 Rxe8: the new queen can be taken, but what you gave up is a pawn, and it trades a rook.
+    const fen = '3r4/4P1k1/8/8/8/8/8/4R1K1 w - - 0 50';
+    expect(isSacrifice(plyFrom(fen, 'e7e8q'))).toBe(false);
+    // The same with a capture, and an underpromotion.
+    const fen2 = '3r1n2/4P1k1/8/8/8/8/8/4R1K1 w - - 0 50';
+    expect(isSacrifice(plyFrom(fen2, 'e7f8q'))).toBe(false);
+    expect(isSacrifice(plyFrom(fen, 'e7e8n'))).toBe(false);
+  });
 });
 
 describe('buildAnalysis', () => {

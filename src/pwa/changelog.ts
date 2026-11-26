@@ -11,6 +11,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     date: '25 Nov 2026',
     items: [
+      'Promoting a pawn is no longer called brilliant just because the new queen can be taken. Giving it back to trade off pieces only risks the pawn, so it is marked as a good or best move. Your games already analysed are relabelled on their own, without running the analysis again.',
       'Sheets now follow your finger: drag one down by its top to close it, or flick it away. You can catch it half way and push it back up, and it closes the way it opened instead of vanishing. In a review, the coach slides with your finger when you swipe between moves, and the next comment comes in from that side.',
       'Re-analysing all your games starts at once, with Undo, instead of asking "are you sure?". Deleting everything, which can\'t be undone, now asks in the app\'s own sheet and says what will go.',
       'Everything moves to one rhythm: the same few timings for buttons, fades, sheets, pops and pieces, everywhere in the app.',
